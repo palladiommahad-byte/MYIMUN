@@ -1,0 +1,24 @@
+# MYIMUN — production compose for a Hostinger VPS (or any Docker host).
+#   1. Set JWT_SECRET in a .env file next to this (see .env.example)
+#   2. docker compose up -d --build
+#   3. Point a reverse proxy (Caddy/nginx) at port 3000 for HTTPS on your domain.
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Absolute path inside the container — unambiguous for both the app and migrations.
+      DATABASE_URL: "file:/app/prisma/data/app.db"
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in your .env file}"
+      SESSION_DAYS: "${SESSION_DAYS:-7}"
+      SEED_ON_START: "${SEED_ON_START:-true}"
+      NODE_ENV: "production"
+    volumes:
+      # The SQLite database + uploaded files survive redeploys here.
+      - myimun-data:/app/prisma/data
+
+volumes:
+  myimun-data:

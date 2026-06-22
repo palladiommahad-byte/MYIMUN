@@ -1,0 +1,244 @@
+// MYIMUN platform database schema
+// Datasource: SQLite (file-based, volume-mounted in Docker). Swappable to Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Application users (auth). Roles gate access to the admin vs delegate areas.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         String   @default("delegate") // delegate | admin | secretary | manager
+  country      String?
+  committee    String?
+  address      String?
+  avatarUrl    String?
+  status       String   @default("active") // active | inactive
+  joined       DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  registrations Registration[]
+  payments      PaymentSubmission[]
+  papers        PositionPaper[]
+  applications  CommitteeApplication[]
+  conversations Conversation[]
+}
+
+/// Committees delegates can apply to.
+model Committee {
+  id        Int      @id @default(autoincrement())
+  name      String
+  abbr      String   @unique
+  capacity  Int      @default(30) // displayed as "delegates" (max)
+  topics    Int      @default(2)
+  director  String   @default("")
+  topicList Json     @default("[]") // string[]
+  logoUrl   String?
+  waiting   Int      @default(0) // pending-waitlist counter
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Position paper submissions (one per delegate per committee).
+model PositionPaper {
+  id           Int      @id @default(autoincrement())
+  delegate     User     @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId   String
+  delegateName String
+  committee    String
+  country      String
+  status       String   @default("Pending") // Pending | Approved | Rejected
+  fileName     String
+  fileKey      String?  // key into the uploaded-files store
+  fileSize     Int      @default(0)
+  submittedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([delegateId, committee])
+}
+
+/// Delegate applications to a committee.
+model CommitteeApplication {
+  id                 Int      @id @default(autoincrement())
+  delegate           User     @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId         String   @unique
+  delegateName       String
+  country            String
+  committeeAbbr      String
+  status             String   @default("Pending") // Pending | Approved | Rejected
+  whyThisCommittee   String   @default("")
+  preferredCountry   String   @default("")
+  whyShouldWePickYou String   @default("")
+  assignedCountry    String?
+  appliedAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+/// Event registrations — the onboarding step before payment.
+model Registration {
+  id                   Int      @id @default(autoincrement())
+  delegate             User     @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId           String   @unique
+  fullName             String
+  email                String
+  phone                String
+  address              String
+  country              String
+  heardFrom            String
+  firstTimeMun         Boolean
+  attendedMyimunBefore Boolean
+  motivation           String
+  // ID document metadata (file lives in the uploads store)
+  idDocName            String?
+  idDocSize            Int?
+  idDocType            String?
+  idDocKey             String?
+  // Participation
+  type                 String   @default("Individual") // Individual | Group
+  groupName            String?
+  groupSize            Int?
+  institution          String?
+  // Status
+  status               String   @default("Pending") // Pending | Accepted | Declined
+  declineReason        String?
+  paymentStatus        String   @default("Unpaid") // Unpaid | Paid
+  submittedAt          DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Payment receipt submissions reviewed by admins.
+model PaymentSubmission {
+  id              Int      @id @default(autoincrement())
+  delegate        User     @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId      String
+  senderName      String
+  participantName String
+  amount          Float
+  method          String
+  packageId       Int?
+  packageName     String?
+  receiptName     String
+  receiptSize     Int      @default(0)
+  receiptType     String   @default("")
+  receiptKey      String   // key into the uploads store
+  status          String   @default("Pending") // Pending | Approved | Declined
+  declineReason   String?
+  submittedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Support conversations between a delegate and the admin team.
+model Conversation {
+  id              Int           @id @default(autoincrement())
+  delegate        User?         @relation(fields: [delegateId], references: [id], onDelete: SetNull)
+  delegateId      String?
+  delegateName    String
+  delegateEmail   String
+  delegateCountry String
+  subject         String
+  category        String
+  adminUnread     Int           @default(0)
+  delegateUnread  Int           @default(0)
+  createdAt       DateTime      @default(now())
+  lastMessageAt   DateTime      @default(now())
+  messages        ChatMessage[]
+}
+
+model ChatMessage {
+  id             Int          @id @default(autoincrement())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int
+  text           String
+  sender         String // delegate | admin
+  createdAt      DateTime     @default(now())
+}
+
+/// Conference editions managed by admins.
+model ConferenceEvent {
+  id                   Int      @id @default(autoincrement())
+  title                String
+  subtitle             String   @default("")
+  edition              String   @default("")
+  startDate            String   @default("")
+  endDate              String   @default("")
+  venue                String   @default("")
+  address              String   @default("")
+  city                 String   @default("")
+  country              String   @default("")
+  description          String   @default("")
+  guidelines           Json     @default("[]") // string[]
+  bannerUrl            String   @default("")
+  galleryUrls          Json     @default("[]") // string[]
+  hotel                Json?    // EventHotel | null
+  agenda               Json     @default("[]") // EventDay[]
+  published            Boolean  @default(true)
+  registrationDeadline String   @default("")
+  capacity             Int      @default(300)
+  certEditionNumber    Int?
+  certDateDisplay      String?
+  certLocation         String?
+  certSignatory        String?
+  letterEditionYear    String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Schedule / agenda rows shown on the public + delegate schedule.
+model ScheduleEvent {
+  id          Int      @id @default(autoincrement())
+  day         String
+  date        String
+  time        String
+  title       String
+  location    String
+  type        String
+  description  String  @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Conference pricing packages.
+model ConferencePackage {
+  id          Int      @id @default(autoincrement())
+  name        String
+  price       Float    @default(0)
+  currency    String   @default("USD")
+  description String   @default("")
+  features    Json     @default("[]") // string[]
+  emoji       String   @default("")
+  logoUrl     String?
+  badge       String   @default("")
+  hidden      Boolean  @default(false)
+  color       String   @default("#3B7FFF")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Singleton-style key/value store for site-wide config blobs
+/// (payment settings, conference settings, landing-page content).
+/// Each row is one logical document keyed by `key`.
+model AppSetting {
+  key       String   @id // "payment" | "conference" | "landing"
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Uploaded files (ID docs, receipts, position papers, images) stored as
+/// base64/bytes so the SQLite volume is the single source of truth.
+model StoredFile {
+  key       String   @id // referenced by *Key fields above
+  name      String
+  type      String
+  size      Int      @default(0)
+  data      Bytes
+  createdAt DateTime @default(now())
+}
