@@ -6,11 +6,13 @@ import {
     LayoutDashboard, Users, Shield, FileText, CreditCard,
     Calendar, MessageSquare, Radio, Settings, LogOut, Menu, X,
     ClipboardList, Star, LayoutTemplate, BarChart2, Info,
-    Image as ImageIcon, Zap, Award
+    Image as ImageIcon, Zap, Award, Lock
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { NavigationProgress } from '@/components/NavigationProgress';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { ADMIN_PAGES } from '@/lib/adminPages';
 
 /* ── Landing-page section sub-nav items ── */
 export const LANDING_SECTIONS = [
@@ -67,6 +69,13 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isLandingPage = pathname.startsWith('/admin/landing');
 
+    const isAdmin = user?.role === 'admin';
+    const allowed = new Set(user?.permissions ?? []);
+    const hasAccess = (path: string) => isAdmin || allowed.has(path);
+    const visibleNavItems = NAV_ITEMS.filter(({ path }) => hasAccess(path));
+    const currentPage = ADMIN_PAGES.find(p => p.path === '/admin' ? pathname === '/admin' : pathname.startsWith(p.path));
+    const canViewCurrentPage = !currentPage || hasAccess(currentPage.path);
+    const firstAllowedPage = ADMIN_PAGES.find(p => hasAccess(p.path));
 
     return (
         <div className="light-ui min-h-screen flex" style={{ background: S.bg, fontFamily: '"Inter", system-ui, sans-serif' }}>
@@ -76,9 +85,12 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
             <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
                 style={{ background: '#FFFFFF', borderBottom: `1px solid ${S.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ height: 30, width: 'auto', maxWidth: 160, objectFit: 'contain' }} />
-                <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
-                    {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-                </button>
+                <div className="flex items-center gap-1">
+                    <NotificationBell />
+                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
+                        {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+                    </button>
+                </div>
             </div>
 
             {/* Mobile overlay */}
@@ -100,7 +112,7 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                 {/* Nav */}
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '12px 10px', flex: 1, overflowY: 'auto' }}>
-                    {NAV_ITEMS.map(({ label, icon: Icon, path }) => {
+                    {visibleNavItems.map(({ label, icon: Icon, path }) => {
                         const active = isActive(path);
 
                         return (
@@ -147,7 +159,30 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
             {/* ── Main content ── */}
             <main className="flex-1 pt-14 md:pt-0 min-w-0" style={{ width: '100%' }}>
                 <div className="md:ml-[220px]" style={{ minHeight: '100vh' }}>
-                    {isLandingPage ? (
+                    {/* Desktop top bar — just the notification bell for now */}
+                    <div className="hidden md:flex items-center justify-end px-6"
+                        style={{ height: 56, borderBottom: `1px solid ${S.border}`, background: '#FFFFFF', flexShrink: 0 }}>
+                        <NotificationBell />
+                    </div>
+                    {!canViewCurrentPage ? (
+                        <div className="px-4 py-5 md:px-7 md:py-8" style={{ boxSizing: 'border-box' }}>
+                            <div style={{ maxWidth: 1140, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '60vh', gap: 12 }}>
+                                <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Lock size={24} style={{ color: '#EF4444' }} />
+                                </div>
+                                <p style={{ fontSize: 17, fontWeight: 700, color: S.text }}>Access restricted</p>
+                                <p style={{ fontSize: 13.5, color: S.textSec, maxWidth: 360 }}>
+                                    Your account doesn&apos;t have permission to view this section. Contact an administrator if you need access.
+                                </p>
+                                {firstAllowedPage && (
+                                    <button onClick={() => router.push(firstAllowedPage.path)}
+                                        style={{ marginTop: 8, padding: '9px 18px', borderRadius: 10, border: 'none', background: S.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                        Go to {firstAllowedPage.label}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : isLandingPage ? (
                         /* Landing page editor: no padding, fills full width */
                         children
                     ) : (

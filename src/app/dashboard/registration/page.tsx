@@ -6,6 +6,7 @@ import {
     Building2, Hash, CheckCircle2, Clock, XCircle, ArrowRight, AlertCircle, MessageSquareText,
     Upload, FileText, Image as ImageIcon, X as XIcon, ShieldCheck, Lock,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
@@ -125,6 +126,7 @@ export default function DelegateRegistrationPage() {
         country: user?.country ?? '',
     });
     const [idFile, setIdFile] = useState<File | null>(null);
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [reapplying, setReapplying] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -159,6 +161,10 @@ export default function DelegateRegistrationPage() {
         }
         if (form.type === 'Group' && (!form.groupName.trim() || !form.institution.trim() || !form.groupSize.trim())) {
             showToast('Please complete the group details.', 'error');
+            return;
+        }
+        if (!agreedToTerms) {
+            showToast('Please agree to the Terms & Conditions and Privacy Policy to continue.', 'error');
             return;
         }
 
@@ -218,6 +224,7 @@ export default function DelegateRegistrationPage() {
                 institution: existing.institution ?? '',
             });
         }
+        setAgreedToTerms(false);
         setReapplying(true);
     };
 
@@ -462,11 +469,21 @@ export default function DelegateRegistrationPage() {
                     />
                 </div>
 
+                {/* ── Legal agreement ── */}
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '16px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadow, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
+                        style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: C.accent, cursor: 'pointer' }} />
+                    <span style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>
+                        I have read and agree to MYIMUN's{' '}
+                        <Link href="/dashboard/terms" target="_blank" style={{ color: C.accent, fontWeight: 600 }}>Terms &amp; Conditions</Link>
+                        {' '}and{' '}
+                        <Link href="/dashboard/privacy" target="_blank" style={{ color: C.accent, fontWeight: 600 }}>Privacy Policy</Link>.
+                        <span style={{ color: C.red }}> *</span>
+                    </span>
+                </label>
+
                 {/* Submit */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <p style={{ fontSize: 12, color: C.textMuted, marginRight: 'auto' }}>
-                        By submitting, you agree to MYIMUN's participation terms.
-                    </p>
                     <button type="submit" disabled={submitting} style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '12px 26px', borderRadius: 10, border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',

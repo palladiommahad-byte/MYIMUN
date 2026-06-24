@@ -1,14 +1,13 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
+import { notifyStaff } from '@/lib/notifications';
 
-const STAFF = ['admin', 'secretary', 'manager'];
-
-/** GET — staff see all conversations; delegates see their own (with messages). */
+/** GET — staff with Messages access see all conversations; delegates see their own (with messages). */
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = STAFF.includes(user.role) ? {} : { delegateId: user.id };
+    const where = hasPageAccess(user, '/admin/messages') ? {} : { delegateId: user.id };
     const rows = await prisma.conversation.findMany({
         where,
         orderBy: { lastMessageAt: 'desc' },
@@ -42,5 +41,13 @@ export const POST = route(async (req: Request) => {
         },
         include: { messages: true },
     });
+
+    await notifyStaff({
+        type: 'message_received',
+        title: 'New support message',
+        message: `${user.fullName} sent a message: "${body.subject}"`,
+        link: '/admin/messages',
+    });
+
     return ok(row, 201);
 });

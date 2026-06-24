@@ -10,6 +10,7 @@ export interface User {
     committee?: string;
     address?: string;
     passportUrl?: string;
+    permissions?: string[] | null; // secretary/manager: allowed /admin/* page paths; admin: full access regardless
 }
 
 export interface Committee {

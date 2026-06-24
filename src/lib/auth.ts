@@ -56,11 +56,11 @@ export async function getSession(): Promise<{ userId: string; role: string } | n
     }
 }
 
-/** Strip secrets before returning a user to the client. */
+/** Strip secrets before returning a user to the client, and unpack permissions. */
 export function publicUser(u: User) {
-    const { passwordHash, ...rest } = u;
+    const { passwordHash, permissions, ...rest } = u;
     void passwordHash;
-    return rest;
+    return { ...rest, permissions: (permissions as string[] | null) ?? null };
 }
 
 /** The full current user record, or null. */
@@ -81,6 +81,7 @@ export class AuthError extends Error {
 export async function requireUser() {
     const user = await getCurrentUser();
     if (!user) throw new AuthError(401, 'Not authenticated');
+    if (user.status === 'inactive') throw new AuthError(403, 'This account is disabled');
     return user;
 }
 
@@ -88,5 +89,28 @@ const STAFF_ROLES = ['admin', 'secretary', 'manager'];
 export async function requireStaff() {
     const user = await requireUser();
     if (!STAFF_ROLES.includes(user.role)) throw new AuthError(403, 'Staff access required');
+    return user;
+}
+
+export async function requireAdmin() {
+    const user = await requireUser();
+    if (user.role !== 'admin') throw new AuthError(403, 'Admin access required');
+    return user;
+}
+
+/** Pure check: does this (already-loaded) user have access to one /admin/* section?
+    Admins always pass; secretary/manager need `page` in their `permissions` list. */
+export function hasPageAccess(user: { role: string; permissions?: unknown }, page: string) {
+    if (user.role === 'admin') return true;
+    if (!STAFF_ROLES.includes(user.role)) return false;
+    const allowed = (user.permissions as string[] | null) ?? [];
+    return allowed.includes(page);
+}
+
+/** Staff access to one specific /admin/* section. Admins always pass; secretary/manager
+    must have `page` in their `permissions` list. */
+export async function requirePage(page: string) {
+    const user = await requireStaff();
+    if (!hasPageAccess(user, page)) throw new AuthError(403, 'You do not have access to this section');
     return user;
 }

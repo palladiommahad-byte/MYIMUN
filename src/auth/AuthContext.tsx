@@ -26,6 +26,7 @@ function mapUser(raw: any): User | null {
         committee: raw.committee ?? undefined,
         address: raw.address ?? undefined,
         avatarUrl: raw.avatarUrl ?? undefined,
+        permissions: raw.permissions ?? null,
     };
 }
 

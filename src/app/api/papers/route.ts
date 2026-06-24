@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-
-const STAFF = ['admin', 'secretary', 'manager'];
+import { notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = STAFF.includes(user.role) ? {} : { delegateId: user.id };
+    const where = hasPageAccess(user, '/admin/papers') ? {} : { delegateId: user.id };
     const rows = await prisma.positionPaper.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);
 });
@@ -31,5 +30,13 @@ export const POST = route(async (req: Request) => {
         update: { ...data, status: 'Pending' },
         create: { ...data, delegateId: user.id },
     });
+
+    await notifyStaff({
+        type: 'paper_submitted',
+        title: 'New position paper',
+        message: `${data.delegateName} submitted a position paper for ${data.committee}.`,
+        link: '/admin/papers',
+    });
+
     return ok(row, 201);
 });

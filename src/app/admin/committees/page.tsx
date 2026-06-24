@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Plus, Trash2, Edit2, Search, X, Upload, ImageIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, Users, Globe } from 'lucide-react';
+import { Shield, Plus, Trash2, Edit2, Search, X, Upload, ImageIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, Users, Globe, Layers, Clock } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Committee } from '@/context/ConferenceContext';
 import { COUNTRIES, getFlagUrl } from '@/lib/countries';
+import { StatCard, StatPanel, BarRow } from '@/components/admin/StatWidgets';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -288,6 +289,17 @@ export default function AdminCommitteesPage() {
         c.abbr.toLowerCase().includes(search.toLowerCase())
     );
 
+    /* ── Aggregate stats ── */
+    const committeeFill = committees.map(c => {
+        const apps = getApplicationsForCommittee(c.abbr);
+        return { abbr: c.abbr, approved: apps.filter(a => a.status === 'Approved').length, pending: apps.filter(a => a.status === 'Pending').length, capacity: c.delegates };
+    });
+    const totalCapacity = committeeFill.reduce((s, c) => s + c.capacity, 0);
+    const totalApproved = committeeFill.reduce((s, c) => s + c.approved, 0);
+    const totalPending   = committeeFill.reduce((s, c) => s + c.pending, 0);
+    const avgFillPct = totalCapacity > 0 ? Math.round((totalApproved / totalCapacity) * 100) : 0;
+    const fillSorted = [...committeeFill].sort((a, b) => (b.approved / Math.max(b.capacity, 1)) - (a.approved / Math.max(a.capacity, 1)));
+
     const openCreate = () => setModal({ open: true, committee: null });
     const openEdit   = (c: Committee) => setModal({ open: true, committee: c });
     const closeModal = () => setModal({ open: false, committee: null });
@@ -342,6 +354,26 @@ export default function AdminCommitteesPage() {
                     <Plus size={14} /> New Committee
                 </button>
             </div>
+
+            {/* ── Aggregate stats ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
+                <StatCard label="Committees" value={String(committees.length)} trend={`${totalCapacity} total seats`} iconBg={`${C.accent}15`} iconColor={C.accent} Icon={Shield} />
+                <StatCard label="Capacity" value={String(totalCapacity)} trend={`${avgFillPct}% filled overall`} iconBg={`${C.purple}15`} iconColor={C.purple} Icon={Layers} />
+                <StatCard label="Delegates Assigned" value={String(totalApproved)} trend={`${totalCapacity - totalApproved} seats open`} iconBg={`${C.green}15`} iconColor={C.green} Icon={Users} />
+                <StatCard label="Pending Applications" value={String(totalPending)} trend="awaiting committee review" iconBg={`${C.amber}15`} iconColor={C.amber} Icon={Clock} />
+            </div>
+
+            {/* ── Capacity by committee ── */}
+            {fillSorted.length > 0 && (
+                <StatPanel title="Capacity by Committee" subtitle="Approved delegates vs. seats available, fullest first">
+                    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
+                        {fillSorted.map(c => (
+                            <BarRow key={c.abbr} label={c.abbr} value={c.approved} max={Math.max(c.capacity, 1)} color={C.accent}
+                                sublabel={`${c.approved}/${c.capacity}${c.pending > 0 ? ` · ${c.pending} pending` : ''}`} />
+                        ))}
+                    </div>
+                </StatPanel>
+            )}
 
             {/* Table card */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>

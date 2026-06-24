@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { requireStaff } from '@/lib/auth';
+import { requirePage } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
 
 export const SCHED_FIELDS = ['day', 'date', 'time', 'title', 'location', 'type', 'description'] as const;
@@ -12,7 +12,7 @@ export const GET = route(async () => {
 
 /** POST — staff add a schedule row. */
 export const POST = route(async (req: Request) => {
-    await requireStaff();
+    await requirePage('/admin/schedule');
     const body = await req.json();
     const data: Record<string, unknown> = {};
     for (const k of SCHED_FIELDS) if (k in body) data[k] = body[k];

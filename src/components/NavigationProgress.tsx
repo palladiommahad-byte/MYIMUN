@@ -44,9 +44,10 @@ export function NavigationProgress() {
                 background: 'linear-gradient(90deg, #3B7FFF, #7C5FFF)',
                 borderRadius: '0 2px 2px 0',
                 boxShadow: '0 0 8px rgba(59,127,255,0.6)',
-                transition: width === 100 ? 'width 0.15s ease' : 'width 0.4s ease',
                 opacity: visible ? 1 : 0,
                 transitionProperty: 'width, opacity',
+                transitionDuration: `${width === 100 ? 0.15 : 0.4}s, 0.3s`,
+                transitionTimingFunction: 'ease',
             }} />
         </div>
     );

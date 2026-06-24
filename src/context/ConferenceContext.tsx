@@ -99,6 +99,20 @@ export interface Conversation {
     delegateUnread: number;
 }
 
+/// Notification center entry — `audience: 'staff'` rows are shared across every
+/// admin/secretary/manager account; `audience: 'delegate'` rows are private to one delegate.
+export interface AppNotification {
+    id: number;
+    audience: 'staff' | 'delegate';
+    recipientId: string | null;
+    type: string;
+    title: string;
+    message: string;
+    link: string | null;
+    read: boolean;
+    createdAt: string;
+}
+
 export interface Registration {
     id: number;
     delegateId: string;
@@ -129,6 +143,8 @@ export interface Registration {
     submittedAt: string;
     // Payment
     paymentStatus: 'Unpaid' | 'Paid';
+    // The delegate's account status (staff-only visibility) — 'inactive' means suspended platform-wide.
+    accountStatus: 'active' | 'inactive';
 }
 
 export interface PaymentSubmission {
@@ -653,6 +669,11 @@ interface ConferenceCtx {
     markRead:           (conversationId: number, role: 'admin' | 'delegate') => void;
     getConversationsForDelegate: (delegateId: string) => Conversation[];
 
+    notifications: AppNotification[];
+    markNotificationRead:     (id: number) => void;
+    markAllNotificationsRead: () => void;
+    refreshNotifications:     () => void;
+
     registrations: Registration[];
     submitRegistration:       (data: Omit<Registration, 'id' | 'status' | 'submittedAt' | 'paymentStatus' | 'declineReason'>) => void;
     updateRegistrationStatus: (id: number, status: 'Accepted' | 'Declined', declineReason?: string) => void;
@@ -673,6 +694,7 @@ interface ConferenceCtx {
     deletePackage: (id: number) => void;
 
     deleteDelegate: (delegateId: string) => void;
+    suspendDelegate: (delegateId: string, suspended: boolean) => Promise<void>;
 
     events: ConferenceEvent[];
     addEvent:    (e: Omit<ConferenceEvent, 'id' | 'createdAt'>) => void;
@@ -698,6 +720,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [waitingCounts,  setWaitingCounts]  = useState<Record<string, number>>({});
     const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SEED_SCHEDULE);
     const [conversations,  setConversations]  = useState<Conversation[]>([]);
+    const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
     const [registrations,  setRegistrations]  = useState<Registration[]>([]);
     const [payments,       setPayments]       = useState<PaymentSubmission[]>([]);
     const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(SEED_PAYMENT_SETTINGS);
@@ -713,6 +736,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapApp = (r: any): CommitteeApplication => ({ ...r, appliedAt: fmt(r.appliedAt) });
+    const mapNotification = (r: any): AppNotification => ({ ...r, createdAt: fmt(r.createdAt) });
     const mapConvo = (r: any): Conversation => ({
         id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, delegateEmail: r.delegateEmail,
         delegateCountry: r.delegateCountry, subject: r.subject, category: r.category,
@@ -761,27 +785,68 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     useEffect(() => { loadPublic(); }, [loadPublic]);
 
+    /* ── Refetch every per-user data domain at once. Used on login and again
+       whenever the SSE stream below tells us something changed on the
+       other side (admin <-> delegate), so the UI updates instantly instead
+       of waiting for a manual page reload. ── */
+    const refreshAll = useCallback(async () => {
+        const [r, p, pa, ap, cv, nf] = await Promise.all([
+            getData('/api/registrations'), getData('/api/payments'), getData('/api/papers'),
+            getData('/api/applications'), getData('/api/conversations'), getData('/api/notifications'),
+        ]);
+        setRegistrations((r ?? []).map(mapReg));
+        setPayments((p ?? []).map(mapPay));
+        setPapers((pa ?? []).map(mapPaper));
+        setApplications((ap ?? []).map(mapApp));
+        setConversations((cv ?? []).map(mapConvo));
+        setNotifications((nf ?? []).map(mapNotification));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         let alive = true;
-        (async () => {
-            if (!user) {
-                if (alive) { setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); }
-                return;
-            }
-            const [r, p, pa, ap, cv] = await Promise.all([
-                getData('/api/registrations'), getData('/api/payments'), getData('/api/papers'),
-                getData('/api/applications'), getData('/api/conversations'),
-            ]);
-            if (!alive) return;
-            setRegistrations((r ?? []).map(mapReg));
-            setPayments((p ?? []).map(mapPay));
-            setPapers((pa ?? []).map(mapPaper));
-            setApplications((ap ?? []).map(mapApp));
-            setConversations((cv ?? []).map(mapConvo));
-        })();
+        if (!user) {
+            setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); setNotifications([]);
+            return;
+        }
+        (async () => { if (alive) await refreshAll(); })();
         return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
+
+    /* ── Live updates: subscribe to the SSE stream so the instant a delegate
+       or staff action fires a notification on the other side, that side
+       refetches and the UI reflects it with no manual refresh. Falls back
+       to a slow safety-net poll in case the stream is blocked (proxy/extension). ── */
+    const refreshNotifications = useCallback(async () => {
+        const nf = await getData('/api/notifications');
+        if (nf) setNotifications(nf.map(mapNotification));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!user) return;
+        const es = new EventSource('/api/notifications/stream');
+        es.onmessage = (e) => { if (e.data === 'update') refreshAll(); };
+        return () => es.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!user) return;
+        const id = setInterval(refreshAll, 60000);
+        return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
+
+    const markNotificationRead = async (id: number) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        await send('PATCH', `/api/notifications/${id}`, {}).catch(() => {});
+    };
+    const markAllNotificationsRead = async () => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        await send('PATCH', '/api/notifications', { action: 'markAllRead' }).catch(() => {});
+    };
 
     // Debounced save for the landing page (the editor mutates it on every keystroke).
     const landingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -987,6 +1052,12 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         setPapers(prev => prev.filter(p => p.delegateId !== delegateId));
     };
 
+    /** Suspend/reactivate a delegate's account — blocks them from every authenticated route immediately. */
+    const suspendDelegate = async (delegateId: string, suspended: boolean) => {
+        await send('PATCH', `/api/delegates/${delegateId}`, { status: suspended ? 'inactive' : 'active' });
+        setRegistrations(prev => prev.map(r => r.delegateId === delegateId ? { ...r, accountStatus: suspended ? 'inactive' : 'active' } : r));
+    };
+
     const ctxValue = useMemo(() => ({
         committees, addCommittee, updateCommittee, deleteCommittee,
         papers, submitPaper, updatePaperStatus, getPapersForDelegate,
@@ -995,16 +1066,17 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         waitingCounts,
         scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
         conversations, startConversation, sendChatMessage, markRead, getConversationsForDelegate,
+        notifications, markNotificationRead, markAllNotificationsRead, refreshNotifications,
         registrations, submitRegistration, updateRegistrationStatus, markRegistrationPaid, getRegistrationForDelegate,
         payments, submitPayment, updatePaymentStatus, getPaymentForDelegate,
         paymentSettings, updatePaymentSettings,
         packages, addPackage, updatePackage, deletePackage,
         events, addEvent, updateEvent, deleteEvent,
         landingPage, updateLandingPage,
-        deleteDelegate,
+        deleteDelegate, suspendDelegate,
         conferenceSettings, updateConferenceSettings,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), [committees, papers, applications, waitingCounts, scheduleEvents, conversations,
+    }), [committees, papers, applications, waitingCounts, scheduleEvents, conversations, notifications,
          registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
 
     return (

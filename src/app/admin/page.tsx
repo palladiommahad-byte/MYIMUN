@@ -4,11 +4,12 @@ import React, { useMemo, useState } from 'react';
 import {
     Search, Eye, Filter,
     Download, ChevronLeft, ChevronRight,
-    Users, Shield, FileText, CreditCard,
+    Users, Shield, FileText, CreditCard, Ban, ShieldCheck, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
+import { Donut, StatPanel } from '@/components/admin/StatWidgets';
 
 /* ── Style constants ── */
 const C = {
@@ -58,9 +59,11 @@ function Avatar({ name, size = 36, color = C.accent }: { name: string; size?: nu
 
 export default function AdminDashboardPage() {
     const { showToast } = useToast();
-    const { registrations, payments, papers, committees, applications } = useConference();
+    const { registrations, payments, papers, committees, applications, suspendDelegate } = useConference();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
+    const [suspending, setSuspending] = useState(false);
 
     /* ── Derived roster: one row per registered delegate, enriched with their
        committee assignment, registration status, payment status, and paper status ── */
@@ -80,8 +83,23 @@ export default function AdminDashboardPage() {
             regStatus: r.status,
             paymentStatus: r.paymentStatus,
             paperStatus: paper?.status || null,
+            accountStatus: r.accountStatus,
         };
     }), [registrations, applications, papers]);
+
+    const confirmSuspend = async () => {
+        if (!suspendTarget) return;
+        setSuspending(true);
+        try {
+            await suspendDelegate(suspendTarget.delegateId, suspendTarget.suspended);
+            showToast(suspendTarget.suspended ? `${suspendTarget.name} has been suspended.` : `${suspendTarget.name}'s access has been restored.`, suspendTarget.suspended ? 'warning' : 'success');
+            setSuspendTarget(null);
+        } catch {
+            showToast('Could not update this delegate\'s access. Please try again.', 'error');
+        } finally {
+            setSuspending(false);
+        }
+    };
 
     const filtered = roster.filter(d =>
         [d.name, d.email, d.country, d.committee].some(v => v.toLowerCase().includes(search.toLowerCase()))
@@ -94,12 +112,15 @@ export default function AdminDashboardPage() {
     const totalRegistered = registrations.length;
     const acceptedCount   = registrations.filter(r => r.status === 'Accepted').length;
     const pendingRegCount = registrations.filter(r => r.status === 'Pending').length;
+    const declinedRegCount = registrations.filter(r => r.status === 'Declined').length;
 
     const paidCount   = registrations.filter(r => r.paymentStatus === 'Paid').length;
     const unpaidCount = totalRegistered - paidCount;
 
     const delegatesWithPapers = new Set(papers.map(p => p.delegateId)).size;
     const pendingPapers       = papers.filter(p => p.status === 'Pending').length;
+    const approvedPapers      = papers.filter(p => p.status === 'Approved').length;
+    const rejectedPapers      = papers.filter(p => p.status === 'Rejected').length;
 
     const approvedApplications = applications.filter(a => a.status === 'Approved').length;
 
@@ -171,6 +192,30 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* ── Breakdown donuts ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
+                <StatPanel title="Registration Status" subtitle={`${totalRegistered} total registrations`}>
+                    <Donut centerLabel={String(totalRegistered)} centerSub="total" segments={[
+                        { value: acceptedCount, color: C.green, label: 'Accepted' },
+                        { value: pendingRegCount, color: C.amber, label: 'Pending' },
+                        { value: declinedRegCount, color: C.red, label: 'Declined' },
+                    ]} />
+                </StatPanel>
+                <StatPanel title="Payment Status" subtitle={`${unpaidCount} unpaid delegate${unpaidCount !== 1 ? 's' : ''}`}>
+                    <Donut centerLabel={totalRegistered > 0 ? `${Math.round((paidCount / totalRegistered) * 100)}%` : '0%'} centerSub="paid" segments={[
+                        { value: paidCount, color: C.green, label: 'Paid' },
+                        { value: unpaidCount, color: C.textMuted, label: 'Unpaid' },
+                    ]} />
+                </StatPanel>
+                <StatPanel title="Position Papers" subtitle={`${papers.length} submitted`}>
+                    <Donut centerLabel={String(papers.length)} centerSub="papers" segments={[
+                        { value: approvedPapers, color: C.green, label: 'Approved' },
+                        { value: pendingPapers, color: C.amber, label: 'Pending' },
+                        { value: rejectedPapers, color: C.red, label: 'Rejected' },
+                    ]} />
+                </StatPanel>
             </div>
 
             {/* ── Delegates per Committee ── */}
@@ -269,9 +314,14 @@ export default function AdminDashboardPage() {
                                         {/* User */}
                                         <td style={{ padding: '13px 20px' }}>
                                             <div className="flex items-center gap-3">
-                                                <Avatar name={d.name} />
+                                                <Avatar name={d.name} color={d.accountStatus === 'inactive' ? C.red : C.accent} />
                                                 <div>
-                                                    <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{d.name}</p>
+                                                        {d.accountStatus === 'inactive' && (
+                                                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: `${C.red}14`, color: C.red, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suspended</span>
+                                                        )}
+                                                    </div>
                                                     <p style={{ fontSize: 12, color: C.textMuted }}>{d.email}</p>
                                                 </div>
                                             </div>
@@ -304,14 +354,35 @@ export default function AdminDashboardPage() {
                                         </td>
                                         {/* Actions */}
                                         <td style={{ padding: '13px 20px', textAlign: 'right' }}>
-                                            <Link href="/admin/registration" title="View registration"
-                                                className="w-7 h-7 rounded-lg flex items-center justify-center ml-auto transition-colors"
-                                                style={{ color: C.textMuted }}
-                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.accent; }}
-                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-                                            >
-                                                <Eye size={15} />
-                                            </Link>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <Link href="/admin/registration" title="View registration"
+                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                    style={{ color: C.textMuted }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.accent; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                                                >
+                                                    <Eye size={15} />
+                                                </Link>
+                                                {d.accountStatus === 'inactive' ? (
+                                                    <button onClick={() => setSuspendTarget({ delegateId: d.delegateId, name: d.name, suspended: false })} title="Restore access"
+                                                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                        style={{ color: C.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.green}12`; (e.currentTarget as HTMLElement).style.color = C.green; }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                                                    >
+                                                        <ShieldCheck size={15} />
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => setSuspendTarget({ delegateId: d.delegateId, name: d.name, suspended: true })} title="Suspend access"
+                                                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                        style={{ color: C.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.red}10`; (e.currentTarget as HTMLElement).style.color = C.red; }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                                                    >
+                                                        <Ban size={15} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -352,6 +423,37 @@ export default function AdminDashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Suspend / restore confirmation ── */}
+            {suspendTarget && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(17,24,39,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                    onClick={e => { if (e.target === e.currentTarget && !suspending) setSuspendTarget(null); }}>
+                    <div style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: 26 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: suspendTarget.suspended ? `${C.red}12` : `${C.green}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {suspendTarget.suspended ? <Ban size={20} style={{ color: C.red }} /> : <ShieldCheck size={20} style={{ color: C.green }} />}
+                            </div>
+                            <button onClick={() => !suspending && setSuspendTarget(null)} style={{ padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: C.textMuted }}><X size={18} /></button>
+                        </div>
+                        <p style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                            {suspendTarget.suspended ? `Suspend ${suspendTarget.name}?` : `Restore access for ${suspendTarget.name}?`}
+                        </p>
+                        <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55, marginBottom: 22 }}>
+                            {suspendTarget.suspended
+                                ? 'They will be immediately logged out and blocked from logging back in or using any part of the platform until you restore their access.'
+                                : 'They will be able to log in and use the platform again immediately.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setSuspendTarget(null)} disabled={suspending}
+                                style={{ padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: suspending ? 'default' : 'pointer' }}>Cancel</button>
+                            <button onClick={confirmSuspend} disabled={suspending}
+                                style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: suspendTarget.suspended ? C.red : C.green, color: '#fff', fontSize: 13, fontWeight: 600, cursor: suspending ? 'default' : 'pointer', opacity: suspending ? 0.7 : 1 }}>
+                                {suspending ? 'Saving…' : suspendTarget.suspended ? 'Suspend Access' : 'Restore Access'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

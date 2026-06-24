@@ -1,14 +1,13 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-
-const STAFF = ['admin', 'secretary', 'manager'];
+import { notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async (req: Request) => {
     const user = await requireUser();
     const committee = new URL(req.url).searchParams.get('committee');
-    const where = STAFF.includes(user.role)
+    const where = hasPageAccess(user, '/admin/committees')
         ? (committee ? { committeeAbbr: committee } : {})
         : { delegateId: user.id };
     const rows = await prisma.committeeApplication.findMany({ where, orderBy: { id: 'desc' } });
@@ -34,5 +33,13 @@ export const POST = route(async (req: Request) => {
         update: { ...data, status: 'Pending' },
         create: { ...data, delegateId: user.id },
     });
+
+    await notifyStaff({
+        type: 'committee_application_submitted',
+        title: 'New committee application',
+        message: `${data.delegateName} applied to ${data.committeeAbbr}.`,
+        link: '/admin/committees',
+    });
+
     return ok(row, 201);
 });

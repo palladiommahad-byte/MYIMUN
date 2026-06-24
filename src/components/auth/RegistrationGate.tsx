@@ -13,17 +13,20 @@ const C = {
     shadow: '0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)',
 };
 
-// Pages always reachable regardless of registration/payment status.
-const ALWAYS_ALLOWED = ['/dashboard/registration'];
+// Pages always reachable regardless of registration/payment status — browsing the
+// event, applying, checking the agenda, editing your profile, or asking for help
+// shouldn't require finishing onboarding first.
+const ALWAYS_ALLOWED = ['/dashboard/events', '/dashboard/registration', '/dashboard/schedule', '/dashboard/profile', '/dashboard/contact', '/dashboard/terms', '/dashboard/privacy'];
 // Reachable once registration is Accepted (even if unpaid).
 const AFTER_ACCEPTED = ['/dashboard/payments'];
 
 /**
  * Enforces the onboarding flow for delegates:
- *   1. Register            → /dashboard/registration
- *   2. Wait for approval   → locked until status === 'Accepted'
- *   3. Pay                 → /dashboard/payments unlocks
- *   4. Full platform       → everything unlocks once paymentStatus === 'Paid'
+ *   1. Browse the event    → /dashboard/events (first thing a new delegate sees)
+ *   2. Register            → /dashboard/registration
+ *   3. Wait for approval   → locked until status === 'Accepted'
+ *   4. Pay                 → /dashboard/payments unlocks
+ *   5. Full platform       → everything unlocks once paymentStatus === 'Paid'
  */
 export const RegistrationGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
@@ -31,17 +34,37 @@ export const RegistrationGate: React.FC<{ children: React.ReactNode }> = ({ chil
     const pathname = usePathname();
     const router = useRouter();
 
-    // Admins and non-delegates are unaffected.
-    if (!user || user.role !== 'delegate') return <>{children}</>;
-
-    const reg = getRegistrationForDelegate(user.id);
+    const isDelegate = !!user && user.role === 'delegate';
+    const reg = isDelegate ? getRegistrationForDelegate(user.id) : undefined;
     const accepted = reg?.status === 'Accepted';
     const paid = reg?.paymentStatus === 'Paid';
+    const unlocked = accepted && paid;
+
+    // Admins and non-delegates are unaffected.
+    if (!isDelegate) return <>{children}</>;
 
     // Full access — nothing to gate.
-    if (accepted && paid) return <>{children}</>;
+    if (unlocked) return <>{children}</>;
 
-    // The registration page itself is always open.
+    // The Overview hub unlocks as soon as the registration itself is accepted —
+    // it doesn't need payment too (the page has its own "complete your payment" prompt).
+    // It just shows a small inline notice — no separate lock screen — while waiting.
+    if (pathname === '/dashboard') {
+        if (accepted) return <>{children}</>;
+        return (
+            <div style={{ fontFamily: '"Inter",system-ui,sans-serif', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderRadius: 10, background: `${C.amber}10`, border: `1px solid ${C.amber}30` }}>
+                <Lock size={16} style={{ color: C.amber, flexShrink: 0 }} />
+                <p style={{ fontSize: 14, color: C.text }}>
+                    Complete registration to get access to this page.{' '}
+                    <button onClick={() => router.push('/dashboard/registration')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: C.amber, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
+                        Go to Registration
+                    </button>
+                </p>
+            </div>
+        );
+    }
+
+    // Events, registration, schedule, profile, and contact support are always open.
     if (ALWAYS_ALLOWED.includes(pathname)) return <>{children}</>;
 
     // Payment page opens once accepted.

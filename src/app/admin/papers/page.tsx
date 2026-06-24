@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import { FileText, CheckCircle, XCircle, ExternalLink, Download, Clock, Filter } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
+import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
     text: '#111827', textSec: '#6B7280', textMuted: '#9CA3AF',
-    accent: '#3B7FFF', green: '#10B981', amber: '#F59E0B', red: '#EF4444',
+    accent: '#3B7FFF', green: '#10B981', amber: '#F59E0B', red: '#EF4444', purple: '#7C5FFF',
     shadow: '0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)',
 };
 
@@ -22,7 +23,7 @@ type FilterKey = 'All' | 'Pending' | 'Approved' | 'Rejected';
 
 export default function AdminPapersPage() {
     const { showToast } = useToast();
-    const { papers, updatePaperStatus } = useConference();
+    const { papers, updatePaperStatus, registrations } = useConference();
     const [filter, setFilter] = useState<FilterKey>('All');
 
     const approve = (id: number, name: string) => {
@@ -71,6 +72,16 @@ export default function AdminPapersPage() {
         Rejected: papers.filter(p => p.status === 'Rejected').length,
     };
 
+    const acceptedDelegates = registrations.filter(r => r.status === 'Accepted').length;
+    const submittedCount    = new Set(papers.map(p => p.delegateId)).size;
+
+    const byCommittee = papers.reduce<Record<string, number>>((acc, p) => {
+        acc[p.committee] = (acc[p.committee] ?? 0) + 1;
+        return acc;
+    }, {});
+    const committeeRows = Object.entries(byCommittee).sort((a, b) => b[1] - a[1]);
+    const maxPerCommittee = committeeRows.length > 0 ? Math.max(...committeeRows.map(([, n]) => n)) : 0;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif' }}>
 
@@ -80,6 +91,32 @@ export default function AdminPapersPage() {
                     Position Papers
                 </h1>
                 <p style={{ fontSize: 14, color: C.textSec }}>Review, approve, or reject delegate submissions.</p>
+            </div>
+
+            {/* ── Breakdown ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
+                <StatPanel title="Review Status" subtitle={`${papers.length} papers submitted`}>
+                    <Donut centerLabel={String(papers.length)} centerSub="papers" segments={[
+                        { value: counts.Approved, color: C.green, label: 'Approved' },
+                        { value: counts.Pending, color: C.amber, label: 'Pending' },
+                        { value: counts.Rejected, color: C.red, label: 'Rejected' },
+                    ]} />
+                </StatPanel>
+                <StatPanel title="Submission Coverage" subtitle="Accepted delegates who have submitted">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+                        <BarRow label="Submitted" value={submittedCount} max={Math.max(acceptedDelegates, submittedCount, 1)} color={C.accent}
+                            sublabel={`${submittedCount}/${acceptedDelegates} accepted delegates`} />
+                    </div>
+                </StatPanel>
+                <StatPanel title="Papers by Committee" subtitle={committeeRows.length === 0 ? 'No submissions yet' : `${committeeRows.length} committees represented`}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+                        {committeeRows.length === 0 ? (
+                            <p style={{ fontSize: 12.5, color: C.textMuted }}>—</p>
+                        ) : committeeRows.slice(0, 4).map(([committee, n]) => (
+                            <BarRow key={committee} label={committee} value={n} max={maxPerCommittee} color={C.purple} />
+                        ))}
+                    </div>
+                </StatPanel>
             </div>
 
             {/* Stat chips */}

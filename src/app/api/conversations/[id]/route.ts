@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
-
-const STAFF = ['admin', 'secretary', 'manager'];
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 const schema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('message'), text: z.string().trim().min(1) }),
@@ -18,7 +17,7 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
 
     const convo = await prisma.conversation.findUnique({ where: { id } });
     if (!convo) return fail('Conversation not found', 404);
-    const isStaff = STAFF.includes(user.role);
+    const isStaff = hasPageAccess(user, '/admin/messages');
     if (!isStaff && convo.delegateId !== user.id) return fail('Forbidden', 403);
 
     const body = schema.parse(await req.json());
@@ -41,6 +40,22 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
                 },
             }),
         ]);
+
+        if (sender === 'admin' && convo.delegateId) {
+            await notifyDelegate(convo.delegateId, {
+                type: 'message_reply',
+                title: 'New reply from the secretariat',
+                message: `Re: "${convo.subject}" — ${body.text.slice(0, 80)}${body.text.length > 80 ? '…' : ''}`,
+                link: '/dashboard/messages',
+            });
+        } else if (sender === 'delegate') {
+            await notifyStaff({
+                type: 'message_reply',
+                title: 'New reply from delegate',
+                message: `${convo.delegateName} replied to "${convo.subject}".`,
+                link: '/admin/messages',
+            });
+        }
     }
 
     const row = await prisma.conversation.findUnique({ where: { id }, include: { messages: { orderBy: { id: 'asc' } } } });

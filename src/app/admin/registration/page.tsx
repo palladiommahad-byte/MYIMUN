@@ -9,6 +9,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Registration } from '@/context/ConferenceContext';
 import { fileUrl } from '@/lib/fileStore';
+import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -67,6 +68,11 @@ export default function AdminRegistrationPage() {
         Declined: registrations.filter(r => r.status === 'Declined').length,
     };
 
+    const individualCount = registrations.filter(r => r.type === 'Individual').length;
+    const groupCount      = registrations.filter(r => r.type === 'Group').length;
+    const paidCount       = registrations.filter(r => r.paymentStatus === 'Paid').length;
+    const unpaidCount     = registrations.length - paidCount;
+
     const filtered = registrations
         .filter(r => filter === 'All' || r.status === filter)
         .filter(r =>
@@ -86,6 +92,29 @@ export default function AdminRegistrationPage() {
                     Registrations
                 </h1>
                 <p style={{ fontSize: 14, color: C.textSec }}>Review and approve delegates applying to participate in MYIMUN.</p>
+            </div>
+
+            {/* ── Breakdown ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
+                <StatPanel title="Application Status" subtitle={`${registrations.length} total applications`}>
+                    <Donut centerLabel={String(registrations.length)} centerSub="total" segments={[
+                        { value: counts.Accepted, color: C.green, label: 'Accepted' },
+                        { value: counts.Pending, color: C.amber, label: 'Pending' },
+                        { value: counts.Declined, color: C.red, label: 'Declined' },
+                    ]} />
+                </StatPanel>
+                <StatPanel title="Participation Type" subtitle="Individual vs. group representatives">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+                        <BarRow label="Individual" value={individualCount} max={registrations.length} color={C.accent} />
+                        <BarRow label="Group" value={groupCount} max={registrations.length} color={C.purple} />
+                    </div>
+                </StatPanel>
+                <StatPanel title="Payment Coverage" subtitle="Across all registered delegates">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+                        <BarRow label="Paid" value={paidCount} max={registrations.length} color={C.green} />
+                        <BarRow label="Unpaid" value={unpaidCount} max={registrations.length} color={C.textMuted} />
+                    </div>
+                </StatPanel>
             </div>
 
             {/* Stat chips + search */}

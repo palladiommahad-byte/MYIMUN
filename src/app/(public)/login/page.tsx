@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Globe, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { ADMIN_PAGES } from '@/lib/adminPages';
 
 const STAFF = ['admin', 'secretary', 'manager'];
 
@@ -23,7 +24,14 @@ export default function LoginPage() {
         setBusy(true);
         try {
             const user = await login(email.trim(), password);
-            router.replace(STAFF.includes(user.role) ? '/admin' : '/dashboard');
+            if (!STAFF.includes(user.role)) {
+                router.replace('/dashboard');
+            } else if (user.role === 'admin') {
+                router.replace('/admin');
+            } else {
+                const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
+                router.replace(firstAllowed?.path ?? '/admin');
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
             setBusy(false);

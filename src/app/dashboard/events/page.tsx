@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, MapPin, Users, Clock, Hotel, BookOpen, ChevronDown, ChevronUp, Star, ImageIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Calendar, MapPin, Users, Clock, Hotel, BookOpen, ChevronDown, ChevronUp, Star, ImageIcon, ClipboardList, CreditCard, Lock, ArrowRight } from 'lucide-react';
 import { useConference, ConferenceEvent, ScheduleEvent } from '@/context/ConferenceContext';
+import { useAuth } from '@/auth/AuthContext';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -268,6 +270,74 @@ function EventDetail({ event }: { event: ConferenceEvent }) {
     );
 }
 
+/** The funnel from "I read about the event" → registration → payment → full access. */
+function ApplyCallToAction() {
+    const { user } = useAuth();
+    const { getRegistrationForDelegate } = useConference();
+    const router = useRouter();
+
+    if (!user) return null;
+    const reg = getRegistrationForDelegate(user.id);
+    const accepted = reg?.status === 'Accepted';
+    const paid = reg?.paymentStatus === 'Paid';
+
+    // Fully onboarded — no funnel CTA needed here.
+    if (accepted && paid) return null;
+
+    let cfg: { Icon: React.ElementType; color: string; title: string; desc: string; cta: string; to: string };
+    if (!reg) {
+        cfg = {
+            Icon: ClipboardList, color: C.accent,
+            title: 'Ready to Participate?',
+            desc: 'Submit your registration to apply for this conference — our secretariat will review it shortly.',
+            cta: 'Apply Now', to: '/dashboard/registration',
+        };
+    } else if (reg.status === 'Pending') {
+        cfg = {
+            Icon: Clock, color: C.amber,
+            title: 'Application Submitted',
+            desc: 'Your registration is awaiting review from our secretariat team.',
+            cta: 'View Application Status', to: '/dashboard/registration',
+        };
+    } else if (reg.status === 'Declined') {
+        cfg = {
+            Icon: Lock, color: C.red,
+            title: 'Registration Not Approved',
+            desc: 'Your previous registration was not approved. Review the note and submit a new application.',
+            cta: 'View & Reapply', to: '/dashboard/registration',
+        };
+    } else {
+        cfg = {
+            Icon: CreditCard, color: C.green,
+            title: "You're Approved — Complete Payment",
+            desc: 'Your registration has been accepted. Complete your payment to unlock the full platform.',
+            cta: 'Go to Payment', to: '/dashboard/payments',
+        };
+    }
+
+    return (
+        <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, padding: '22px 28px', boxShadow: C.shadow }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: `${cfg.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <cfg.Icon size={22} style={{ color: cfg.color }} />
+                </div>
+                <div>
+                    <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 3 }}>{cfg.title}</p>
+                    <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.5, maxWidth: 460 }}>{cfg.desc}</p>
+                </div>
+            </div>
+            <button onClick={() => router.push(cfg.to)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                padding: '12px 24px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: cfg.color, color: 'white', fontSize: 14, fontWeight: 700,
+                boxShadow: `0 4px 14px ${cfg.color}40`,
+            }}>
+                {cfg.cta} <ArrowRight size={16} />
+            </button>
+        </div>
+    );
+}
+
 export default function DelegateEventsPage() {
     const { events } = useConference();
     const published = events.filter(e => e.published);
@@ -308,6 +378,9 @@ export default function DelegateEventsPage() {
 
             {/* Event detail */}
             {activeEvent && <EventDetail key={activeEvent.id} event={activeEvent} />}
+
+            {/* Apply / payment funnel CTA */}
+            <ApplyCallToAction />
         </div>
     );
 }

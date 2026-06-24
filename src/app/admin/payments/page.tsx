@@ -10,6 +10,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { useConference, PaymentSubmission, PaymentSettings, ConferencePackage } from '@/context/ConferenceContext';
 import { fileUrl } from '@/lib/fileStore';
+import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -136,6 +137,15 @@ export default function AdminPaymentsPage() {
         Approved: payments.filter(p => p.status === 'Approved').length,
         Declined: payments.filter(p => p.status === 'Declined').length,
     };
+
+    const pendingAmount = payments.filter(p => p.status === 'Pending').reduce((s, p) => s + p.amount, 0);
+    const revenueByPackage = payments.filter(p => p.status === 'Approved').reduce<Record<string, number>>((acc, p) => {
+        const name = p.packageName || 'No package';
+        acc[name] = (acc[name] ?? 0) + p.amount;
+        return acc;
+    }, {});
+    const revenueRows = Object.entries(revenueByPackage).sort((a, b) => b[1] - a[1]);
+    const maxRevenueRow = revenueRows.length > 0 ? Math.max(...revenueRows.map(([, n]) => n)) : 0;
     const filtered = payments
         .filter(p => filter === 'All' || p.status === filter)
         .filter(p =>
@@ -158,6 +168,38 @@ export default function AdminPaymentsPage() {
                     <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Total Revenue</p>
                     <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 28, color: C.text }}>${totalRevenue.toFixed(2)}</p>
                 </div>
+            </div>
+
+            {/* ── Breakdown ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
+                <StatPanel title="Payment Status" subtitle={`${payments.length} receipts submitted`}>
+                    <Donut centerLabel={String(payments.length)} centerSub="receipts" segments={[
+                        { value: counts.Approved, color: C.green, label: 'Approved' },
+                        { value: counts.Pending, color: C.amber, label: 'Pending' },
+                        { value: counts.Declined, color: C.red, label: 'Declined' },
+                    ]} />
+                </StatPanel>
+                <StatPanel title="Revenue" subtitle="Approved vs. awaiting verification">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 4 }}>
+                        <div>
+                            <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Confirmed</p>
+                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.green }}>${totalRevenue.toFixed(2)}</p>
+                        </div>
+                        <div>
+                            <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Pending Verification</p>
+                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.amber }}>${pendingAmount.toFixed(2)}</p>
+                        </div>
+                    </div>
+                </StatPanel>
+                <StatPanel title="Revenue by Package" subtitle={revenueRows.length === 0 ? 'No approved payments yet' : 'Approved payments only'}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+                        {revenueRows.length === 0 ? (
+                            <p style={{ fontSize: 12.5, color: C.textMuted }}>—</p>
+                        ) : revenueRows.slice(0, 4).map(([name, amount]) => (
+                            <BarRow key={name} label={name} value={amount} max={maxRevenueRow} color={C.accent} sublabel={`$${amount.toFixed(2)}`} />
+                        ))}
+                    </div>
+                </StatPanel>
             </div>
 
             {/* ── Payment details setup ── */}

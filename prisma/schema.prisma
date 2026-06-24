@@ -22,6 +22,7 @@ model User {
   address      String?
   avatarUrl    String?
   status       String   @default("active") // active | inactive
+  permissions  Json? // string[] of allowed /admin/* page paths — secretary/manager only; admin always has full access
   joined       DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -241,4 +242,21 @@ model StoredFile {
   size      Int      @default(0)
   data      Bytes
   createdAt DateTime @default(now())
+}
+
+/// In-app notification feed. `audience: 'staff'` rows are shared across every
+/// admin/secretary/manager account (read state is collective); `audience: 'delegate'`
+/// rows always carry a `recipientId` and are private to that one delegate.
+model Notification {
+  id          Int      @id @default(autoincrement())
+  audience    String   // 'staff' | 'delegate'
+  recipientId String?  // set when audience = 'delegate'
+  type        String   // e.g. 'registration_submitted', 'payment_approved'
+  title       String
+  message     String
+  link        String?  // page to open when clicked, e.g. /admin/registration
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([audience, recipientId])
 }

@@ -1,16 +1,19 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
+import { notifyStaff } from '@/lib/notifications';
 
-const STAFF = ['admin', 'secretary', 'manager'];
-
-/** GET — staff see all registrations; delegates see their own. */
+/** GET — staff with Registrations access see all; delegates see their own. */
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = STAFF.includes(user.role) ? {} : { delegateId: user.id };
-    const rows = await prisma.registration.findMany({ where, orderBy: { id: 'desc' } });
-    return ok(rows);
+    const where = hasPageAccess(user, '/admin/registration') ? {} : { delegateId: user.id };
+    const rows = await prisma.registration.findMany({
+        where, orderBy: { id: 'desc' },
+        include: { delegate: { select: { status: true } } },
+    });
+    const data = rows.map(({ delegate, ...r }) => ({ ...r, accountStatus: delegate?.status ?? 'active' }));
+    return ok(data);
 });
 
 const schema = z.object({
@@ -44,5 +47,13 @@ export const POST = route(async (req: Request) => {
         update: { ...data, status: 'Pending', declineReason: null },
         create: { ...data, delegateId: user.id },
     });
+
+    await notifyStaff({
+        type: 'registration_submitted',
+        title: 'New registration',
+        message: `${data.fullName} submitted a registration for review.`,
+        link: '/admin/registration',
+    });
+
     return ok(row, 201);
 });

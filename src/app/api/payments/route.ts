@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth';
+import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-
-const STAFF = ['admin', 'secretary', 'manager'];
+import { notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = STAFF.includes(user.role) ? {} : { delegateId: user.id };
+    const where = hasPageAccess(user, '/admin/payments') ? {} : { delegateId: user.id };
     const rows = await prisma.paymentSubmission.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);
 });
@@ -37,6 +36,13 @@ export const POST = route(async (req: Request) => {
             data: { ...data, status: 'Pending', declineReason: null },
         })
         : await prisma.paymentSubmission.create({ data: { ...data, delegateId: user.id } });
+
+    await notifyStaff({
+        type: 'payment_submitted',
+        title: 'New payment receipt',
+        message: `${data.senderName} submitted a $${data.amount.toFixed(2)} receipt for ${data.participantName}.`,
+        link: '/admin/payments',
+    });
 
     return ok(row, 201);
 });

@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma';
-import { requireStaff } from '@/lib/auth';
+import { requirePage } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 import { SCHED_FIELDS } from '../route';
 
 export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireStaff();
+    await requirePage('/admin/schedule');
     const id = Number((await ctx.params).id);
     if (!Number.isInteger(id)) return fail('Invalid id', 400);
     const body = await req.json();
@@ -15,7 +15,7 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
 });
 
 export const DELETE = route(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requireStaff();
+    await requirePage('/admin/schedule');
     const id = Number((await ctx.params).id);
     if (!Number.isInteger(id)) return fail('Invalid id', 400);
     await prisma.scheduleEvent.delete({ where: { id } });

@@ -29,11 +29,13 @@ export default function DelegatePapersPage() {
     const [uploading, setUploading] = useState(false);
 
     const delegateId   = user?.id ?? 'unknown';
-    const country      = user?.country ?? 'Unknown';
     const delegateName = user?.name ?? 'Delegate';
-    // Derive committee from approved application, then user.committee, then fallback
-    const approvedApp = getApplicationForDelegate(delegateId);
-    const committee   = (approvedApp?.status === 'Approved' ? approvedApp.committeeAbbr : null) ?? user?.committee ?? 'UNSC';
+    const approvedApp  = getApplicationForDelegate(delegateId);
+    const isApproved   = approvedApp?.status === 'Approved';
+    // Committee/country only exist once the secretariat has approved the application
+    // and assigned a country — never derived from the delegate's own profile.
+    const committee    = isApproved ? approvedApp!.committeeAbbr : null;
+    const country       = isApproved ? (approvedApp!.assignedCountry ?? 'Unknown') : 'Unknown';
 
     const myPaper = papers.find(p => p.delegateId === delegateId && p.committee === committee) ?? null;
     const sm = myPaper ? STATUS_META[myPaper.status] : null;
@@ -46,7 +48,7 @@ export default function DelegatePapersPage() {
         setUploading(true);
         try {
             const up = await uploadFile(file);
-            await submitPaper({ delegateId, delegateName, committee, country, fileName: file.name, fileUrl: fileUrl(up.key), fileSize: file.size });
+            await submitPaper({ delegateId, delegateName, committee: committee!, country, fileName: file.name, fileUrl: fileUrl(up.key), fileSize: file.size });
             showToast('Position paper submitted successfully!', 'success');
         } catch {
             showToast('Failed to upload your paper. Please try again.', 'error');
@@ -68,9 +70,7 @@ export default function DelegatePapersPage() {
         if (file) handleFile(file);
     };
 
-    const hasApprovedCommittee = approvedApp?.status === 'Approved' || user?.committee;
-
-    if (!hasApprovedCommittee) {
+    if (!isApproved) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 760 }}>
                 <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text }}>Position Paper</h1>

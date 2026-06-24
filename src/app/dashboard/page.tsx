@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
 import { getFlagUrl } from '@/lib/countries';
-import { FileText, Clock, CheckCircle, Flag, Download, Calendar, ArrowRight, Zap, Award } from 'lucide-react';
+import { FileText, Clock, CheckCircle, Download, Calendar, ArrowRight, Zap, Award } from 'lucide-react';
 import { CertificateDownloadButton, CertificatePreview } from '@/components/CertificateDownloadButton';
 import { AcceptanceLetterDownloadButton, AcceptanceLetterPreview } from '@/components/AcceptanceLetterButton';
 
@@ -35,18 +35,19 @@ const PSTYLE: Record<string, { iconBg: string; iconColor: string; labelColor: st
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const { getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, landingPage, events } = useConference();
+    const { committees, getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, landingPage, events } = useConference();
 
     const delegateId = user?.id ?? '';
     const application = getApplicationForDelegate(delegateId);
     const approvedApp = application?.status === 'Approved' ? application : undefined;
     const registration = getRegistrationForDelegate(delegateId);
 
-    const country   = user?.country   || 'France';
-    const committee = user?.committee || 'Security Council';
-
-    const displayCountry = approvedApp?.assignedCountry || country;
-    const flagUrl        = getFlagUrl(displayCountry);
+    // A delegate only "represents" a country once the secretariat has approved
+    // their committee application AND assigned a country — never before.
+    const displayCountry = approvedApp?.assignedCountry;
+    const committee      = approvedApp ? (committees.find(c => c.abbr === approvedApp.committeeAbbr)?.name ?? approvedApp.committeeAbbr) : undefined;
+    const isAssigned      = !!displayCountry;
+    const flagUrl         = displayCountry ? getFlagUrl(displayCountry) : undefined;
 
     const activeEvent   = events[0];
     const certName      = registration?.fullName || user?.name || 'Honorable Delegate';
@@ -128,11 +129,17 @@ export default function DashboardPage() {
                         Live Session Active
                     </div>
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 'clamp(20px,5vw,32px)', color: 'white', lineHeight: 1.25, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        {flagUrl && <img src={flagUrl} alt={displayCountry} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />}
-                        Ready to lead, {displayCountry} Delegate?
+                        <img src={flagUrl || '/assets/010-un.png'} alt={displayCountry || 'United Nations'} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />
+                        {isAssigned ? `Ready to lead, ${displayCountry} Delegate?` : `Welcome, ${user?.name || 'Delegate'}!`}
                     </h1>
                     <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14, maxWidth: 460, lineHeight: 1.6, marginBottom: 22 }}>
-                        You are representing <strong style={{ color: 'white' }}>{displayCountry}</strong> in the <strong style={{ color: 'white' }}>{committee}</strong>. Complete your tasks and prepare for the upcoming session.
+                        {isAssigned
+                            ? <>You are representing <strong style={{ color: 'white' }}>{displayCountry}</strong> in the <strong style={{ color: 'white' }}>{committee}</strong>. Complete your tasks and prepare for the upcoming session.</>
+                            : application?.status === 'Approved'
+                                ? <>Your <strong style={{ color: 'white' }}>{committee}</strong> seat is confirmed — the secretariat is finalizing your country assignment. Check back soon.</>
+                                : application
+                                    ? <>Your committee application is <strong style={{ color: 'white' }}>{application.status === 'Pending' ? 'awaiting secretariat review' : application.status.toLowerCase()}</strong>. You'll see your delegation here once it's approved and a country is assigned.</>
+                                    : <>Apply to a committee to get started — once the secretariat approves your application and assigns a country, your delegation will appear here.</>}
                     </p>
                     <Link href="/dashboard/schedule" className="flex items-center gap-2 font-semibold text-sm transition-all w-fit"
                         style={{ background: 'white', color: '#1A3A8F', padding: '10px 22px', borderRadius: 8, textDecoration: 'none', display: 'inline-flex' }}
@@ -155,23 +162,35 @@ export default function DashboardPage() {
                         {flagUrl ? (
                             <img src={flagUrl} alt={displayCountry}
                                 style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.border}`, display: 'block' }} />
-                        ) : (
+                        ) : isAssigned ? (
                             <div style={{
                                 width: 64, height: 64, borderRadius: '50%',
                                 background: `${C.accent}15`, border: `2px solid ${C.border}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700,
                                 fontSize: 22, color: C.accent,
-                            }}>{displayCountry.substring(0, 2).toUpperCase()}</div>
+                            }}>{(displayCountry as string).substring(0, 2).toUpperCase()}</div>
+                        ) : (
+                            <img src="/assets/010-un.png" alt="United Nations"
+                                style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.border}`, background: C.bg, display: 'block' }} />
                         )}
                         <span style={{
                             position: 'absolute', bottom: 2, right: 2,
                             width: 12, height: 12, borderRadius: '50%',
-                            background: C.green, border: `2px solid white`,
+                            background: isAssigned ? C.green : C.amber, border: `2px solid white`,
                         }} />
                     </div>
-                    <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 18, color: C.text, marginBottom: 2 }}>{displayCountry}</h2>
-                    <p style={{ fontSize: 13, color: C.accent, fontWeight: 500, marginBottom: 16 }}>{committee}</p>
+                    {isAssigned ? (
+                        <>
+                            <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 18, color: C.text, marginBottom: 2 }}>{displayCountry}</h2>
+                            <p style={{ fontSize: 13, color: C.accent, fontWeight: 500, marginBottom: 16 }}>{committee}</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 18, color: C.text, marginBottom: 2 }}>Not Assigned Yet</h2>
+                            <p style={{ fontSize: 13, color: C.textMuted, fontWeight: 500, marginBottom: 16 }}>{committee ?? 'Awaiting committee approval'}</p>
+                        </>
+                    )}
 
                     {/* Chips */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', marginBottom: 12 }}>
@@ -181,7 +200,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="rounded-lg p-2.5" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
                             <p style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Voting</p>
-                            <p style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>Present</p>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: isAssigned ? C.green : C.textMuted }}>{isAssigned ? 'Present' : 'Pending'}</p>
                         </div>
                     </div>
 

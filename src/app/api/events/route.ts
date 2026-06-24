@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { requireStaff } from '@/lib/auth';
+import { requirePage } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
 
 export const EVENT_FIELDS = [
@@ -17,7 +17,7 @@ export const GET = route(async () => {
 
 /** POST — staff create a conference event. */
 export const POST = route(async (req: Request) => {
-    await requireStaff();
+    await requirePage('/admin/events');
     const body = await req.json();
     const data: Record<string, unknown> = {};
     for (const k of EVENT_FIELDS) if (k in body) data[k] = body[k];

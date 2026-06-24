@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronRight, ChevronDown, Search, ShoppingBag, UserCircle } from "lucide-react";
+import { Menu, X, ChevronRight, ChevronDown, UserCircle } from "lucide-react";
 import { useAuth } from '../../auth/AuthContext';
 import { AuthModal } from '../auth/AuthModal';
 
@@ -14,11 +14,9 @@ const HEADING = '#0B1220';
 const FONT = '"Outfit", -apple-system, sans-serif';
 
 const NAV_LINKS = [
-    { label: 'Home',       href: '/' },
-    { label: 'Committees', href: '/committees' },
-    { label: 'About',      href: '/about', dropdown: true },
-    { label: 'Contact',    href: '/contact' },
-    { label: 'Plans',      href: '/schedule' },
+    { label: 'Home',    href: '/' },
+    { label: 'About',   href: '/about', dropdown: true },
+    { label: 'Contact', href: '/contact' },
 ];
 
 export const Navbar: React.FC = () => {
@@ -93,17 +91,17 @@ export const Navbar: React.FC = () => {
                         })}
                     </div>
 
-                    {/* Right icons */}
-                    <div className="hidden md:flex" style={{ alignItems: 'center', gap: 20 }}>
+                    {/* Right actions */}
+                    <div className="hidden md:flex" style={{ alignItems: 'center', gap: 14 }}>
                         {!user ? (
                             <>
-                                <button onClick={() => openAuthModal('login')} aria-label="Log in" title="Log in"
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: txt, lineHeight: 0, padding: 0 }}>
-                                    <Search size={20} />
+                                <button onClick={() => openAuthModal('login')}
+                                    style={{ padding: '9px 20px', borderRadius: 9999, fontSize: 16, fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${transparent ? 'rgba(255,255,255,0.55)' : '#E5E7EB'}`, background: 'transparent', color: txt, fontFamily: FONT }}>
+                                    Log In
                                 </button>
-                                <button id="register-trigger" onClick={() => openAuthModal('register')} aria-label="Register" title="Register"
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: txt, lineHeight: 0, padding: 0 }}>
-                                    <ShoppingBag size={20} />
+                                <button id="register-trigger" onClick={() => openAuthModal('register')}
+                                    style={{ padding: '9px 22px', borderRadius: 9999, fontSize: 16, fontWeight: 600, cursor: 'pointer', border: 'none', background: BLUE, color: 'white', fontFamily: FONT }}>
+                                    Register
                                 </button>
                             </>
                         ) : (

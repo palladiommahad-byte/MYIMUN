@@ -32,7 +32,9 @@ export default function CommitteePage() {
 
     const delegateId   = user?.id ?? 'unknown';
     const delegateName = user?.name ?? 'Delegate';
-    const country      = user?.country ?? 'Unknown';
+    // Home country typed into the application form — not the delegation country,
+    // which only exists once the secretariat assigns one to an approved application.
+    const homeCountry  = user?.country ?? 'Unknown';
 
     const application = getApplicationForDelegate(delegateId);
     const isActive    = application?.status === 'Pending' || application?.status === 'Approved';
@@ -54,7 +56,7 @@ export default function CommitteePage() {
         if (!appForm.preferredCountry.trim())    errors.preferredCountry   = 'This field is required.';
         if (!appForm.whyShouldWePickYou.trim())  errors.whyShouldWePickYou = 'This field is required.';
         if (Object.keys(errors).length) { setAppErrors(errors); return; }
-        applyToCommittee(delegateId, delegateName, country, applyModal.abbr, appForm.whyThisCommittee.trim(), appForm.preferredCountry.trim(), appForm.whyShouldWePickYou.trim());
+        applyToCommittee(delegateId, delegateName, homeCountry, applyModal.abbr, appForm.whyThisCommittee.trim(), appForm.preferredCountry.trim(), appForm.whyShouldWePickYou.trim());
         showToast(`Application submitted for ${applyModal.abbr}`, 'success');
         setApplyModal({ open: false, abbr: '' });
     };
@@ -108,12 +110,11 @@ export default function CommitteePage() {
                                     <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>{approvedCommittee.name}</h2>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
                                         <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>Representing:</span>
-                                        {application?.assignedCountry && getFlag(application.assignedCountry) && (
-                                            <img src={getFlag(application.assignedCountry)} alt={application.assignedCountry}
-                                                style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />
-                                        )}
-                                        <strong style={{ color: 'white', fontSize: 13 }}>
-                                            {application?.assignedCountry || country}
+                                        <img src={(application?.assignedCountry && getFlag(application.assignedCountry)) || '/assets/010-un.png'}
+                                            alt={application?.assignedCountry || 'United Nations'}
+                                            style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', flexShrink: 0 }} />
+                                        <strong style={{ color: application?.assignedCountry ? 'white' : 'rgba(255,255,255,0.6)', fontSize: 13, fontStyle: application?.assignedCountry ? 'normal' : 'italic' }}>
+                                            {application?.assignedCountry || 'Country assignment pending'}
                                         </strong>
                                     </div>
                                 </div>

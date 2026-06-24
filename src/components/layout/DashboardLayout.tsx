@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavigationProgress } from '@/components/NavigationProgress';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const NAV_ITEMS = [
     { label: 'Overview',        icon: LayoutDashboard, path: '/dashboard' },
@@ -57,9 +58,12 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                 <div className="flex items-center">
                     <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ height: 30, width: 'auto', maxWidth: 160, objectFit: 'contain' }} />
                 </div>
-                <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
-                    {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-                </button>
+                <div className="flex items-center gap-1">
+                    <NotificationBell />
+                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
+                        {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+                    </button>
+                </div>
             </div>
 
             {/* Overlay */}
@@ -122,14 +126,26 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                             <LogOut size={13} />
                         </button>
                     </div>
+                    <div className="flex items-center justify-center gap-3" style={{ marginTop: 6 }}>
+                        <Link href="/dashboard/terms" className="hover:underline" style={{ fontSize: 11, color: S.textMuted }}>Terms</Link>
+                        <span style={{ color: S.border }}>·</span>
+                        <Link href="/dashboard/privacy" className="hover:underline" style={{ fontSize: 11, color: S.textMuted }}>Privacy</Link>
+                    </div>
                 </div>
             </aside>
 
             {/* ── Main ── */}
             <main className="flex-1 pt-14 md:pt-0 min-w-0" style={{ width: '100%' }}>
-                <div className="md:ml-[220px] px-4 py-5 md:px-6 md:py-7" style={{ minHeight: '100vh', boxSizing: 'border-box' }}>
-                    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-                        {children}
+                <div className="md:ml-[220px]" style={{ minHeight: '100vh', boxSizing: 'border-box' }}>
+                    {/* Desktop top bar — just the notification bell for now */}
+                    <div className="hidden md:flex items-center justify-end px-6"
+                        style={{ height: 56, borderBottom: `1px solid ${S.border}`, background: S.surface, flexShrink: 0 }}>
+                        <NotificationBell />
+                    </div>
+                    <div className="px-4 py-5 md:px-6 md:py-7" style={{ boxSizing: 'border-box' }}>
+                        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+                            {children}
+                        </div>
                     </div>
                 </div>
             </main>
