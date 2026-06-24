@@ -28,7 +28,7 @@ const EMPTY_APP_FORM = { whyThisCommittee: '', preferredCountry: '', whyShouldWe
 export default function CommitteePage() {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const { committees, applyToCommittee, getApplicationForDelegate, updateApplicationStatus, getApplicationsForCommittee, waitingCounts } = useConference();
+    const { committees, applyToCommittee, getApplicationForDelegate, withdrawApplication, getApplicationsForCommittee, waitingCounts } = useConference();
 
     const delegateId   = user?.id ?? 'unknown';
     const delegateName = user?.name ?? 'Delegate';
@@ -63,7 +63,7 @@ export default function CommitteePage() {
 
     const handleWithdraw = () => {
         if (!application) return;
-        updateApplicationStatus(application.id, 'Rejected');
+        withdrawApplication(application.id);
         showToast('Application withdrawn — you can now apply to another committee.', 'info');
     };
 

@@ -634,6 +634,7 @@ interface ConferenceCtx {
     applications: CommitteeApplication[];
     applyToCommittee:           (delegateId: string, delegateName: string, country: string, committeeAbbr: string, whyThisCommittee: string, preferredCountry: string, whyShouldWePickYou: string) => void;
     updateApplicationStatus:    (id: number, status: 'Approved' | 'Rejected') => void;
+    withdrawApplication:        (id: number) => void;
     reassignApplication:        (id: number, newCommitteeAbbr: string) => void;
     assignCountryToDelegate:    (appId: number, country: string) => void;
     getApplicationForDelegate:   (delegateId: string) => CommitteeApplication | undefined;
@@ -842,6 +843,10 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         setApplications(prev => prev.map(a => a.id === id ? mapApp(row) : a));
         if (status === 'Approved') await refreshCommittees();
     };
+    const withdrawApplication = async (id: number) => {
+        const row = await send('PATCH', `/api/applications/${id}`, { action: 'withdraw' });
+        setApplications(prev => prev.map(a => a.id === id ? mapApp(row) : a));
+    };
     const reassignApplication = async (id: number, newCommitteeAbbr: string) => {
         const row = await send('PATCH', `/api/applications/${id}`, { action: 'reassign', committeeAbbr: newCommitteeAbbr });
         setApplications(prev => prev.map(a => a.id === id ? mapApp(row) : a));
@@ -985,7 +990,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const ctxValue = useMemo(() => ({
         committees, addCommittee, updateCommittee, deleteCommittee,
         papers, submitPaper, updatePaperStatus, getPapersForDelegate,
-        applications, applyToCommittee, updateApplicationStatus, reassignApplication, assignCountryToDelegate,
+        applications, applyToCommittee, updateApplicationStatus, withdrawApplication, reassignApplication, assignCountryToDelegate,
         getApplicationForDelegate, getApplicationsForCommittee,
         waitingCounts,
         scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
