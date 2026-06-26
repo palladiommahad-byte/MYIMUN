@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, Shield, FileText, CreditCard,
     Calendar, MessageSquare, Radio, Settings, LogOut, Menu, X,
     ClipboardList, Star, LayoutTemplate, BarChart2, Info,
-    Image as ImageIcon, Zap, Award, Lock
+    Image as ImageIcon, Zap, Award, Lock, KeyRound
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -33,6 +33,7 @@ const NAV_ITEMS = [
     { label: 'Events',          icon: Star,            path: '/admin/events' },
     { label: 'Registrations',   icon: ClipboardList,   path: '/admin/registration' },
     { label: 'Delegates',       icon: Users,           path: '/admin/delegates' },
+    { label: 'Accounts',        icon: KeyRound,        path: '/admin/accounts' },
     { label: 'Committees',      icon: Shield,          path: '/admin/committees' },
     { label: 'Position Papers', icon: FileText,        path: '/admin/papers' },
     { label: 'Certificates',    icon: Award,           path: '/admin/certificates' },

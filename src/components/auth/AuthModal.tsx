@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext';
 import { ADMIN_PAGES } from '@/lib/adminPages';
@@ -13,24 +13,49 @@ interface AuthModalProps {
     initialMode?: 'login' | 'register';
 }
 
+type Mode = 'login' | 'register' | 'forgot';
+
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'login' }) => {
-    const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+    const [mode, setMode] = useState<Mode>(initialMode);
     const [isLoading, setIsLoading] = useState(false);
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [forgotPhone, setForgotPhone] = useState('');
+    const [forgotSent, setForgotSent] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { login, register } = useAuth();
     const router = useRouter();
 
     // Reset mode + fields when opening
     React.useEffect(() => {
-        if (isOpen) { setMode(initialMode); setError(null); }
+        if (isOpen) { setMode(initialMode); setError(null); setForgotSent(false); }
     }, [isOpen, initialMode]);
 
-    const switchMode = (m: 'login' | 'register') => { setMode(m); setError(null); };
+    const switchMode = (m: Mode) => { setMode(m); setError(null); setForgotSent(false); };
+
+    const handleForgot = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/password-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), phone: forgotPhone.trim() }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || json?.ok === false) throw new Error(json?.error || 'Could not send your request');
+            setForgotSent(true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Something went wrong');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
+        if (mode === 'forgot') return handleForgot(e);
         e.preventDefault();
         setError(null);
         setIsLoading(true);
@@ -95,38 +120,59 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                                 {/* Header */}
                                 <div className="text-center mb-8">
                                     <h2 className="text-3xl font-extrabold text-white tracking-tight">
-                                        {mode === 'login' ? 'Welcome Back' : 'Join Next Gen'}
+                                        {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Join Next Gen' : 'Reset Password'}
                                     </h2>
                                     <p className="text-slate-400 mt-3 font-medium">
                                         {mode === 'login'
                                             ? 'Enter your credentials to access your account'
-                                            : 'Start your journey as a delegate today'}
+                                            : mode === 'register'
+                                            ? 'Start your journey as a delegate today'
+                                            : 'Send a reset request to the organizers'}
                                     </p>
                                 </div>
 
-                                {/* Tabs */}
-                                <div className="flex p-1.5 mb-8 bg-black/40 rounded-2xl border border-white/5">
-                                    <button
-                                        onClick={() => switchMode('login')}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login'
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-1 ring-white/10'
-                                            : 'text-slate-400 hover:text-white'
-                                            }`}
-                                    >
-                                        Log In
-                                    </button>
-                                    <button
-                                        onClick={() => switchMode('register')}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'register'
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-1 ring-white/10'
-                                            : 'text-slate-400 hover:text-white'
-                                            }`}
-                                    >
-                                        Register
-                                    </button>
-                                </div>
+                                {/* Tabs (hidden while resetting) */}
+                                {mode !== 'forgot' && (
+                                    <div className="flex p-1.5 mb-8 bg-black/40 rounded-2xl border border-white/5">
+                                        <button
+                                            onClick={() => switchMode('login')}
+                                            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login'
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-1 ring-white/10'
+                                                : 'text-slate-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Log In
+                                        </button>
+                                        <button
+                                            onClick={() => switchMode('register')}
+                                            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'register'
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-1 ring-white/10'
+                                                : 'text-slate-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Register
+                                        </button>
+                                    </div>
+                                )}
 
-                                {/* Form */}
+                                {/* Forgot-password success */}
+                                {mode === 'forgot' && forgotSent ? (
+                                    <div className="text-center">
+                                        <div className="w-16 h-16 rounded-2xl bg-green-500/15 flex items-center justify-center mx-auto mb-5">
+                                            <CheckCircle2 className="text-green-400" size={32} />
+                                        </div>
+                                        <p className="text-white font-bold text-lg mb-2">Request sent</p>
+                                        <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                                            The organizers have received your password reset request. They&apos;ll verify your details and contact you with a new password using the phone or email you provided.
+                                        </p>
+                                        <button
+                                            onClick={() => switchMode('login')}
+                                            className="w-full bg-white text-slate-900 font-bold py-3.5 rounded-xl shadow-lg hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <ArrowLeft size={18} /> Back to Login
+                                        </button>
+                                    </div>
+                                ) : (
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     {mode === 'register' && (
                                         <div className="space-y-2">
@@ -160,26 +206,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center ml-1">
-                                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Password</label>
-                                            {mode === 'login' && (
-                                                <a href="#" className="text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline">Forgot password?</a>
-                                            )}
+                                    {mode === 'forgot' && (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Phone Number</label>
+                                            <div className="relative group">
+                                                <Phone className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                                                <input
+                                                    type="tel"
+                                                    placeholder="+212 6 00 00 00 00"
+                                                    required
+                                                    value={forgotPhone}
+                                                    onChange={e => setForgotPhone(e.target.value)}
+                                                    className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-slate-500 ml-1">We use these to verify it&apos;s really you before resetting.</p>
                                         </div>
-                                        <div className="relative group">
-                                            <Lock className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
-                                            <input
-                                                type="password"
-                                                placeholder="••••••••"
-                                                required
-                                                minLength={mode === 'register' ? 6 : undefined}
-                                                value={password}
-                                                onChange={e => setPassword(e.target.value)}
-                                                className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
-                                            />
+                                    )}
+
+                                    {mode !== 'forgot' && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center ml-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Password</label>
+                                                {mode === 'login' && (
+                                                    <button type="button" onClick={() => switchMode('forgot')} className="text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline">Forgot password?</button>
+                                                )}
+                                            </div>
+                                            <div className="relative group">
+                                                <Lock className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                                                <input
+                                                    type="password"
+                                                    placeholder="••••••••"
+                                                    required
+                                                    minLength={mode === 'register' ? 6 : undefined}
+                                                    value={password}
+                                                    onChange={e => setPassword(e.target.value)}
+                                                    className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {error && (
                                         <div className="flex items-center gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
@@ -197,12 +263,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                                             <div className="w-5 h-5 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
                                         ) : (
                                             <>
-                                                {mode === 'login' ? 'Sign In to Account' : 'Create Free Account'}
+                                                {mode === 'login' ? 'Sign In to Account' : mode === 'register' ? 'Create Free Account' : 'Send Reset Request'}
                                                 <ArrowRight size={20} />
                                             </>
                                         )}
                                     </button>
+
+                                    {mode === 'forgot' && (
+                                        <button type="button" onClick={() => switchMode('login')}
+                                            className="w-full text-center text-sm font-semibold text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1.5">
+                                            <ArrowLeft size={15} /> Back to login
+                                        </button>
+                                    )}
                                 </form>
+                                )}
 
                             </div>
                         </div>

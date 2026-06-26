@@ -67,21 +67,14 @@ async function upsertSetting(key: string, value: unknown) {
 async function main() {
     console.log('🌱 Seeding database…');
 
-    // ── Demo accounts ──
+    // ── Bootstrap admin account (needed to access the platform; change its password after first login) ──
     const adminHash = await bcrypt.hash('admin123', 10);
-    const delegateHash = await bcrypt.hash('delegate123', 10);
-
     await prisma.user.upsert({
         where: { email: 'admin@myimun.org' },
         update: {},
         create: { email: 'admin@myimun.org', fullName: 'Secretary General', passwordHash: adminHash, role: 'admin' },
     });
-    await prisma.user.upsert({
-        where: { email: 'delegate@myimun.org' },
-        update: {},
-        create: { email: 'delegate@myimun.org', fullName: 'Honorable Delegate', passwordHash: delegateHash, role: 'delegate', country: 'France', address: '123 Diplomatic Ave, New York, NY' },
-    });
-    console.log('  ✓ users (admin@myimun.org / admin123, delegate@myimun.org / delegate123)');
+    console.log('  ✓ admin account (admin@myimun.org / admin123 — change this password)');
 
     // ── Committees ──
     for (const c of COMMITTEES) {

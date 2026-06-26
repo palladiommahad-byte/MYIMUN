@@ -6,6 +6,7 @@ export const ADMIN_PAGES: { path: string; label: string }[] = [
     { path: '/admin/events',        label: 'Events' },
     { path: '/admin/registration',  label: 'Registrations' },
     { path: '/admin/delegates',     label: 'Delegates' },
+    { path: '/admin/accounts',      label: 'Accounts' },
     { path: '/admin/committees',    label: 'Committees' },
     { path: '/admin/papers',        label: 'Position Papers' },
     { path: '/admin/certificates',  label: 'Certificates' },

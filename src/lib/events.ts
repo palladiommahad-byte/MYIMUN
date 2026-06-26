@@ -1,6 +1,9 @@
 import 'server-only';
 
-type EventPayload = { audience: 'staff' } | { audience: 'delegate'; recipientId: string };
+type EventPayload =
+    | { audience: 'staff' }
+    | { audience: 'delegate'; recipientId: string }
+    | { audience: 'everyone' }; // every connected client should refetch (e.g. a new broadcast)
 type Listener = (payload: EventPayload) => void;
 
 // Reuse a single listener set across hot-reloads in dev, same reasoning as prisma.ts.

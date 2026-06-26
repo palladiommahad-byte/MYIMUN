@@ -34,7 +34,8 @@ export async function GET() {
             };
 
             unsubscribe = subscribe((payload) => {
-                if (payload.audience === 'staff' && isStaff) send('update');
+                if (payload.audience === 'everyone') send('update');
+                else if (payload.audience === 'staff' && isStaff) send('update');
                 else if (payload.audience === 'delegate' && payload.recipientId === userId) send('update');
             });
 

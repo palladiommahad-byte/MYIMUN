@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
 import { getFlagUrl } from '@/lib/countries';
-import { FileText, Clock, CheckCircle, Download, Calendar, ArrowRight, Zap, Award } from 'lucide-react';
+import { FileText, Clock, CheckCircle, Download, Calendar, ArrowRight, Zap, Award, Megaphone, AlertTriangle } from 'lucide-react';
 import { CertificateDownloadButton, CertificatePreview } from '@/components/CertificateDownloadButton';
 import { AcceptanceLetterDownloadButton, AcceptanceLetterPreview } from '@/components/AcceptanceLetterButton';
 
@@ -35,7 +35,7 @@ const PSTYLE: Record<string, { iconBg: string; iconColor: string; labelColor: st
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const { committees, getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, landingPage, events } = useConference();
+    const { committees, getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, landingPage, events, announcements } = useConference();
 
     const delegateId = user?.id ?? '';
     const application = getApplicationForDelegate(delegateId);
@@ -150,6 +150,63 @@ export default function DashboardPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* ── Announcements from the secretariat ── */}
+            {announcements.length > 0 && (
+                <div className="rounded-xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow }}>
+                    {/* Header */}
+                    <div className="flex items-center gap-3 px-5 py-4"
+                        style={{ borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(100deg, rgba(59,127,255,0.06), rgba(124,95,255,0.04))' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#3B7FFF,#7C5FFF)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(59,127,255,0.3)', flexShrink: 0 }}>
+                            <Megaphone size={18} style={{ color: '#fff' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="flex items-center gap-2">
+                                <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 15.5, fontWeight: 700, color: C.text }}>Announcements</p>
+                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.green, display: 'inline-block', animation: 'live-pulse 2s infinite' }} />
+                            </div>
+                            <p style={{ fontSize: 12.5, color: C.textMuted }}>Latest updates from the secretariat</p>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, background: `${C.accent}12`, padding: '3px 11px', borderRadius: 999, flexShrink: 0 }}>
+                            {announcements.length}
+                        </span>
+                    </div>
+
+                    {/* List */}
+                    <div>
+                        {announcements.slice(0, 5).map((a, idx, arr) => {
+                            const urgent = a.level === 'urgent';
+                            const accent = urgent ? C.amber : C.accent;
+                            return (
+                                <div key={a.id}
+                                    style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: 13, padding: '15px 20px',
+                                        borderBottom: idx < arr.length - 1 ? `1px solid ${C.border}` : 'none',
+                                        borderLeft: `3px solid ${accent}`,
+                                        background: urgent ? `${C.amber}08` : 'transparent',
+                                    }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: 10, background: `${accent}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                                        {urgent ? <AlertTriangle size={16} style={{ color: accent }} /> : <Megaphone size={16} style={{ color: accent }} />}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{ fontSize: 14, color: C.text, lineHeight: 1.55, marginBottom: 6, fontWeight: urgent ? 600 : 500 }}>{a.message}</p>
+                                        <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                                            {urgent && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: `${C.amber}18`, color: C.amber }}>
+                                                    <AlertTriangle size={9} /> Urgent
+                                                </span>
+                                            )}
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.textMuted }}>
+                                                <Clock size={11} /> {a.createdAt}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ── Two-column ── */}
             <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr]" style={{ gap: 16 }}>

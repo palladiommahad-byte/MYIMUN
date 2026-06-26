@@ -260,3 +260,32 @@ model Notification {
 
   @@index([audience, recipientId])
 }
+
+/// A delegate's self-service password-reset request (submitted from the login
+/// screen's "Forgot password" form). Staff resolve it from the Accounts page by
+/// generating a new password; `userId` is set when the email matches a delegate.
+model PasswordResetRequest {
+  id         Int       @id @default(autoincrement())
+  email      String
+  phone      String
+  userId     String?   // matched delegate account, if the email exists
+  delegateName String? // captured at request time for staff display
+  status     String    @default("pending") // pending | resolved | dismissed
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+}
+
+/// A broadcast announcement from the secretariat. `audience` targets delegates by
+/// payment status: 'all' (everyone registered), 'paid' (completed payment), or
+/// 'unpaid' (registered but not yet paid). Shown on each delegate's Overview.
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  message   String
+  audience  String   @default("all")  // all | paid | unpaid
+  level     String   @default("info") // info | urgent
+  createdAt DateTime @default(now())
+
+  @@index([audience])
+}

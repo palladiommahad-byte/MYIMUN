@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, ClipboardList, CreditCard, FileText, Shield, MessageSquare, CheckCheck, BellOff } from 'lucide-react';
+import { Bell, ClipboardList, CreditCard, FileText, Shield, MessageSquare, CheckCheck, BellOff, KeyRound, UserCog } from 'lucide-react';
 import { useConference, AppNotification } from '@/context/ConferenceContext';
 
 const C = {
@@ -18,6 +18,8 @@ function iconFor(type: string): { Icon: React.ElementType; color: string } {
     if (type.startsWith('paper'))        return { Icon: FileText,      color: '#7C5FFF' };
     if (type.startsWith('committee'))    return { Icon: Shield,        color: '#00A8CC' };
     if (type.startsWith('message'))      return { Icon: MessageSquare, color: '#F59E0B' };
+    if (type.startsWith('password'))     return { Icon: KeyRound,      color: '#EC4899' };
+    if (type.startsWith('account'))      return { Icon: UserCog,       color: '#6B7280' };
     return { Icon: Bell, color: C.textMuted };
 }
 

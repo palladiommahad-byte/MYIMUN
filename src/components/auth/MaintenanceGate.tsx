@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useConference } from '@/context/ConferenceContext';
-import { Wrench } from 'lucide-react';
+import { useAuth } from '@/auth/AuthContext';
+import { Wrench, LogOut } from 'lucide-react';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -17,6 +19,10 @@ const C = {
  */
 export const MaintenanceGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { conferenceSettings } = useConference();
+    const { logout } = useAuth();
+    const router = useRouter();
+
+    const handleLogout = async () => { await logout(); router.push('/'); };
 
     if (!conferenceSettings.maintenanceMode) return <>{children}</>;
 
@@ -29,9 +35,15 @@ export const MaintenanceGate: React.FC<{ children: React.ReactNode }> = ({ child
                 <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 21, fontWeight: 700, color: C.text, marginBottom: 10 }}>
                     Platform Under Maintenance
                 </h2>
-                <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.6 }}>
+                <p style={{ fontSize: 14, color: C.textSec, lineHeight: 1.6, marginBottom: 28 }}>
                     The delegate dashboard is temporarily unavailable while we perform scheduled maintenance. Please check back shortly.
                 </p>
+                <button onClick={handleLogout}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.text; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.surface; (e.currentTarget as HTMLElement).style.color = C.textSec; }}>
+                    <LogOut size={15} /> Log out
+                </button>
             </div>
         </div>
     );

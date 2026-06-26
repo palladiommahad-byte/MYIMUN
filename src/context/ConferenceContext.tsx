@@ -113,6 +113,25 @@ export interface AppNotification {
     createdAt: string;
 }
 
+export interface PasswordResetRequest {
+    id: number;
+    email: string;
+    phone: string;
+    userId: string | null;
+    delegateName: string | null;
+    status: 'pending' | 'resolved' | 'dismissed';
+    createdAt: string;
+    resolvedAt: string | null;
+}
+
+export interface Announcement {
+    id: number;
+    message: string;
+    audience: 'all' | 'paid' | 'unpaid';
+    level: 'info' | 'urgent';
+    createdAt: string;
+}
+
 export interface Registration {
     id: number;
     delegateId: string;
@@ -674,6 +693,13 @@ interface ConferenceCtx {
     markAllNotificationsRead: () => void;
     refreshNotifications:     () => void;
 
+    passwordResetRequests: PasswordResetRequest[];
+    refreshAccountsData:   () => void;
+
+    announcements: Announcement[];
+    sendBroadcast:     (message: string, audience: 'all' | 'paid' | 'unpaid', level: 'info' | 'urgent') => Promise<void>;
+    deleteAnnouncement: (id: number) => Promise<void>;
+
     registrations: Registration[];
     submitRegistration:       (data: Omit<Registration, 'id' | 'status' | 'submittedAt' | 'paymentStatus' | 'declineReason'>) => void;
     updateRegistrationStatus: (id: number, status: 'Accepted' | 'Declined', declineReason?: string) => void;
@@ -721,6 +747,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SEED_SCHEDULE);
     const [conversations,  setConversations]  = useState<Conversation[]>([]);
     const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
+    const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
+    const [announcements,  setAnnouncements]  = useState<Announcement[]>([]);
     const [registrations,  setRegistrations]  = useState<Registration[]>([]);
     const [payments,       setPayments]       = useState<PaymentSubmission[]>([]);
     const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(SEED_PAYMENT_SETTINGS);
@@ -737,6 +765,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapApp = (r: any): CommitteeApplication => ({ ...r, appliedAt: fmt(r.appliedAt) });
     const mapNotification = (r: any): AppNotification => ({ ...r, createdAt: fmt(r.createdAt) });
+    const mapResetReq = (r: any): PasswordResetRequest => ({ ...r, createdAt: fmt(r.createdAt), resolvedAt: r.resolvedAt ? fmt(r.resolvedAt) : null });
+    const mapAnnouncement = (r: any): Announcement => ({ id: r.id, message: r.message, audience: r.audience, level: r.level, createdAt: fmt(r.createdAt) });
     const mapConvo = (r: any): Conversation => ({
         id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, delegateEmail: r.delegateEmail,
         delegateCountry: r.delegateCountry, subject: r.subject, category: r.category,
@@ -790,9 +820,10 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
        other side (admin <-> delegate), so the UI updates instantly instead
        of waiting for a manual page reload. ── */
     const refreshAll = useCallback(async () => {
-        const [r, p, pa, ap, cv, nf] = await Promise.all([
+        const [r, p, pa, ap, cv, nf, pr, an] = await Promise.all([
             getData('/api/registrations'), getData('/api/payments'), getData('/api/papers'),
             getData('/api/applications'), getData('/api/conversations'), getData('/api/notifications'),
+            getData('/api/password-reset'), getData('/api/announcements'),
         ]);
         setRegistrations((r ?? []).map(mapReg));
         setPayments((p ?? []).map(mapPay));
@@ -800,13 +831,31 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         setApplications((ap ?? []).map(mapApp));
         setConversations((cv ?? []).map(mapConvo));
         setNotifications((nf ?? []).map(mapNotification));
+        setPasswordResetRequests((pr ?? []).map(mapResetReq));
+        setAnnouncements((an ?? []).map(mapAnnouncement));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const sendBroadcast = async (message: string, audience: 'all' | 'paid' | 'unpaid', level: 'info' | 'urgent') => {
+        const row = await send('POST', '/api/announcements', { message, audience, level });
+        setAnnouncements(prev => [mapAnnouncement(row), ...prev]);
+    };
+    const deleteAnnouncement = async (id: number) => {
+        setAnnouncements(prev => prev.filter(a => a.id !== id));
+        await send('DELETE', `/api/announcements/${id}`).catch(() => {});
+    };
+
+    /** Re-fetch only the password-reset feed (used by the Accounts page after an action). */
+    const refreshAccountsData = useCallback(async () => {
+        const pr = await getData('/api/password-reset');
+        if (pr) setPasswordResetRequests(pr.map(mapResetReq));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         let alive = true;
         if (!user) {
-            setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); setNotifications([]);
+            setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
             return;
         }
         (async () => { if (alive) await refreshAll(); })();
@@ -1067,6 +1116,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
         conversations, startConversation, sendChatMessage, markRead, getConversationsForDelegate,
         notifications, markNotificationRead, markAllNotificationsRead, refreshNotifications,
+        passwordResetRequests, refreshAccountsData,
+        announcements, sendBroadcast, deleteAnnouncement,
         registrations, submitRegistration, updateRegistrationStatus, markRegistrationPaid, getRegistrationForDelegate,
         payments, submitPayment, updatePaymentStatus, getPaymentForDelegate,
         paymentSettings, updatePaymentSettings,
@@ -1077,7 +1128,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         conferenceSettings, updateConferenceSettings,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [committees, papers, applications, waitingCounts, scheduleEvents, conversations, notifications,
-         registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
+         passwordResetRequests, announcements, registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
 
     return (
         <ConferenceContext.Provider value={ctxValue}>
