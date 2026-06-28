@@ -1,3 +1,5 @@
+import { escapeHtml, toTitleCase } from './html';
+
 const DIR = '/assets/certificate';
 
 export interface LetterData {
@@ -7,18 +9,8 @@ export interface LetterData {
     endDate: string;
 }
 
-function escapeHtml(s: string): string {
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-export function toTitleCaseLetter(name: string): string {
-    return String(name || '').toLowerCase().replace(/\b[\p{L}]/gu, ch => ch.toUpperCase());
-}
-
 export function buildAcceptanceLetterHTML({ delegateName, editionYear, startDate, endDate }: LetterData): string {
-    const name = toTitleCaseLetter(delegateName);
+    const name = toTitleCase(delegateName);
 
     return `
     <div style="width:794px;height:1123px;background:#FFFFFF;padding:52px 76px 70px;font-family:'Times New Roman',Times,serif;position:relative;box-sizing:border-box;overflow:hidden;">

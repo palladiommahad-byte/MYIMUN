@@ -67,14 +67,22 @@ async function upsertSetting(key: string, value: unknown) {
 async function main() {
     console.log('🌱 Seeding database…');
 
-    // ── Bootstrap admin account (needed to access the platform; change its password after first login) ──
-    const adminHash = await bcrypt.hash('admin123', 10);
+    // ── Bootstrap admin account (needed to access the platform) ──
+    // In production set ADMIN_EMAIL / ADMIN_PASSWORD in the environment; the demo
+    // defaults below are only for local dev. `update: {}` means an existing admin's
+    // password is never overwritten by a reseed.
+    const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@myimun.org';
+    const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
+    if (!process.env.ADMIN_PASSWORD) {
+        console.warn('  ⚠ ADMIN_PASSWORD not set — using the insecure demo default. Set it for production.');
+    }
+    const adminHash = await bcrypt.hash(adminPassword, 10);
     await prisma.user.upsert({
-        where: { email: 'admin@myimun.org' },
+        where: { email: adminEmail },
         update: {},
-        create: { email: 'admin@myimun.org', fullName: 'Secretary General', passwordHash: adminHash, role: 'admin' },
+        create: { email: adminEmail, fullName: 'Secretary General', passwordHash: adminHash, role: 'admin' },
     });
-    console.log('  ✓ admin account (admin@myimun.org / admin123 — change this password)');
+    console.log(`  ✓ admin account (${adminEmail})`);
 
     // ── Committees ──
     for (const c of COMMITTEES) {

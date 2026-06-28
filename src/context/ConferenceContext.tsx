@@ -778,7 +778,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const applyCommittees = useCallback((rows: any[]) => {
         setCommittees(rows.map(mapCommittee));
         setWaitingCounts(Object.fromEntries(rows.map((r: any) => [r.abbr, r.waiting ?? 0])));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     /* ── Fetch helpers ── */

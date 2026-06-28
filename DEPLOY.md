@@ -28,8 +28,13 @@ Useful scripts: `db:generate`, `db:push`, `db:migrate`, `db:seed`, `db:studio`, 
 # on the VPS, in the project folder
 cp .env.example .env
 nano .env                     # set a strong JWT_SECRET (openssl rand -base64 48)
+                              # and set ADMIN_EMAIL / ADMIN_PASSWORD for the seeded admin
 docker compose up -d --build
 ```
+
+> **Important:** set `ADMIN_PASSWORD` (and optionally `ADMIN_EMAIL`) in `.env`
+> before the first boot. If you don't, the seed falls back to the insecure demo
+> password `admin123` — change it immediately after first login if so.
 
 This builds the standalone image, runs `prisma migrate deploy`, seeds on first
 boot (if empty), and serves on **port 3000**. The SQLite DB + uploaded files

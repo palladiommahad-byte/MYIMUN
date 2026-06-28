@@ -15,6 +15,10 @@ services:
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in your .env file}"
       SESSION_DAYS: "${SESSION_DAYS:-7}"
       SEED_ON_START: "${SEED_ON_START:-true}"
+      # Admin account the seed bootstraps on first boot. Set ADMIN_PASSWORD in .env;
+      # if unset the seed falls back to an insecure demo password.
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@myimun.org}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       NODE_ENV: "production"
     volumes:
       # The SQLite database + uploaded files survive redeploys here.

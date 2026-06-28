@@ -26,14 +26,9 @@ export interface CertificateData {
     edition?: number;
 }
 
-const DIR = '/assets/certificate';
+import { escapeHtml, toTitleCase } from './html';
 
-/** Title-case a name: "ayoub koubba" → "Ayoub Koubba". */
-export function toTitleCase(name: string): string {
-    return String(name || '')
-        .toLowerCase()
-        .replace(/\b[\p{L}]/gu, ch => ch.toUpperCase());
-}
+const DIR = '/assets/certificate';
 
 /** Name is fixed at 72px per design; long names shrink so they never overflow. */
 export function getNameFontSize(name: string): number {
@@ -144,12 +139,4 @@ export async function centerCertificateName(container: HTMLElement): Promise<voi
     // With text-align:center the advance box is centred; shift so the ink is.
     const delta = (advance - inkRight + inkLeft) / 2;
     el.style.transform = Math.abs(delta) > 0.5 ? `translateX(${delta}px)` : '';
-}
-
-function escapeHtml(s: string): string {
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
