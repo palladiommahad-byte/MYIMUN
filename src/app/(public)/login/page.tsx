@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/auth/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Globe, Mail, Lock, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Globe, Mail, Lock, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { ADMIN_PAGES } from '@/lib/adminPages';
 
 const STAFF = ['admin', 'secretary', 'manager'];
@@ -16,6 +16,8 @@ export default function LoginPage() {
     const [view, setView] = useState<'login' | 'forgot'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const [forgotPhone, setForgotPhone] = useState('');
     const [forgotSent, setForgotSent] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function LoginPage() {
         setError(null);
         setBusy(true);
         try {
-            const user = await login(email.trim(), password);
+            const user = await login(email.trim(), password, rememberMe);
             if (!STAFF.includes(user.role)) {
                 router.replace('/dashboard');
             } else if (user.role === 'admin') {
@@ -156,12 +158,31 @@ export default function LoginPage() {
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
                                 <input
-                                    type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                                    type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
+                                    className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-12 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300 transition-colors"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
                             </div>
                         </div>
+
+                        <label className="flex items-center gap-2.5 ml-1 cursor-pointer select-none group">
+                            <input
+                                type="checkbox"
+                                checked={rememberMe}
+                                onChange={e => setRememberMe(e.target.checked)}
+                                className="w-4 h-4 rounded border-white/20 bg-white/5 text-blue-500 accent-blue-500 focus:ring-2 focus:ring-blue-500/40 cursor-pointer"
+                            />
+                            <span className="text-sm font-semibold text-slate-400 group-hover:text-slate-200 transition-colors">Remember me</span>
+                        </label>
 
                         {error && (
                             <div className="flex items-center gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

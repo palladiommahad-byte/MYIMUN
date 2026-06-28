@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronUp, Plus, Search, ArrowLeft, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useConference } from '@/context/ConferenceContext';
+import { Countdown } from '@/components/ui/Countdown';
 
 /* ════════════════════════════════════════════════════════════
    MYIMUN Landing Page — fully admin-controllable.
@@ -210,8 +211,11 @@ function Partners() {
 
 /* ════ EVENT ANNOUNCEMENT (DARK) ════ */
 function EventAnnouncement() {
-    const { landingPage } = useConference();
+    const { landingPage, events } = useConference();
     const a = landingPage.announcement;
+    // Countdown is tied to the actual conference start date (Admin → Events), not a
+    // separately-set value, so it's always in sync with the real schedule.
+    const upcomingEvent = events.find(e => e.published) ?? events[0];
     // bullets render left-to-right in a 2-col grid; keep source order
     return (
         <section style={{ background: C.dark, padding: '96px 64px' }} className="lp-section">
@@ -219,6 +223,13 @@ function EventAnnouncement() {
                 <div style={{ flex: '0 0 55%' }}>
                     <Tag>{a.tag}</Tag>
                     <h2 style={{ marginTop: 24, marginBottom: 32, fontWeight: 700, fontSize: 48, lineHeight: 1.25, color: C.white }}>{a.heading}</h2>
+
+                    {upcomingEvent?.startDate && (
+                        <div style={{ marginBottom: 32 }}>
+                            <Countdown target={upcomingEvent.startDate} variant="dark" />
+                        </div>
+                    )}
+
                     <h3 style={{ fontWeight: 700, fontSize: 28, color: C.onDarkMuted, marginBottom: 16 }}>{a.subheading}</h3>
 
                     {a.paragraphs.map((para, i) => (

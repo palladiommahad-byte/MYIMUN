@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Calendar, MapPin, Users, Clock, Hotel, BookOpen, ChevronDown, ChevronUp, Star, ImageIcon, ClipboardList, CreditCard, Lock, ArrowRight } from 'lucide-react';
 import { useConference, ConferenceEvent, ScheduleEvent } from '@/context/ConferenceContext';
 import { useAuth } from '@/auth/AuthContext';
+import { Countdown } from '@/components/ui/Countdown';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -97,6 +98,13 @@ function EventDetail({ event }: { event: ConferenceEvent }) {
                     {event.subtitle && <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)' }}>{event.subtitle}</p>}
                 </div>
             </div>
+
+            {/* Countdown — tied directly to this event's start date (Admin → Events) */}
+            {event.startDate && (
+                <section style={{ background: C.surface, borderRadius: 14, padding: '20px 24px', border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow }}>
+                    <Countdown target={event.startDate} label="Conference begins in" />
+                </section>
+            )}
 
             {/* Info badges row */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>

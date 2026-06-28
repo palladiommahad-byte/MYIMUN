@@ -6,7 +6,8 @@ import type { User } from '@prisma/client';
 import { prisma } from './prisma';
 
 const COOKIE = 'myimun_session';
-const SESSION_DAYS = Number(process.env.SESSION_DAYS ?? 7);
+const REMEMBER_DAYS = Number(process.env.SESSION_DAYS ?? 30);
+const SHORT_SESSION_HOURS = 12; // when "Remember me" is off, still cap the token lifetime even if the cookie outlives the browser tab
 
 function secret(): Uint8Array {
     const s = process.env.JWT_SECRET;
@@ -19,12 +20,12 @@ export const hashPassword = (plain: string) => bcrypt.hash(plain, 10);
 export const verifyPassword = (plain: string, hash: string) => bcrypt.compare(plain, hash);
 
 /* ── Session token (JWT in an httpOnly cookie) ── */
-export async function createSession(user: Pick<User, 'id' | 'role'>) {
+export async function createSession(user: Pick<User, 'id' | 'role'>, rememberMe: boolean = true) {
     const token = await new SignJWT({ role: user.role })
         .setProtectedHeader({ alg: 'HS256' })
         .setSubject(user.id)
         .setIssuedAt()
-        .setExpirationTime(`${SESSION_DAYS}d`)
+        .setExpirationTime(rememberMe ? `${REMEMBER_DAYS}d` : `${SHORT_SESSION_HOURS}h`)
         .sign(secret());
 
     const jar = await cookies();
@@ -33,7 +34,9 @@ export async function createSession(user: Pick<User, 'id' | 'role'>) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: SESSION_DAYS * 24 * 60 * 60,
+        // Omitting maxAge makes it a session cookie that the browser clears on close,
+        // matching the shorter JWT lifetime used when "Remember me" is unchecked.
+        ...(rememberMe ? { maxAge: REMEMBER_DAYS * 24 * 60 * 60 } : {}),
     });
 }
 

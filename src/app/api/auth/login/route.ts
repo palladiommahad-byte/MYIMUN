@@ -6,6 +6,7 @@ import { ok, fail, route } from '@/lib/api';
 const schema = z.object({
     email: z.string().trim().toLowerCase().email('Enter a valid email'),
     password: z.string().min(1, 'Password is required'),
+    rememberMe: z.boolean().optional().default(true),
 });
 
 export const POST = route(async (req: Request) => {
@@ -17,6 +18,6 @@ export const POST = route(async (req: Request) => {
     }
     if (user.status === 'inactive') return fail('This account is disabled', 403);
 
-    await createSession(user);
+    await createSession(user, body.rememberMe);
     return ok(publicUser(user));
 });

@@ -6,7 +6,7 @@ import { User } from '../types';
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<User>;
+    login: (email: string, password: string, rememberMe?: boolean) => Promise<User>;
     register: (fullName: string, email: string, password: string) => Promise<User>;
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
@@ -65,8 +65,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })();
     }, [refresh]);
 
-    const login = useCallback(async (email: string, password: string) => {
-        const data = await postJSON('/api/auth/login', { email, password });
+    const login = useCallback(async (email: string, password: string, rememberMe: boolean = true) => {
+        const data = await postJSON('/api/auth/login', { email, password, rememberMe });
         const u = mapUser(data)!;
         setUser(u);
         return u;

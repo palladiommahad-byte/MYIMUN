@@ -511,6 +511,13 @@ function LandingEditorInner() {
                             <Field label="Subheading"><Input value={landingPage.announcement.subheading} onChange={v => setAnnounce({ subheading: v })} placeholder="About the Conference" /></Field>
                         </Card>
 
+                        <Card title="Countdown Timer" subtitle="Shown here and on the delegate Events page" accent={S.accent}>
+                            <p style={{ fontSize: 12.5, color: S.textSec, lineHeight: 1.6 }}>
+                                The countdown is tied directly to the conference&apos;s start date — there&apos;s nothing to set here.
+                                Edit the date in <strong style={{ color: S.text }}>Events</strong> and the countdown updates everywhere automatically.
+                            </p>
+                        </Card>
+
                         <Card title="Paragraphs" subtitle="Wrap words in **double asterisks** to make them bold & white" accent={S.red}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 {landingPage.announcement.paragraphs.map((para, i) => (
