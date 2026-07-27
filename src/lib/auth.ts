@@ -91,12 +91,14 @@ export async function requireUser() {
 const STAFF_ROLES = ['admin', 'secretary', 'manager'];
 export async function requireStaff() {
     const user = await requireUser();
+    if (user.mustChangeCredentials) throw new AuthError(403, 'Complete the required account setup first');
     if (!STAFF_ROLES.includes(user.role)) throw new AuthError(403, 'Staff access required');
     return user;
 }
 
 export async function requireAdmin() {
     const user = await requireUser();
+    if (user.mustChangeCredentials) throw new AuthError(403, 'Complete the required account setup first');
     if (user.role !== 'admin') throw new AuthError(403, 'Admin access required');
     return user;
 }

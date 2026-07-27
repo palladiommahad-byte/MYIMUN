@@ -422,77 +422,9 @@ function resolveLandingPage(saved: Partial<LandingPageData> | undefined): Landin
     };
 }
 
-/* ── Seed data ── */
-const SEED_COMMITTEES: Committee[] = [
-    { id: 1, name: 'United Nations Security Council', abbr: 'UNSC', delegates: 15, topics: 2, director: 'Dr. Sarah Al-Fayed', topicList: ['Cybersecurity Threats & State Actors', 'Nuclear Non-Proliferation Treaty'] },
-    { id: 2, name: 'World Health Organization',        abbr: 'WHO',  delegates: 45, topics: 3, director: 'Dr. James Kim',      topicList: ['Pandemic Preparedness in 2030', 'Global Vaccine Access & Equity', 'Mental Health Crisis'] },
-    { id: 3, name: 'Disarmament & International Security', abbr: 'DISEC', delegates: 80, topics: 2, director: 'Ambassador Liu Zhang', topicList: ['Small Arms & Light Weapons Trafficking', 'Space Militarization'] },
-    { id: 4, name: 'United Nations Human Rights Council', abbr: 'UNHRC', delegates: 40, topics: 2, director: 'Prof. Amina Diallo', topicList: ['Digital Surveillance & Privacy Rights', 'Refugee & Stateless Persons Rights'] },
-];
-
-const SEED_SCHEDULE: ScheduleEvent[] = [
-    { id: 101, day: 'Day 1', date: 'Friday, Oct 12',   time: '08:00 AM', title: 'Registration & Kit Pickup',  location: 'Grand Foyer',      type: 'Logistics', description: 'Pick up your delegate handbook, badges, and placards.' },
-    { id: 102, day: 'Day 1', date: 'Friday, Oct 12',   time: '10:00 AM', title: 'Opening Ceremony',           location: 'Royal Auditorium', type: 'Keynote',   description: 'Keynote by Secretary General and guest speaker Dr. Amina J. Mohammed.' },
-    { id: 103, day: 'Day 1', date: 'Friday, Oct 12',   time: '12:00 PM', title: 'Networking Lunch',           location: 'Gardens',          type: 'Break',     description: 'A casual lunch to meet fellow delegates before sessions begin.' },
-    { id: 104, day: 'Day 1', date: 'Friday, Oct 12',   time: '01:30 PM', title: 'Committee Session I',        location: 'Breakout Rooms',   type: 'Session',   description: 'Setting the agenda and opening speeches.' },
-    { id: 105, day: 'Day 2', date: 'Saturday, Oct 13', time: '09:00 AM', title: 'Committee Session II',       location: 'Breakout Rooms',   type: 'Session',   description: 'Drafting working papers and forming blocs.' },
-    { id: 106, day: 'Day 2', date: 'Saturday, Oct 13', time: '12:00 PM', title: 'Lunch Symposium',            location: 'Banquet Hall',     type: 'Special',   description: "Panel: 'The Future of Digital Diplomacy' with industry experts." },
-    { id: 107, day: 'Day 2', date: 'Saturday, Oct 13', time: '02:00 PM', title: 'Committee Session III',      location: 'Breakout Rooms',   type: 'Session',   description: 'Introduction of draft resolutions and amendment debates.' },
-    { id: 108, day: 'Day 2', date: 'Saturday, Oct 13', time: '08:00 PM', title: 'Gala Night',                 location: 'Poolside',         type: 'Social',    description: 'A magical evening under the stars with live music and dancing.' },
-    { id: 109, day: 'Day 3', date: 'Sunday, Oct 14',   time: '09:30 AM', title: 'Committee Session IV',       location: 'Breakout Rooms',   type: 'Session',   description: "Voting on resolutions. Final chance to secure your country's interests." },
-    { id: 110, day: 'Day 3', date: 'Sunday, Oct 14',   time: '12:30 PM', title: 'Closing Ceremony',           location: 'Royal Auditorium', type: 'Keynote',   description: 'Awards presentation for Best Delegate and Outstanding Delegations.' },
-    { id: 111, day: 'Day 3', date: 'Sunday, Oct 14',   time: '02:00 PM', title: 'Farewell Tea',               location: 'Lobby Lounge',     type: 'Social',    description: 'Say goodbye to new friends and exchange contacts.' },
-    { id: 112, day: 'Day 4', date: 'Monday, Oct 15',   time: '10:00 AM', title: 'City Tour (Optional)',        location: 'Medina Entrance',  type: 'Excursion', description: 'Guided tour of the historic Medina, Souks, and Bahia Palace.' },
-    { id: 113, day: 'Day 4', date: 'Monday, Oct 15',   time: '02:00 PM', title: 'Airport Transfers',           location: 'Hotel Lobby',      type: 'Logistics', description: 'Shuttles departing every hour for RAK Airport.' },
-];
-
-const SEED_CONVERSATIONS: Conversation[] = [
-    {
-        id: 9001, delegateId: '123', delegateName: 'Honorable Delegate',
-        delegateEmail: 'delegate@myimun.org', delegateCountry: 'France',
-        subject: 'Visa Application Support', category: 'Logistics',
-        createdAt: 'Yesterday, 9:00 AM', lastMessageAt: '10:30 AM',
-        adminUnread: 0, delegateUnread: 0,
-        messages: [
-            { id: 1, text: 'Hello, I need an official invitation letter for my visa application. Could you please provide one?', sender: 'delegate', time: 'Yesterday, 9:00 AM' },
-            { id: 2, text: 'Hi, we are processing your request. It should be ready by tomorrow.', sender: 'admin', time: 'Yesterday, 2:00 PM' },
-            { id: 3, text: 'Please find attached your official invitation letter. Safe travels!', sender: 'admin', time: '10:30 AM' },
-        ],
-    },
-    {
-        id: 9002, delegateId: '123', delegateName: 'Honorable Delegate',
-        delegateEmail: 'delegate@myimun.org', delegateCountry: 'France',
-        subject: 'Position Paper Feedback', category: 'Committee',
-        createdAt: 'Mon, 4:00 PM', lastMessageAt: 'Yesterday',
-        adminUnread: 0, delegateUnread: 1,
-        messages: [
-            { id: 1, text: "I've submitted my position paper. When can I expect feedback?", sender: 'delegate', time: 'Mon, 4:00 PM' },
-            { id: 2, text: 'Great work on the paper. A few comments on the policy proposals have been added.', sender: 'admin', time: 'Yesterday, 11:15 AM' },
-        ],
-    },
-];
-
-const SEED_PACKAGES: ConferencePackage[] = [
-    {
-        id: 1001, name: 'Non-Accommodation Plan', price: 150, currency: 'USD',
-        description: 'For local delegates or those with their own accommodation. Covers all conference sessions.',
-        features: ['Full conference access (3 days)', 'Delegate handbook & materials', 'All committee sessions', 'Networking lunches (Day 1 & 2)', 'Certificate of participation'],
-        emoji: '📋', badge: '', hidden: false, color: '#3B7FFF',
-    },
-    {
-        id: 1002, name: 'Accommodation Plan', price: 350, currency: 'USD',
-        description: 'Includes 3-night hotel stay at the conference venue with daily breakfast.',
-        features: ['Everything in Non-Accommodation Plan', '3 nights hotel accommodation', 'Daily breakfast included', 'Airport pickup & drop-off', 'Conference shuttle service'],
-        emoji: '🏨', badge: 'Most Popular', hidden: false, color: '#7C5FFF',
-    },
-    {
-        id: 1003, name: 'Full Experience Plan', price: 550, currency: 'USD',
-        description: 'The ultimate MYIMUN experience with exclusive perks, VIP access, and all activities.',
-        features: ['Everything in Accommodation Plan', 'Gala Night tickets (×2)', 'Guided City Tour (Day 4)', 'VIP seating at all ceremonies', 'Exclusive delegate gift bag', 'Priority committee selection'],
-        emoji: '⭐', badge: 'Best Value', hidden: false, color: '#F59E0B',
-    },
-];
-
+/* Legacy fixtures below are retained only for source-history compatibility. They are not used by production initialization. */
+/* Removed demo event, settings, and pricing fixtures. */
+/*
 const SEED_EVENTS: ConferenceEvent[] = [{
     id: 1, title: 'MYIMUN 2026', subtitle: 'Model United Nations Conference', edition: '12th Annual Edition',
     startDate: '2026-09-15', endDate: '2026-09-18',
@@ -574,6 +506,7 @@ const SEED_PAYMENT_SETTINGS: PaymentSettings = {
 };
 
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+*/
 
 /* ── localStorage helpers ── */
 const STORE_KEY = 'myimun_conference_v1';
@@ -645,7 +578,7 @@ function writeStorage(state: StoredState) {
 function initWaiting(committees: Committee[], existing: Record<string, number> = {}): Record<string, number> {
     const result = { ...existing };
     committees.forEach(c => {
-        if (!(c.abbr in result)) result[c.abbr] = rand(6, 21);
+        if (!(c.abbr in result)) result[c.abbr] = 0;
     });
     return result;
 }
@@ -739,23 +672,23 @@ const ConferenceContext = createContext<ConferenceCtx | undefined>(undefined);
 export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
 
-    // Seed fallbacks render public pages instantly; real data is fetched from the API below.
-    const [committees,     setCommittees]     = useState<Committee[]>(SEED_COMMITTEES);
+    // Production starts empty. The API is the single source of truth.
+    const [committees,     setCommittees]     = useState<Committee[]>([]);
     const [papers,         setPapers]         = useState<PositionPaper[]>([]);
     const [applications,   setApplications]   = useState<CommitteeApplication[]>([]);
     const [waitingCounts,  setWaitingCounts]  = useState<Record<string, number>>({});
-    const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SEED_SCHEDULE);
+    const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
     const [conversations,  setConversations]  = useState<Conversation[]>([]);
     const [notifications,  setNotifications]  = useState<AppNotification[]>([]);
     const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
     const [announcements,  setAnnouncements]  = useState<Announcement[]>([]);
     const [registrations,  setRegistrations]  = useState<Registration[]>([]);
     const [payments,       setPayments]       = useState<PaymentSubmission[]>([]);
-    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(SEED_PAYMENT_SETTINGS);
-    const [packages,       setPackages]       = useState<ConferencePackage[]>(SEED_PACKAGES);
-    const [events,         setEvents]         = useState<ConferenceEvent[]>(SEED_EVENTS);
+    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '' });
+    const [packages,       setPackages]       = useState<ConferencePackage[]>([]);
+    const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
     const [landingPage,    setLandingPage]    = useState<LandingPageData>(DEFAULT_LANDING);
-    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>(SEED_CONFERENCE_SETTINGS);
+    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false });
 
     /* ── Mappers: server record → client shape ── */
     const fmt = (iso: string) => { try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
@@ -808,8 +741,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         if (e) setEvents(e);
         if (pk) setPackages(pk);
         if (sc) setScheduleEvents(sc);
-        if (pay) setPaymentSettings({ ...SEED_PAYMENT_SETTINGS, ...pay });
-        if (conf) setConferenceSettings({ ...SEED_CONFERENCE_SETTINGS, ...conf });
+        if (pay) setPaymentSettings({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '', ...pay });
+        if (conf) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, ...conf });
         if (land) setLandingPage(resolveLandingPage(land));
     }, [applyCommittees]);
 

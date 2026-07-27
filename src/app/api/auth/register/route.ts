@@ -6,7 +6,7 @@ import { ok, fail, route } from '@/lib/api';
 const schema = z.object({
     fullName: z.string().trim().min(2, 'Full name is too short').max(120),
     email: z.string().trim().toLowerCase().email('Enter a valid email'),
-    password: z.string().min(6, 'Password must be at least 6 characters').max(200),
+    password: z.string().min(12, 'Password must be at least 12 characters').max(200),
 });
 
 export const POST = route(async (req: Request) => {

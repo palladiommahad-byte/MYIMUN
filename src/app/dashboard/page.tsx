@@ -50,10 +50,10 @@ export default function DashboardPage() {
     const flagUrl         = displayCountry ? getFlagUrl(displayCountry) : undefined;
 
     const activeEvent   = events[0];
-    const certName      = registration?.fullName || user?.name || 'Honorable Delegate';
-    const certDate      = activeEvent?.certDateDisplay || landingPage.conference.date || 'September 15–18, 2025';
-    const certLocation  = activeEvent?.certLocation  || 'Marrakech';
-    const certSignatory = activeEvent?.certSignatory || 'Mustapha Ait Mbark';
+    const certName      = registration?.fullName || user?.name || 'Delegate';
+    const certDate      = activeEvent?.certDateDisplay || landingPage.conference.date || '';
+    const certLocation  = activeEvent?.certLocation  || '';
+    const certSignatory = activeEvent?.certSignatory || '';
     const certEdition   = activeEvent?.certEditionNumber;
 
     const isAccepted = registration?.status === 'Accepted';
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         if (!iso) return iso;
         try { return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); } catch { return iso; }
     };
-    const letterEditionYear = activeEvent?.letterEditionYear || '8th Annual Edition 2026';
+    const letterEditionYear = activeEvent?.letterEditionYear || '';
     const letterStart = fmtDate(activeEvent?.startDate || '');
     const letterEnd   = fmtDate(activeEvent?.endDate   || '');
 

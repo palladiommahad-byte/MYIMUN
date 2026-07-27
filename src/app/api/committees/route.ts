@@ -24,7 +24,7 @@ export const POST = route(async (req: Request) => {
     await requirePage('/admin/committees');
     const data = schema.parse(await req.json());
     const row = await prisma.committee.create({
-        data: { ...data, abbr: data.abbr.toUpperCase(), waiting: Math.floor(Math.random() * 16) + 6 },
+        data: { ...data, abbr: data.abbr.toUpperCase(), waiting: 0 },
     });
     return ok(row, 201);
 });

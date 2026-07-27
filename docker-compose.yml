@@ -8,21 +8,27 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       # Absolute path inside the container — unambiguous for both the app and migrations.
       DATABASE_URL: "file:/app/prisma/data/app.db"
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in your .env file}"
+      INITIAL_ADMIN_TOKEN: "${INITIAL_ADMIN_TOKEN:?Set INITIAL_ADMIN_TOKEN in your .env file}"
       SESSION_DAYS: "${SESSION_DAYS:-7}"
-      SEED_ON_START: "${SEED_ON_START:-true}"
-      # Admin account the seed bootstraps on first boot. Set ADMIN_PASSWORD in .env;
-      # if unset the seed falls back to an insecure demo password.
-      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@myimun.org}"
-      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       NODE_ENV: "production"
     volumes:
       # The SQLite database + uploaded files survive redeploys here.
       - myimun-data:/app/prisma/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   myimun-data:

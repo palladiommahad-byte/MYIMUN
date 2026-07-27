@@ -22,6 +22,7 @@ model User {
   address      String?
   avatarUrl    String?
   status       String   @default("active") // active | inactive
+  mustChangeCredentials Boolean @default(false) // bootstrap admin must replace its temporary email and password
   permissions  Json? // string[] of allowed /admin/* page paths — secretary/manager only; admin always has full access
   joined       DateTime @default(now())
   createdAt    DateTime @default(now())

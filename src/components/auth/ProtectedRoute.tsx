@@ -24,6 +24,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
         if (!isLoading && !user) {
             router.replace('/login');
         }
+        if (!isLoading && user?.mustChangeCredentials) {
+            router.replace('/setup-admin');
+        }
         if (!isLoading && user && allowedRoles && !allowedRoles.includes(user.role)) {
             const redirectPath = STAFF_ROLES.includes(user.role) ? '/admin' : '/dashboard';
             router.replace(redirectPath);
@@ -46,7 +49,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
         );
     }
 
-    if (!hasRequiredRole) {
+    if (!hasRequiredRole || user.mustChangeCredentials) {
         return null;
     }
 

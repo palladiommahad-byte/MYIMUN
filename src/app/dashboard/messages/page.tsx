@@ -25,7 +25,7 @@ export default function DelegateMessagesPage() {
 
     const delegateId      = user?.id ?? 'unknown';
     const delegateName    = user?.name ?? 'Delegate';
-    const delegateEmail   = user?.email ?? 'delegate@myimun.org';
+    const delegateEmail   = user?.email ?? '';
     const delegateCountry = user?.country ?? '';
 
     const myConversations = getConversationsForDelegate(delegateId);

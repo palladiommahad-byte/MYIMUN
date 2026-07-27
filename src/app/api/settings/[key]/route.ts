@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { requirePage } from '@/lib/auth';
+import { requirePage, requireUser } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 
 const ALLOWED = ['payment', 'conference', 'landing'];
@@ -11,6 +11,7 @@ const PAGE_BY_KEY: Record<string, string> = {
 export const GET = route(async (_req: Request, ctx: { params: Promise<{ key: string }> }) => {
     const { key } = await ctx.params;
     if (!ALLOWED.includes(key)) return fail('Unknown settings key', 404);
+    if (key === 'payment') await requireUser();
     const row = await prisma.appSetting.findUnique({ where: { key } });
     return ok(row?.value ?? null);
 });

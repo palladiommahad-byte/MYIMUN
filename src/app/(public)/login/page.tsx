@@ -31,7 +31,9 @@ export default function LoginPage() {
         setBusy(true);
         try {
             const user = await login(email.trim(), password, rememberMe);
-            if (!STAFF.includes(user.role)) {
+            if (user.mustChangeCredentials) {
+                router.replace('/setup-admin');
+            } else if (!STAFF.includes(user.role)) {
                 router.replace('/dashboard');
             } else if (user.role === 'admin') {
                 router.replace('/admin');

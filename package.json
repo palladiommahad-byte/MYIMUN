@@ -18,6 +18,10 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "overrides": {
+    "postcss": "8.5.23",
+    "sharp": "0.35.3"
+  },
   "dependencies": {
     "@motionone/utils": "^10.18.0",
     "@prisma/client": "^6.19.3",

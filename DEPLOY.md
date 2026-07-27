@@ -1,88 +1,58 @@
-# MYIMUN — Backend & Deployment
+# Production deployment — Hostinger VPS
 
-The app is a single **Next.js** server (frontend + API routes) backed by
-**Prisma + SQLite**. The database is one file (`prisma/data/app.db`) — in
-production it lives on a Docker volume so it survives redeploys.
+This is a Dockerized Next.js application with a persistent SQLite database. It needs a Hostinger **VPS/KVM plan**; shared hosting cannot run Docker or a Next.js server.
 
-## Local development
+## Before deploying
+
+1. Point your domain's A record to the VPS IP.
+2. Install Docker Engine and Docker Compose on the VPS.
+3. Copy the project to the VPS, then create `.env` from `.env.example`.
+4. Generate two different secrets and place them in `.env`:
 
 ```bash
-npm install
-cp .env.example .env          # then edit JWT_SECRET
-npm run db:migrate            # creates prisma/data/app.db
-npm run db:seed               # demo data + accounts
-npm run dev                   # http://localhost:3000
+openssl rand -base64 48  # JWT_SECRET
+openssl rand -base64 48  # INITIAL_ADMIN_TOKEN
 ```
 
-**Demo accounts** (from the seed):
-- Admin — `admin@myimun.org` / `admin123`
-- Delegate — `delegate@myimun.org` / `delegate123`
+Never use the example secret values or commit `.env`.
 
-Useful scripts: `db:generate`, `db:push`, `db:migrate`, `db:seed`, `db:studio`, `db:reset`.
-
-## Production on a Hostinger VPS (Docker)
-
-> Requires a **VPS** (KVM) plan with Docker — shared/cloud hosting cannot run a Node server.
+## Start the app
 
 ```bash
-# on the VPS, in the project folder
-cp .env.example .env
-nano .env                     # set a strong JWT_SECRET (openssl rand -base64 48)
-                              # and set ADMIN_EMAIL / ADMIN_PASSWORD for the seeded admin
 docker compose up -d --build
+docker compose ps
+docker compose logs -f web
 ```
 
-> **Important:** set `ADMIN_PASSWORD` (and optionally `ADMIN_EMAIL`) in `.env`
-> before the first boot. If you don't, the seed falls back to the insecure demo
-> password `admin123` — change it immediately after first login if so.
+The app is deliberately bound to `127.0.0.1:3000`, so it is not exposed directly to the internet. Database migrations run automatically. No fictional accounts, delegates, events, prices, or payment details are inserted.
 
-This builds the standalone image, runs `prisma migrate deploy`, seeds on first
-boot (if empty), and serves on **port 3000**. The SQLite DB + uploaded files
-persist in the `myimun-data` Docker volume.
+Open `https://your-domain.com/setup-admin` and create the first administrator with `INITIAL_ADMIN_TOKEN`. The setup route locks permanently after the first admin account is created. Then sign in and configure the real event, committees, registration settings, payment details, and landing-page text in `/admin` before opening registrations.
 
-### HTTPS / domain (Caddy reverse proxy)
+## HTTPS with Caddy
 
-The simplest path to automatic HTTPS — create a `Caddyfile`:
+Create a `Caddyfile` beside `docker-compose.yml`:
 
-```
+```caddyfile
 your-domain.com {
-    reverse_proxy localhost:3000
+    reverse_proxy 127.0.0.1:3000
 }
 ```
 
-```bash
-docker run -d --network host -v $PWD/Caddy​file:/etc/caddy/Caddyfile \
-  -v caddy_data:/data caddy
-```
+Run Caddy on the VPS host (or use an existing Hostinger-supported reverse proxy). It obtains and renews HTTPS certificates automatically. Do not expose port 3000 in a firewall rule; only allow ports 80 and 443.
 
-Point your domain's A record at the VPS IP; Caddy fetches a Let's Encrypt cert automatically.
+## Backups and updates
 
-## Backups
-
-The whole database is one file. Back it up by copying it out of the volume:
+Back up the SQLite database and uploaded files before each deployment:
 
 ```bash
 docker compose cp web:/app/prisma/data/app.db ./backup-$(date +%F).db
 ```
 
-## Switching to Postgres later
+For an update:
 
-Change the `datasource` provider in `prisma/schema.prisma` to `postgresql`,
-set `DATABASE_URL` to your Postgres connection string, then
-`npx prisma migrate dev`. The application code does not change.
+```bash
+git pull
+docker compose up -d --build
+```
 
-## API surface (all under `/api`)
-
-| Area | Routes |
-|---|---|
-| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
-| Files | `POST /files`, `GET /files/:key` |
-| Registrations | `GET/POST /registrations`, `PATCH /registrations/:id` |
-| Payments | `GET/POST /payments`, `PATCH /payments/:id` |
-| Position Papers | `GET/POST /papers`, `PATCH /papers/:id` |
-| Committee Applications | `GET/POST /applications`, `PATCH /applications/:id` |
-| Config (read) | `GET /committees`, `GET /events`, `GET /packages`, `GET /schedule` |
-| Settings | `GET /settings/:key`, `PUT /settings/:key` (`payment`|`conference`|`landing`) |
-
-Auth is a JWT in an httpOnly cookie. Delegate routes scope to the caller;
-admin/secretary/manager roles unlock the staff actions.
+The `myimun-data` Docker volume persists across normal updates. Do not run `docker compose down -v` in production: it removes the database and uploaded files.
