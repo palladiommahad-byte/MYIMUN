@@ -13,16 +13,16 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
-    { label: 'Overview',        icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Events',          icon: Star,            path: '/dashboard/events' },
-    { label: 'Registration',    icon: ClipboardList,   path: '/dashboard/registration' },
-    { label: 'Position Papers', icon: FileText,        path: '/dashboard/papers' },
-    { label: 'My Committee',    icon: Users,           path: '/dashboard/committee' },
-    { label: 'Profile',         icon: User,            path: '/dashboard/profile' },
-    { label: 'Payments',        icon: CreditCard,      path: '/dashboard/payments' },
-    { label: 'Schedule',        icon: Calendar,        path: '/dashboard/schedule' },
-    { label: 'Messages',        icon: MessageSquare,   path: '/dashboard/messages' },
-    { label: 'Contact Support', icon: Phone,           path: '/dashboard/contact' },
+    { label: 'Overview',        icon: LayoutDashboard, path: '/dashboard',              color: '#3B82F6' },
+    { label: 'Events',          icon: Star,            path: '/dashboard/events',       color: '#F59E0B' },
+    { label: 'Registration',    icon: ClipboardList,   path: '/dashboard/registration', color: '#8B5CF6' },
+    { label: 'Position Papers', icon: FileText,        path: '/dashboard/papers',       color: '#06B6D4' },
+    { label: 'My Committee',    icon: Users,           path: '/dashboard/committee',    color: '#10B981' },
+    { label: 'Profile',         icon: User,            path: '/dashboard/profile',      color: '#6366F1' },
+    { label: 'Payments',        icon: CreditCard,      path: '/dashboard/payments',     color: '#14B8A6' },
+    { label: 'Schedule',        icon: Calendar,        path: '/dashboard/schedule',     color: '#F97316' },
+    { label: 'Messages',        icon: MessageSquare,   path: '/dashboard/messages',     color: '#EC4899' },
+    { label: 'Contact Support', icon: Phone,           path: '/dashboard/contact',      color: '#0EA5E9' },
 ];
 
 const S = {
@@ -54,10 +54,10 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
             <NavigationProgress />
 
             {/* ── Mobile top bar ── */}
-            <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14"
+            <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 h-16"
                 style={{ background: '#FFFFFF', borderBottom: `1px solid ${S.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div className="flex items-center">
-                    <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ height: 30, width: 'auto', maxWidth: 160, objectFit: 'contain' }} />
+                <div className="flex min-w-0 flex-1 items-center">
+                    <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ width: 190, height: 40, maxWidth: 'calc(100vw - 112px)', objectFit: 'contain', objectPosition: 'left center' }} />
                 </div>
                 <div className="flex items-center gap-1">
                     <NotificationBell />
@@ -85,18 +85,18 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
 
             {/* ── Sidebar ── */}
             <aside
-                className={`fixed left-0 top-0 bottom-0 z-40 flex flex-col transition-transform duration-300
+                className={`fixed left-0 top-16 bottom-0 z-40 flex flex-col transition-transform duration-300 md:top-0
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
                 style={{ width: 220, background: S.surface, borderRight: `1px solid ${S.border}` }}
             >
                 {/* Logo */}
-                <div className="flex items-center justify-center px-4 border-b flex-shrink-0" style={{ borderColor: S.border, height: 72 }}>
+                <div className="hidden md:flex items-center justify-center px-4 border-b flex-shrink-0" style={{ borderColor: S.border, height: 72 }}>
                     <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ height: 'auto', width: '100%', maxWidth: 190, objectFit: 'contain' }} />
                 </div>
 
                 {/* Nav */}
                 <nav className="flex flex-col gap-0.5 px-3 pt-4 flex-1 overflow-y-auto">
-                    {NAV_ITEMS.map(({ label, icon: Icon, path }) => {
+                    {NAV_ITEMS.map(({ label, icon: Icon, path, color }) => {
                         const active = isActive(path);
                         return (
                             <Link key={path} href={path} onClick={() => setSidebarOpen(false)}>
@@ -109,7 +109,9 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                                         fontSize: 13,
                                     }}
                                 >
-                                    <Icon size={15} style={{ flexShrink: 0, color: active ? S.accent : S.textMuted }} />
+                                    <span style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color, background: `${color}${active ? '20' : '12'}` }}>
+                                        <Icon size={14} />
+                                    </span>
                                     {label}
                                 </div>
                             </Link>
@@ -130,9 +132,9 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                         </div>
                         <button onClick={handleLogout} title="Sign out"
                             className="p-1 rounded-md transition-colors"
-                            style={{ color: S.textMuted }}
+                            style={{ color: '#EF4444', background: 'rgba(239,68,68,0.08)' }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#EF4444'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = S.textMuted; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#EF4444'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'; }}
                         >
                             <LogOut size={13} />
                         </button>
@@ -146,7 +148,7 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
             </aside>
 
             {/* ── Main ── */}
-            <main className="flex-1 pt-14 md:pt-0 min-w-0" style={{ width: '100%' }}>
+            <main className="flex-1 pt-16 md:pt-0 min-w-0" style={{ width: '100%' }}>
                 <div className="md:ml-[220px]" style={{ minHeight: '100vh', boxSizing: 'border-box' }}>
                     {/* Desktop top bar — just the notification bell for now */}
                     <div className="hidden md:flex items-center justify-end px-6"
