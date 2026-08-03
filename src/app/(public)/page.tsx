@@ -110,7 +110,7 @@ function Hero() {
     }, [autoplay, slides.length]);
 
     return (
-        <section style={{ position: 'relative', minHeight: 620, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+        <section className="lp-hero" style={{ position: 'relative', minHeight: 620, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
                 {slides.length > 0 ? (
                     slides.map((src, i) => (
@@ -126,19 +126,19 @@ function Hero() {
             </div>
 
             <div style={{ position: 'relative', zIndex: 1, maxWidth: 1280, margin: '0 auto', width: '100%', padding: '120px 64px 60px' }} className="hero-pad">
-                <div style={{ maxWidth: 640 }}>
-                    <h1 style={{ lineHeight: 1.25, margin: 0 }}>
+                <div className="lp-hero-copy" style={{ maxWidth: 640 }}>
+                    <h1 className="lp-hero-title" style={{ lineHeight: 1.25, margin: 0 }}>
                         <span style={{ fontWeight: 800, fontSize: 'clamp(40px,6.25vw,60px)', color: C.blue }}>{h.headlineAccent}</span>
                         <span style={{ fontWeight: 800, fontSize: 'clamp(40px,6.25vw,60px)', color: C.blue }}> . </span>
                         <span style={{ fontWeight: 700, fontSize: 'clamp(40px,6.25vw,60px)', color: C.white }}>{h.headline}</span>
                     </h1>
 
-                    <p style={{ marginTop: 20, maxWidth: 480, fontWeight: 400, fontSize: 20, lineHeight: 1.6, color: 'rgba(255,255,255,0.92)' }}>
+                    <p className="lp-hero-description" style={{ marginTop: 20, maxWidth: 480, fontWeight: 400, fontSize: 20, lineHeight: 1.6, color: 'rgba(255,255,255,0.92)' }}>
                         {h.subheadline}
                     </p>
 
-                    <div style={{ marginTop: 32, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        <Link href="/login"><button className="lp-btn-outline">{h.ctaSecondary === 'Discover More' ? 'Log In' : h.ctaSecondary}</button></Link>
+                    <div className="lp-hero-actions" style={{ marginTop: 32, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                        <Link className="lp-hero-action" href="/login"><button className="lp-btn-outline">{h.ctaSecondary === 'Discover More' ? 'Log In' : h.ctaSecondary}</button></Link>
                         <button className="lp-btn-primary" onClick={triggerRegister}>{h.ctaPrimary}</button>
                     </div>
                 </div>
@@ -174,7 +174,7 @@ function WhoWeAre() {
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{w.tag}</Tag>
-                    <h2 style={{ marginTop: 20, marginBottom: 24, fontWeight: 700, fontSize: 35, lineHeight: 1.35 }}>
+                    <h2 className="lp-section-title" style={{ marginTop: 20, marginBottom: 24, fontWeight: 700, fontSize: 35, lineHeight: 1.35 }}>
                         <span style={{ color: C.blue }}>{w.headingAccent}</span>{' '}
                         <span style={{ color: C.heading }}>{w.heading}</span>
                     </h2>
@@ -196,7 +196,7 @@ function WhoWeAre() {
                         </div>
                     </div>
 
-                    <p style={{ maxWidth: 480, marginBottom: 32, fontWeight: 400, fontSize: 20, lineHeight: 1.7, color: C.body }}>{w.body}</p>
+                    <p className="lp-section-copy" style={{ maxWidth: 480, marginBottom: 32, fontWeight: 400, fontSize: 20, lineHeight: 1.7, color: C.body }}>{w.body}</p>
 
                     <button className="lp-btn-primary" onClick={triggerRegister}>{w.cta}</button>
                 </div>
@@ -232,11 +232,11 @@ function EventAnnouncement() {
     const upcomingEvent = events.find(e => e.published) ?? events[0];
     // bullets render left-to-right in a 2-col grid; keep source order
     return (
-        <section style={{ background: C.dark, padding: '96px 64px' }} className="lp-section">
+        <section style={{ background: C.dark, padding: '96px 64px' }} className="lp-section lp-announcement">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 48, alignItems: 'flex-start' }} className="lp-2col">
                 <div style={{ flex: '0 0 55%' }}>
                     <Tag>{a.tag}</Tag>
-                    <h2 style={{ marginTop: 24, marginBottom: 32, fontWeight: 700, fontSize: 48, lineHeight: 1.25, color: C.white }}>{a.heading}</h2>
+                    <h2 className="lp-announcement-title" style={{ marginTop: 24, marginBottom: 32, fontWeight: 700, fontSize: 48, lineHeight: 1.25, color: C.white }}>{a.heading}</h2>
 
                     {upcomingEvent?.startDate && (
                         <div style={{ marginBottom: 32 }}>
@@ -244,10 +244,10 @@ function EventAnnouncement() {
                         </div>
                     )}
 
-                    <h3 style={{ fontWeight: 700, fontSize: 28, color: C.onDarkMuted, marginBottom: 16 }}>{a.subheading}</h3>
+                    <h3 className="lp-announcement-subtitle" style={{ fontWeight: 700, fontSize: 28, color: C.onDarkMuted, marginBottom: 16 }}>{a.subheading}</h3>
 
                     {a.paragraphs.map((para, i) => (
-                        <p key={i} style={{ fontWeight: 400, fontSize: 19, lineHeight: 1.7, color: C.onDarkBody, marginBottom: 16 }}>{renderBold(para)}</p>
+                        <p key={i} className="lp-announcement-copy" style={{ fontWeight: 400, fontSize: 19, lineHeight: 1.7, color: C.onDarkBody, marginBottom: 16 }}>{renderBold(para)}</p>
                     ))}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 64, rowGap: 16, marginTop: 32, marginBottom: 32 }} className="lp-bullets">
@@ -283,7 +283,7 @@ function GetStarted() {
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{g.tag}</Tag>
-                    <h2 style={{ marginTop: 20, marginBottom: 28, fontWeight: 700, fontSize: 35, lineHeight: 1.4, color: C.heading }}>{g.heading}</h2>
+                    <h2 className="lp-section-title" style={{ marginTop: 20, marginBottom: 28, fontWeight: 700, fontSize: 35, lineHeight: 1.4, color: C.heading }}>{g.heading}</h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                         <button className="lp-btn-primary" onClick={triggerRegister}>{g.cta}</button>
                         <a href={waLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>

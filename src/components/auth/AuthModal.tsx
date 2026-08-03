@@ -127,6 +127,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                             <div className="relative z-10 px-8 py-10 md:px-10">
                                 {/* Header */}
                                 <div className="text-center mb-8">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src="/assets/MYIMUN-WHITE-LOGO-VERTICAL.png"
+                                        alt="MYIMUN"
+                                        className="auth-brand-logo mx-auto mb-5 object-contain"
+                                    />
                                     <h2 className="text-3xl font-extrabold text-white tracking-tight">
                                         {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Join Next Gen' : 'Reset Password'}
                                     </h2>

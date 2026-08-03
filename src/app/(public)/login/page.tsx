@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/auth/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Globe, Mail, Lock, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { ADMIN_PAGES } from '@/lib/adminPages';
 
 const STAFF = ['admin', 'secretary', 'manager'];
@@ -76,11 +76,12 @@ export default function LoginPage() {
 
                     {/* Header */}
                     <div className="text-center mb-8 relative z-10">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 p-0.5 mx-auto mb-6 shadow-lg shadow-blue-500/20">
-                            <div className="w-full h-full bg-[#0A0F1E] rounded-2xl flex items-center justify-center">
-                                <Globe className="text-white w-8 h-8" />
-                            </div>
-                        </div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src="/assets/MYIMUN-WHITE-LOGO-VERTICAL.png"
+                            alt="MYIMUN"
+                            className="auth-brand-logo mx-auto mb-5 object-contain"
+                        />
                         <h2 className="text-3xl font-extrabold text-white tracking-tight">{view === 'login' ? 'Welcome Back' : 'Reset Password'}</h2>
                         <p className="text-slate-400 mt-2 text-sm">{view === 'login' ? 'Sign in to the MYIMUN Portal' : 'Send a reset request to the organizers'}</p>
                     </div>
