@@ -396,7 +396,7 @@ function LandingEditorInner() {
                             </FormSection>
                             <FormSection label="Buttons">
                                 <Grid2>
-                                    <Field label="Outline Button (left)"><Input value={landingPage.hero.ctaSecondary} onChange={v => setHero({ ctaSecondary: v })} placeholder="Discover More" /></Field>
+                                    <Field label="Login Button (left)"><Input value={landingPage.hero.ctaSecondary} onChange={v => setHero({ ctaSecondary: v })} placeholder="Log In" /></Field>
                                     <Field label="Primary Button (right)"><Input value={landingPage.hero.ctaPrimary} onChange={v => setHero({ ctaPrimary: v })} placeholder="Register Now" /></Field>
                                 </Grid2>
                             </FormSection>
@@ -555,7 +555,7 @@ function LandingEditorInner() {
                             <Field label="Button Label"><Input value={landingPage.getStarted.cta} onChange={v => setGetStart({ cta: v })} placeholder="Register Now" /></Field>
                             <Grid2>
                                 <Field label="Contact Label"><Input value={landingPage.getStarted.contactLabel} onChange={v => setGetStart({ contactLabel: v })} placeholder="Message us:" /></Field>
-                                <Field label="Phone (also powers the WhatsApp button)"><Input value={landingPage.getStarted.phone} onChange={v => setGetStart({ phone: v })} placeholder="+212 713 133 601" /></Field>
+                                <Field label="Phone"><Input value={landingPage.getStarted.phone} onChange={v => setGetStart({ phone: v })} placeholder="+212 713 133 601" /></Field>
                             </Grid2>
                         </Card>
                         <Card title="Section Image" subtitle="Left-column photo (rounded bottom-right corner)" accent={S.accent}>

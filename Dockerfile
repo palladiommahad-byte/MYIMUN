@@ -35,18 +35,26 @@ ENV HOSTNAME=0.0.0.0
 # Prisma CLI (for `migrate deploy` at container start)
 RUN npm i -g prisma@6.19.3
 
+# The application and migration process do not need root privileges.
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs nextjs
+
 # Next.js standalone output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --chown=nextjs:nodejs --from=builder /app/.next/standalone ./
+COPY --chown=nextjs:nodejs --from=builder /app/.next/static ./.next/static
+COPY --chown=nextjs:nodejs --from=builder /app/public ./public
 
 # Prisma schema + migrations + generated client/engine
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --chown=nextjs:nodejs --from=builder /app/prisma ./prisma
+COPY --chown=nextjs:nodejs --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --chown=nextjs:nodejs --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh && mkdir -p prisma/data
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
+RUN sed -i 's/\r$//' docker-entrypoint.sh \
+    && chmod +x docker-entrypoint.sh \
+    && mkdir -p prisma/data \
+    && chown -R nextjs:nodejs prisma/data
 
 EXPOSE 3000
+USER nextjs
 ENTRYPOINT ["./docker-entrypoint.sh"]

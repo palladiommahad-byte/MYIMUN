@@ -6,12 +6,18 @@ import type { User } from '@prisma/client';
 import { prisma } from './prisma';
 
 const COOKIE = 'myimun_session';
-const REMEMBER_DAYS = Number(process.env.SESSION_DAYS ?? 30);
+const configuredSessionDays = Number(process.env.SESSION_DAYS ?? 7);
+const REMEMBER_DAYS = Number.isInteger(configuredSessionDays) && configuredSessionDays >= 1 && configuredSessionDays <= 30
+    ? configuredSessionDays
+    : 7;
 const SHORT_SESSION_HOURS = 12; // when "Remember me" is off, still cap the token lifetime even if the cookie outlives the browser tab
 
 function secret(): Uint8Array {
     const s = process.env.JWT_SECRET;
     if (!s) throw new Error('JWT_SECRET is not set');
+    if (process.env.NODE_ENV === 'production' && (s.length < 32 || /change-me|changeme|replace-me|example/i.test(s))) {
+        throw new Error('JWT_SECRET is not securely configured');
+    }
     return new TextEncoder().encode(s);
 }
 

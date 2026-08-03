@@ -2,12 +2,13 @@ import { prisma } from '@/lib/prisma';
 import { requirePage, requireUser } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 
-const ALLOWED = ['payment', 'conference', 'landing'];
+const ALLOWED = ['payment', 'conference', 'landing', 'about', 'committees-page', 'contact-page'];
 const PAGE_BY_KEY: Record<string, string> = {
     payment: '/admin/payments', conference: '/admin/settings', landing: '/admin/landing',
+    about: '/admin/events', 'committees-page': '/admin/events', 'contact-page': '/admin/events',
 };
 
-/** GET — public read of a site-config document (payment | conference | landing). */
+/** GET - public read of a site-config document. */
 export const GET = route(async (_req: Request, ctx: { params: Promise<{ key: string }> }) => {
     const { key } = await ctx.params;
     if (!ALLOWED.includes(key)) return fail('Unknown settings key', 404);

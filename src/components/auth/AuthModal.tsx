@@ -31,10 +31,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
     // Reset mode + fields when opening
     React.useEffect(() => {
-        if (isOpen) { setMode(initialMode); setError(null); setForgotSent(false); }
+        if (!isOpen) return;
+        queueMicrotask(() => {
+            setMode(initialMode);
+            setError(null);
+            setForgotSent(false);
+        });
     }, [isOpen, initialMode]);
 
     const switchMode = (m: Mode) => { setMode(m); setError(null); setForgotSent(false); };
+    const needsAccessHelp = mode === 'login' && !!error && /request access|secretariat/i.test(error);
 
     const handleForgot = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,13 +74,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             setFullName(''); setEmail(''); setPassword('');
             onClose();
             if (!['admin', 'secretary', 'manager'].includes(user.role)) {
-                router.push('/dashboard');
+                router.push('/dashboard/events');
             } else if (user.role === 'admin') {
                 router.push('/admin');
             } else {
                 const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
                 router.push(firstAllowed?.path ?? '/admin');
             }
+            router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {
@@ -240,7 +247,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                                                     type={showPassword ? 'text' : 'password'}
                                                     placeholder="••••••••"
                                                     required
-                                                    minLength={mode === 'register' ? 6 : undefined}
+                                                    minLength={mode === 'register' ? 8 : undefined}
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                     className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/10 rounded-xl py-3.5 pl-12 pr-12 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-sm font-semibold text-white placeholder:text-slate-600"
@@ -270,10 +277,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                                         </label>
                                     )}
 
+                                    {mode === 'register' && (
+                                        <p className="text-xs text-slate-500 ml-1">Use at least 8 characters.</p>
+                                    )}
+
                                     {error && (
-                                        <div className="flex items-center gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                                            <AlertCircle size={16} className="shrink-0" />
-                                            <span>{error}</span>
+                                        <div className="space-y-3 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <AlertCircle size={16} className="shrink-0" />
+                                                <span>{error}</span>
+                                            </div>
+                                            {needsAccessHelp && (
+                                                <button type="button" onClick={() => switchMode('forgot')} className="font-semibold text-blue-300 hover:text-blue-200 hover:underline">
+                                                    Request access from Secretariat
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 

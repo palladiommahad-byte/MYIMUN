@@ -12,13 +12,17 @@ interface ProtectedRouteProps {
 
 const STAFF_ROLES: UserRole[] = ['admin', 'secretary', 'manager'];
 
+function roleMatches(role: UserRole, allowedRoleKey: string) {
+    return !allowedRoleKey || allowedRoleKey.split('|').includes(role);
+}
+
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
     const { user, isLoading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
-    const allowedRoles = requiredRole ? (Array.isArray(requiredRole) ? requiredRole : [requiredRole]) : null;
-    const hasRequiredRole = !allowedRoles || (!!user && allowedRoles.includes(user.role));
+    const allowedRoleKey = Array.isArray(requiredRole) ? requiredRole.join('|') : requiredRole ?? '';
+    const hasRequiredRole = !allowedRoleKey || (!!user && roleMatches(user.role, allowedRoleKey));
 
     React.useEffect(() => {
         if (!isLoading && !user) {
@@ -27,11 +31,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
         if (!isLoading && user?.mustChangeCredentials) {
             router.replace('/setup-admin');
         }
-        if (!isLoading && user && allowedRoles && !allowedRoles.includes(user.role)) {
-            const redirectPath = STAFF_ROLES.includes(user.role) ? '/admin' : '/dashboard';
+        if (!isLoading && user && !roleMatches(user.role, allowedRoleKey)) {
+            const redirectPath = STAFF_ROLES.includes(user.role) ? '/admin' : '/dashboard/events';
             router.replace(redirectPath);
         }
-    }, [user, isLoading, allowedRoles, router, pathname]);
+    }, [user, isLoading, allowedRoleKey, router, pathname]);
 
     if (isLoading) {
         return (

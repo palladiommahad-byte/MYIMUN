@@ -24,6 +24,7 @@ export default function LoginPage() {
     const [busy, setBusy] = useState(false);
 
     const goView = (v: 'login' | 'forgot') => { setView(v); setError(null); setForgotSent(false); };
+    const needsAccessHelp = view === 'login' && !!error && /request access|secretariat/i.test(error);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,13 +35,14 @@ export default function LoginPage() {
             if (user.mustChangeCredentials) {
                 router.replace('/setup-admin');
             } else if (!STAFF.includes(user.role)) {
-                router.replace('/dashboard');
+                router.replace('/dashboard/events');
             } else if (user.role === 'admin') {
                 router.replace('/admin');
             } else {
                 const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
                 router.replace(firstAllowed?.path ?? '/admin');
             }
+            router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
             setBusy(false);
@@ -187,8 +189,15 @@ export default function LoginPage() {
                         </label>
 
                         {error && (
-                            <div className="flex items-center gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                                <AlertCircle size={16} className="shrink-0" /><span>{error}</span>
+                            <div className="space-y-3 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle size={16} className="shrink-0" /><span>{error}</span>
+                                </div>
+                                {needsAccessHelp && (
+                                    <button type="button" onClick={() => goView('forgot')} className="font-semibold text-blue-300 hover:text-blue-200 hover:underline">
+                                        Request access from Secretariat
+                                    </button>
+                                )}
                             </div>
                         )}
 

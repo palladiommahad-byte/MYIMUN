@@ -14,9 +14,10 @@ const HEADING = '#0B1220';
 const FONT = '"Outfit", -apple-system, sans-serif';
 
 const NAV_LINKS = [
-    { label: 'Home',    href: '/' },
-    { label: 'About',   href: '/about', dropdown: true },
-    { label: 'Contact', href: '/contact' },
+    { label: 'Home',       href: '/' },
+    { label: 'Committees', href: '/committees' },
+    { label: 'About',      href: '/about', dropdown: true },
+    { label: 'Contact',    href: '/contact' },
 ];
 
 export const Navbar: React.FC = () => {

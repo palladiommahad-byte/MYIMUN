@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Check, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Check, Loader2, KeyRound } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference, ConferenceSettings } from '@/context/ConferenceContext';
@@ -137,7 +137,7 @@ const EMPTY_FORM = {
 
 export default function AdminSettingsPage() {
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const { user, refresh } = useAuth();
     const isAdmin = user?.role === 'admin';
     const { conferenceSettings, updateConferenceSettings } = useConference();
 
@@ -148,12 +148,36 @@ export default function AdminSettingsPage() {
         setStaff(rows ?? []);
         setLoadingStaff(false);
     };
-    useEffect(() => { if (isAdmin) loadStaff(); else setLoadingStaff(false); }, [isAdmin]);
+    useEffect(() => {
+        let alive = true;
+        if (!isAdmin) {
+            queueMicrotask(() => { if (alive) setLoadingStaff(false); });
+            return () => { alive = false; };
+        }
+        getData('/api/staff').then(rows => {
+            if (!alive) return;
+            setStaff(rows ?? []);
+            setLoadingStaff(false);
+        });
+        return () => { alive = false; };
+    }, [isAdmin]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState(EMPTY_FORM);
+
+    const [accountForm, setAccountForm] = useState({
+        email: user?.email ?? '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+    const [savingAccount, setSavingAccount] = useState(false);
+    useEffect(() => {
+        const email = user?.email;
+        if (email) queueMicrotask(() => setAccountForm(f => ({ ...f, email })));
+    }, [user?.email]);
 
     const [settingsForm, setSettingsForm] = useState<ConferenceSettings>(conferenceSettings);
     const toggleSetting = (key: keyof ConferenceSettings) =>
@@ -168,6 +192,51 @@ export default function AdminSettingsPage() {
                 : 'Registration is now closed. Delegates will see a closed notice.', 'info');
         }
         showToast('Conference settings saved', 'success');
+    };
+
+    const saveAdminAccount = async (event: React.FormEvent) => {
+        event.preventDefault();
+        const emailChanged = accountForm.email.trim().toLowerCase() !== (user?.email ?? '').toLowerCase();
+        if (!emailChanged && !accountForm.newPassword) {
+            showToast('Enter a new email or password', 'error');
+            return;
+        }
+        if (!accountForm.currentPassword) {
+            showToast('Enter your current password', 'error');
+            return;
+        }
+        if (accountForm.newPassword && accountForm.newPassword.length < 12) {
+            showToast('New password must be at least 12 characters', 'error');
+            return;
+        }
+        if (accountForm.newPassword !== accountForm.confirmPassword) {
+            showToast('New passwords do not match', 'error');
+            return;
+        }
+
+        setSavingAccount(true);
+        try {
+            const updated = await send('PATCH', '/api/auth/account', {
+                currentPassword: accountForm.currentPassword,
+                ...(emailChanged ? { email: accountForm.email.trim() } : {}),
+                ...(accountForm.newPassword ? {
+                    newPassword: accountForm.newPassword,
+                    confirmPassword: accountForm.confirmPassword,
+                } : {}),
+            });
+            setAccountForm({
+                email: updated.email,
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+            });
+            await refresh();
+            showToast('Admin login credentials updated', 'success');
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Could not update credentials', 'error');
+        } finally {
+            setSavingAccount(false);
+        }
     };
 
     const openAdd = () => { setEditingMember(null); setFormData(EMPTY_FORM); setIsModalOpen(true); };
@@ -239,6 +308,85 @@ export default function AdminSettingsPage() {
                 <p style={{ fontSize: 14, color: C.textSec }}>General configuration and master switches.</p>
             </div>
 
+            {isAdmin && (
+                <form onSubmit={saveAdminAccount} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${C.accent}12`, color: C.accent }}>
+                            <KeyRound size={18} />
+                        </div>
+                        <div>
+                            <h2 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>My Admin Account</h2>
+                            <p style={{ fontSize: 12.5, color: C.textSec, marginTop: 2 }}>Update the credentials used to sign in.</p>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Login Email</span>
+                            <input
+                                type="email"
+                                required
+                                autoComplete="email"
+                                value={accountForm.email}
+                                onChange={e => setAccountForm(f => ({ ...f, email: e.target.value }))}
+                                style={{ width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderColor = C.accent}
+                                onBlur={e => e.target.style.borderColor = C.border}
+                            />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Current Password</span>
+                            <input
+                                type="password"
+                                required
+                                autoComplete="current-password"
+                                value={accountForm.currentPassword}
+                                onChange={e => setAccountForm(f => ({ ...f, currentPassword: e.target.value }))}
+                                style={{ width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderColor = C.accent}
+                                onBlur={e => e.target.style.borderColor = C.border}
+                            />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>New Password</span>
+                            <input
+                                type="password"
+                                minLength={12}
+                                autoComplete="new-password"
+                                placeholder="Leave blank to keep current"
+                                value={accountForm.newPassword}
+                                onChange={e => setAccountForm(f => ({ ...f, newPassword: e.target.value }))}
+                                style={{ width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderColor = C.accent}
+                                onBlur={e => e.target.style.borderColor = C.border}
+                            />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Confirm New Password</span>
+                            <input
+                                type="password"
+                                minLength={12}
+                                autoComplete="new-password"
+                                value={accountForm.confirmPassword}
+                                onChange={e => setAccountForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                                style={{ width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderColor = C.accent}
+                                onBlur={e => e.target.style.borderColor = C.border}
+                            />
+                        </label>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={savingAccount}
+                        style={{ alignSelf: 'flex-end', minWidth: 170, padding: '10px 16px', borderRadius: 8, border: 'none', cursor: savingAccount ? 'default' : 'pointer', background: C.accent, color: 'white', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: savingAccount ? 0.65 : 1 }}
+                    >
+                        {savingAccount ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                        Save Credentials
+                    </button>
+                </form>
+            )}
+
             {/* Config card */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -261,7 +409,7 @@ export default function AdminSettingsPage() {
                     </div>
                     {!settingsForm.registrationOpen && (
                         <p style={{ fontSize: 12, color: C.red, marginTop: 8 }}>
-                            While closed, delegates will see a "Registration Closed" notice and cannot submit new or repeat registrations.
+                            While closed, delegates will see a &quot;Registration Closed&quot; notice and cannot submit new or repeat registrations.
                         </p>
                     )}
                 </div>

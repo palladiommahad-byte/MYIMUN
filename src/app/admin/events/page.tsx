@@ -6,6 +6,9 @@ import { useConference, ConferenceEvent, EventDay, EventAgendaItem } from '@/con
 import { useToast } from '@/components/ui/Toast';
 import { CertificatePreview } from '@/components/CertificateDownloadButton';
 import { AcceptanceLetterPreview } from '@/components/AcceptanceLetterButton';
+import { AboutPageEditor } from '@/components/admin/AboutPageEditor';
+import { CommitteePageEditor } from '@/components/admin/CommitteePageEditor';
+import { ContactPageEditor } from '@/components/admin/ContactPageEditor';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -61,6 +64,9 @@ export default function AdminEventsPage() {
     const [section, setSection] = useState<'basic' | 'details' | 'hotel' | 'agenda' | 'media' | 'certificates'>('basic');
     const [hasHotel, setHasHotel] = useState(false);
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
+    const [showAboutEditor, setShowAboutEditor] = useState(false);
+    const [showCommitteeEditor, setShowCommitteeEditor] = useState(false);
+    const [showContactEditor, setShowContactEditor] = useState(false);
     const bannerRef = useRef<HTMLInputElement>(null);
     const galleryRef = useRef<HTMLInputElement>(null);
     const hotelImgRef = useRef<HTMLInputElement>(null);
@@ -175,6 +181,10 @@ export default function AdminEventsPage() {
         { key: 'certificates',  label: 'Certificates' },
     ] as const;
 
+    if (showAboutEditor) return <AboutPageEditor onBack={() => setShowAboutEditor(false)} />;
+    if (showCommitteeEditor) return <CommitteePageEditor onBack={() => setShowCommitteeEditor(false)} />;
+    if (showContactEditor) return <ContactPageEditor onBack={() => setShowContactEditor(false)} />;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif' }}>
 
@@ -184,11 +194,22 @@ export default function AdminEventsPage() {
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 4 }}>Events</h1>
                     <p style={{ fontSize: 14, color: C.textSec }}>Create and manage conference events visible to delegates.</p>
                 </div>
-                <button onClick={openCreate}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.accent, color: 'white', padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', boxShadow: `0 2px 8px ${C.accent}40` }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#2C6FEF'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.accent}
-                ><Plus size={15} /> New Event</button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => setShowContactEditor(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.surface, color: C.accent, padding: '10px 16px', borderRadius: 8, border: `1px solid ${C.border}`, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                    ><MapPin size={15} /> Contact Page</button>
+                    <button onClick={() => setShowCommitteeEditor(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.surface, color: C.accent, padding: '10px 16px', borderRadius: 8, border: `1px solid ${C.border}`, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                    ><Users size={15} /> Committees Page</button>
+                    <button onClick={() => setShowAboutEditor(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.surface, color: C.accent, padding: '10px 16px', borderRadius: 8, border: `1px solid ${C.border}`, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                    ><BookOpen size={15} /> About & History</button>
+                    <button onClick={openCreate}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.accent, color: 'white', padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', boxShadow: `0 2px 8px ${C.accent}40` }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#2C6FEF'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.accent}
+                    ><Plus size={15} /> New Event</button>
+                </div>
             </div>
 
             {/* Event cards */}

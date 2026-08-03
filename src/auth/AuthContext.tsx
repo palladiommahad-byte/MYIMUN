@@ -34,8 +34,9 @@ function mapUser(raw: any): User | null {
 async function postJSON(url: string, body?: unknown) {
     const res = await fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body === undefined ? undefined : JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json?.ok === false) {
@@ -50,8 +51,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const refresh = useCallback(async () => {
         try {
-            const res = await fetch('/api/auth/me');
-            const json = await res.json();
+            const res = await fetch('/api/auth/me', {
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || json?.ok === false) {
+                setUser(null);
+                return;
+            }
             setUser(mapUser(json?.data));
         } catch {
             setUser(null);

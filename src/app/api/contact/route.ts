@@ -1,13 +1,21 @@
 import { z } from 'zod';
 import { ok, route } from '@/lib/api';
 
-const schema = z.object({
+const detailedSchema = z.object({
     firstName: z.string().trim().min(1).max(100),
     lastName: z.string().trim().min(1).max(100),
     email: z.string().trim().toLowerCase().email(),
     subject: z.string().trim().min(1).max(200),
     message: z.string().trim().min(1).max(5000),
 });
+
+const simpleSchema = z.object({
+    name: z.string().trim().min(1).max(200),
+    email: z.string().trim().toLowerCase().email(),
+    message: z.string().trim().min(1).max(5000),
+});
+
+const schema = z.union([detailedSchema, simpleSchema]);
 
 export const POST = route(async (req: Request) => {
     // Validate the payload; the parsed result is intentionally not logged (it carries PII).

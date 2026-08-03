@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     KeyRound, Mail, Ban, ShieldCheck, Search, X, Copy, Check, RefreshCw,
-    Loader2, Clock, UserX, AlertTriangle, Phone,
+    Loader2, Clock, UserX, AlertTriangle, Phone, UserPlus, UserRound, Globe2,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
@@ -23,6 +23,8 @@ interface DelegateAccount {
     status: 'active' | 'inactive';
     country: string | null;
     createdAt: string;
+    accessReviewRequired?: boolean;
+    loginLockUntil?: string | null;
 }
 
 async function getData(url: string) {
@@ -41,7 +43,7 @@ async function send(method: string, url: string, body?: unknown) {
 
 function genPassword() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
 function Avatar({ name, suspended }: { name: string; suspended?: boolean }) {
@@ -66,18 +68,61 @@ export default function AdminAccountsPage() {
     const [accounts, setAccounts] = useState<DelegateAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createForm, setCreateForm] = useState({ fullName: '', email: '', country: '', password: genPassword() });
+    const [creating, setCreating] = useState(false);
+    const [createdAccount, setCreatedAccount] = useState<DelegateAccount | null>(null);
+    const [createdPassword, setCreatedPassword] = useState('');
+    const [createCopied, setCreateCopied] = useState(false);
 
-    const loadAccounts = async () => {
-        const rows = await getData('/api/accounts');
-        setAccounts(rows ?? []);
-        setLoading(false);
-    };
-    useEffect(() => { loadAccounts(); }, []);
+    useEffect(() => {
+        let alive = true;
+        getData('/api/accounts').then(rows => {
+            if (!alive) return;
+            setAccounts(rows ?? []);
+            setLoading(false);
+        });
+        return () => { alive = false; };
+    }, []);
 
     const pendingRequests = useMemo(
         () => passwordResetRequests.filter(r => r.status === 'pending'),
         [passwordResetRequests],
     );
+
+    const openCreate = () => {
+        setCreateForm({ fullName: '', email: '', country: '', password: genPassword() });
+        setCreatedAccount(null);
+        setCreatedPassword('');
+        setCreateCopied(false);
+        setCreateOpen(true);
+    };
+    const createDelegate = async () => {
+        if (!createForm.fullName.trim() || !createForm.email.trim()) { showToast('Please enter a name and email', 'error'); return; }
+        if (createForm.password.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+        setCreating(true);
+        try {
+            const row = await send('POST', '/api/accounts', {
+                fullName: createForm.fullName.trim(),
+                email: createForm.email.trim(),
+                country: createForm.country.trim() || undefined,
+                password: createForm.password,
+            });
+            setAccounts(prev => [row, ...prev]);
+            setCreatedAccount(row);
+            setCreatedPassword(createForm.password);
+            showToast('Delegate account created', 'success');
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Could not create delegate account', 'error');
+        } finally {
+            setCreating(false);
+        }
+    };
+    const copyCreatedCredentials = async () => {
+        if (!createdAccount) return;
+        const text = `Email: ${createdAccount.email}\nPassword: ${createdPassword}`;
+        try { await navigator.clipboard.writeText(text); setCreateCopied(true); setTimeout(() => setCreateCopied(false), 1800); } catch { /* ignore */ }
+    };
 
     /* ── Reset-password modal ── */
     const [resetTarget, setResetTarget] = useState<ResetTarget | null>(null);
@@ -90,15 +135,17 @@ export default function AdminAccountsPage() {
         setResetTarget(t); setNewPass(genPassword()); setResetDone(false); setCopied(false);
     };
     const confirmReset = async () => {
-        if (!resetTarget || newPass.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
+        if (!resetTarget || newPass.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
         setResetting(true);
         try {
             if (resetTarget.kind === 'account') {
-                await send('PATCH', `/api/accounts/${resetTarget.id}`, { action: 'resetPassword', newPassword: newPass });
+                const updated = await send('PATCH', `/api/accounts/${resetTarget.id}`, { action: 'resetPassword', newPassword: newPass });
+                setAccounts(prev => prev.map(a => a.id === resetTarget.id ? { ...a, ...updated } : a));
             } else {
                 if (!resetTarget.userId) { showToast('No account matches this email. Dismiss the request instead.', 'error'); setResetting(false); return; }
                 await send('PATCH', `/api/password-reset/${resetTarget.id}`, { action: 'resolve', newPassword: newPass });
                 refreshAccountsData();
+                setAccounts(prev => prev.map(a => a.id === resetTarget.userId ? { ...a, accessReviewRequired: false, loginLockUntil: null } : a));
             }
             setResetDone(true);
         } catch (err) {
@@ -121,7 +168,7 @@ export default function AdminAccountsPage() {
         setEmailSaving(true);
         try {
             const updated = await send('PATCH', `/api/accounts/${emailTarget.id}`, { action: 'updateEmail', email: emailValue.trim() });
-            setAccounts(prev => prev.map(a => a.id === emailTarget.id ? { ...a, email: updated.email } : a));
+            setAccounts(prev => prev.map(a => a.id === emailTarget.id ? { ...a, ...updated } : a));
             showToast('Login email updated', 'success');
             setEmailTarget(null);
         } catch (err) {
@@ -168,11 +215,17 @@ export default function AdminAccountsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif' }}>
 
             {/* Header */}
-            <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
                 <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 2 }}>
                     Accounts
                 </h1>
                 <p style={{ fontSize: 14, color: C.textSec }}>Manage delegate logins — reset passwords, change emails, and suspend access.</p>
+                </div>
+                <button onClick={openCreate}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderRadius: 9, border: 'none', background: C.accent, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', boxShadow: `0 6px 16px ${C.accent}30` }}>
+                    <UserPlus size={16} /> Create Account
+                </button>
             </div>
 
             {/* ── Password reset requests ── */}
@@ -239,7 +292,13 @@ export default function AdminAccountsPage() {
             <div className="rounded-xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow }}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${C.border}` }}>
                     <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Delegate Accounts</h3>
-                    <div className="relative w-full sm:w-64">
+                    <div className="flex w-full sm:w-auto items-center gap-2">
+                        <button onClick={openCreate} title="Create delegate account"
+                            className="h-9 w-9 rounded-lg flex items-center justify-center"
+                            style={{ border: 'none', background: C.accent, color: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+                            <UserPlus size={15} />
+                        </button>
+                        <div className="relative w-full sm:w-64">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
                         <input type="text" placeholder="Search name or email…" value={search}
                             onChange={e => setSearch(e.target.value)}
@@ -247,6 +306,7 @@ export default function AdminAccountsPage() {
                             onFocus={e => e.target.style.borderColor = C.accent}
                             onBlur={e => e.target.style.borderColor = C.border}
                         />
+                        </div>
                     </div>
                 </div>
 
@@ -284,8 +344,15 @@ export default function AdminAccountsPage() {
                                             </div>
                                         </td>
                                         <td style={{ padding: '13px 20px' }}>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: a.status === 'active' ? `${C.green}14` : `${C.red}12`, color: a.status === 'active' ? C.green : C.red }}>
-                                                {a.status === 'active' ? 'Active' : 'Suspended'}
+                                            <span style={{
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                                padding: '3px 10px',
+                                                borderRadius: 999,
+                                                background: a.accessReviewRequired ? `${C.amber}16` : a.status === 'active' ? `${C.green}14` : `${C.red}12`,
+                                                color: a.accessReviewRequired ? C.amber : a.status === 'active' ? C.green : C.red,
+                                            }}>
+                                                {a.accessReviewRequired ? 'Needs reset' : a.status === 'active' ? 'Active' : 'Suspended'}
                                             </span>
                                         </td>
                                         <td style={{ padding: '13px 20px', fontSize: 13, color: C.textSec }}>
@@ -335,6 +402,97 @@ export default function AdminAccountsPage() {
             </div>
 
             {/* ── Reset-password modal ── */}
+            {/* Create delegate modal */}
+            {createOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(17,24,39,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                    onClick={e => { if (e.target === e.currentTarget && !creating) setCreateOpen(false); }}>
+                    <div style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: 26 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 11, background: `${C.accent}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <UserPlus size={18} style={{ color: C.accent }} />
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{createdAccount ? 'Delegate account created' : 'Create delegate account'}</p>
+                                    <p style={{ fontSize: 12.5, color: C.textMuted }}>Delegate can sign in at /login and enter the dashboard.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => !creating && setCreateOpen(false)} style={{ padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: C.textMuted }}><X size={18} /></button>
+                        </div>
+
+                        {!createdAccount ? (
+                            <>
+                                <div style={{ display: 'grid', gap: 12 }}>
+                                    <label style={{ display: 'block' }}>
+                                        <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Full Name</span>
+                                        <div style={{ position: 'relative' }}>
+                                            <UserRound size={15} style={{ position: 'absolute', left: 12, top: 12, color: C.textMuted }} />
+                                            <input type="text" value={createForm.fullName} onChange={e => setCreateForm(f => ({ ...f, fullName: e.target.value }))}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }} />
+                                        </div>
+                                    </label>
+                                    <label style={{ display: 'block' }}>
+                                        <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Email Address</span>
+                                        <div style={{ position: 'relative' }}>
+                                            <Mail size={15} style={{ position: 'absolute', left: 12, top: 12, color: C.textMuted }} />
+                                            <input type="email" value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }} />
+                                        </div>
+                                    </label>
+                                    <label style={{ display: 'block' }}>
+                                        <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Country</span>
+                                        <div style={{ position: 'relative' }}>
+                                            <Globe2 size={15} style={{ position: 'absolute', left: 12, top: 12, color: C.textMuted }} />
+                                            <input type="text" value={createForm.country} onChange={e => setCreateForm(f => ({ ...f, country: e.target.value }))}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box' }} />
+                                        </div>
+                                    </label>
+                                    <label style={{ display: 'block' }}>
+                                        <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Temporary Password</span>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <input type="text" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                                                style={{ flex: 1, minWidth: 0, padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 14, color: C.text, background: C.bg, outline: 'none', fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                                            <button onClick={() => setCreateForm(f => ({ ...f, password: genPassword() }))} title="Generate password"
+                                                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                                                <RefreshCw size={13} />
+                                            </button>
+                                        </div>
+                                    </label>
+                                </div>
+                                <p style={{ fontSize: 12, color: C.textMuted, marginTop: 10, marginBottom: 20, lineHeight: 1.5 }}>Use at least 8 characters. Share this temporary password with the delegate after creation.</p>
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                                    <button onClick={() => setCreateOpen(false)} disabled={creating}
+                                        style={{ padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer' }}>Cancel</button>
+                                    <button onClick={createDelegate} disabled={creating}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.7 : 1 }}>
+                                        {creating ? <><Loader2 size={14} className="animate-spin" /> Creating</> : <><UserPlus size={14} /> Create Account</>}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ background: `${C.green}0E`, border: `1px solid ${C.green}33`, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                                    <p style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>Share these login details with <strong style={{ color: C.text }}>{createdAccount.fullName}</strong>:</p>
+                                    <div style={{ display: 'grid', gap: 8 }}>
+                                        <code style={{ fontSize: 13, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px' }}>Email: {createdAccount.email}</code>
+                                        <code style={{ fontSize: 13, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px' }}>Password: {createdPassword}</code>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>The delegate can now log in and access the delegate dashboard. This password will not be shown again after you close this dialog.</p>
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                                    <button onClick={copyCreatedCredentials}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 8, border: 'none', background: createCopied ? C.green : C.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                        {createCopied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                                    </button>
+                                    <button onClick={() => setCreateOpen(false)}
+                                        style={{ padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer' }}>Done</button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {resetTarget && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(17,24,39,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
                     onClick={e => { if (e.target === e.currentTarget && !resetting) setResetTarget(null); }}>

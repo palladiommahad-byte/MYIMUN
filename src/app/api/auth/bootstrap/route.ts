@@ -15,6 +15,9 @@ const schema = z.object({
 function hasValidSetupToken(value: string | undefined) {
     const expected = process.env.INITIAL_ADMIN_TOKEN;
     if (!expected || !value) return false;
+    if (process.env.NODE_ENV === 'production' && (expected.length < 32 || /change-me|changeme|replace-me|example/i.test(expected))) {
+        throw new Error('INITIAL_ADMIN_TOKEN is not securely configured');
+    }
     const expectedBytes = Buffer.from(expected);
     const suppliedBytes = Buffer.from(value);
     return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);

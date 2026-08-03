@@ -5,7 +5,7 @@ import { ok, fail, route } from '@/lib/api';
 import { notifyDelegate } from '@/lib/notifications';
 
 const schema = z.discriminatedUnion('action', [
-    z.object({ action: z.literal('resolve'), newPassword: z.string().min(6) }),
+    z.object({ action: z.literal('resolve'), newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200) }),
     z.object({ action: z.literal('dismiss') }),
 ]);
 
@@ -33,7 +33,16 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
     const target = await prisma.user.findUnique({ where: { id: reqRow.userId } });
     if (!target) return fail('The matched account no longer exists.', 404);
 
-    await prisma.user.update({ where: { id: target.id }, data: { passwordHash: await hashPassword(body.newPassword) } });
+    await prisma.user.update({
+        where: { id: target.id },
+        data: {
+            passwordHash: await hashPassword(body.newPassword),
+            failedLoginAttempts: 0,
+            loginLockUntil: null,
+            loginLockLevel: 0,
+            accessReviewRequired: false,
+        },
+    });
     const row = await prisma.passwordResetRequest.update({
         where: { id }, data: { status: 'resolved', resolvedAt: new Date() },
     });

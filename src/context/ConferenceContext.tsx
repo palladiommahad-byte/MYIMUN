@@ -293,7 +293,7 @@ export const DEFAULT_LANDING: LandingPageData = {
         headline: 'Model United Nations',
         headlineAccent: 'MYIMUN',
         subheadline: 'MYIMUN is an international platform where youth simulate UN debates, represent countries, and develop diplomacy and leadership skills. Based in Morocco.',
-        ctaPrimary: 'Register Now', ctaSecondary: 'Discover More',
+        ctaPrimary: 'Register Now', ctaSecondary: 'Log In',
         videoUrl: '', imageUrl: '',
         backgroundImages: [],
         socialProofText: '500+ Delegates', socialProofSub: 'from 50+ countries',

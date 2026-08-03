@@ -1,80 +1,126 @@
 'use client';
 
-import React from "react";
-import { Mail, MapPin, Phone, Send, ArrowUpRight } from "lucide-react";
-import { SectionBadge } from "@/components/ui/SectionBadge";
-import { PageHeader } from "@/components/ui/PageHeader";
+import React, { useEffect, useState } from 'react';
+import { Camera, CheckCircle2, Loader2, MessageCircle, Play, Send } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { DEFAULT_CONTACT_PAGE, resolveContactPage, type ContactPageData, type ContactSocialLink } from '@/lib/contactPage';
+import styles from './contact.module.css';
+
+function SocialIcon({ platform }: { platform: ContactSocialLink['platform'] }) {
+    if (platform === 'youtube') return <Play size={16} fill="currentColor" />;
+    if (platform === 'instagram') return <Camera size={17} />;
+    return <MessageCircle size={16} />;
+}
 
 export default function ContactPage() {
+    const [content, setContent] = useState<ContactPageData>(DEFAULT_CONTACT_PAGE);
+    const [form, setForm] = useState({ name: '', email: '', message: '' });
+    const [sending, setSending] = useState(false);
+    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+    useEffect(() => {
+        let alive = true;
+        fetch('/api/settings/contact-page', { cache: 'no-store' })
+            .then(response => response.ok ? response.json() : null)
+            .then(json => {
+                if (alive && json?.ok) setContent(resolveContactPage(json.data));
+            })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    const submit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setSending(true);
+        setStatus('idle');
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok || json?.ok === false) throw new Error('Request failed');
+            setForm({ name: '', email: '', message: '' });
+            setStatus('success');
+        } catch {
+            setStatus('error');
+        } finally {
+            setSending(false);
+        }
+    };
+
     return (
-        <main className="min-h-screen bg-transparent text-slate-200 pb-20">
-            <PageHeader
-                title="Get in Touch"
-                subtitle="Have questions about registration, committee allocations, or partnership opportunities?"
-                image="https://images.unsplash.com/photo-1596524430615-b46475ddff6e?auto=format&fit=crop&w=2000&q=80"
-                height="h-[50vh]"
-            />
+        <div className={styles.page}>
+            <div className={styles.layout}>
+                <motion.section
+                    className={styles.contactInfo}
+                    initial={{ opacity: 0, x: -38 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                >
+                    <span className={styles.tag}>{content.tag}</span>
+                    <h1>{content.heading}</h1>
+                    <p className={styles.introduction}>{content.introduction}</p>
 
-            <div className="max-w-6xl mx-auto px-6 mt-16">
+                    <div className={styles.details}>
+                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                            <a className={styles.phone} href={`tel:${content.phone.replace(/\s/g, '')}`}>{content.phone}</a>
+                            <p>{content.hours}</p>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                            <a href={`mailto:${content.primaryEmail}`}>{content.primaryEmail}</a>
+                            <p>{content.primaryEmailNote}</p>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                            <a href={`mailto:${content.supportEmail}`}>{content.supportEmail}</a>
+                            <p>{content.supportEmailNote}</p>
+                        </motion.div>
+                    </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-                    {/* Contact Cards */}
-                    <div className="space-y-4">
-                        {[
-                            { icon: Mail, label: 'Email Us', value: 'secretariat@munglobal.org', color: 'bg-blue-500/20 text-blue-400' },
-                            { icon: Phone, label: 'Call Us', value: '+212 524 000 000', color: 'bg-emerald-500/20 text-emerald-400' },
-                            { icon: MapPin, label: 'Visit Us', value: 'Palais des Congrès, Marrakech', color: 'bg-purple-500/20 text-purple-400' },
-                        ].map((item, i) => (
-                            <div key={i} className="sphere-card flex items-center gap-5 p-6 group cursor-pointer">
-                                <div className={`w-12 h-12 rounded-2xl ${item.color} flex items-center justify-center`}>
-                                    <item.icon size={22} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{item.label}</div>
-                                    <div className="font-semibold text-white">{item.value}</div>
-                                </div>
-                                <ArrowUpRight size={18} className="text-slate-300 group-hover:text-[#0055FF] transition-colors" />
-                            </div>
+                    <div className={styles.socials}>
+                        {content.socials.map(link => (
+                            <a key={link.id} href={link.url || '#'} target={link.url?.startsWith('http') ? '_blank' : undefined} rel="noreferrer" aria-label={link.label} title={link.label}>
+                                <SocialIcon platform={link.platform} />
+                            </a>
                         ))}
                     </div>
+                </motion.section>
 
-                    {/* Form */}
-                    <div className="sphere-card p-8 md:p-10">
-                        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-slate-300">First Name</label>
-                                    <input type="text" className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-500 font-medium text-white" placeholder="Jane" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-slate-300">Last Name</label>
-                                    <input type="text" className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-500 font-medium text-white" placeholder="Doe" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-300">Email Address</label>
-                                <input type="email" className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-500 font-medium text-white" placeholder="jane@university.edu" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-300">Subject</label>
-                                <select className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-white appearance-none">
-                                    <option>General Inquiry</option>
-                                    <option>Delegate Registration</option>
-                                    <option>Partnership Proposal</option>
-                                    <option>Technical Support</option>
-                                </select>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-300">Message</label>
-                                <textarea rows={4} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-500 resize-none font-medium text-white" placeholder="How can we help you?" />
-                            </div>
-                            <button className="w-full bg-[#0A0F1E] hover:bg-[#1a2340] text-white font-semibold py-4 rounded-full flex items-center justify-center gap-2 transition-all shadow-lg shadow-black/10">
-                                Send Message <Send size={16} />
-                            </button>
-                        </form>
-                    </div>
-                </div>
+                <motion.section
+                    className={styles.formPanel}
+                    initial={{ opacity: 0, x: 38 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.7, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+                >
+                    <h2>{content.formHeading}</h2>
+                    <p className={styles.formIntro}>{content.formIntroduction}</p>
+                    <form onSubmit={submit}>
+                        <div className={styles.inputGrid}>
+                            <label>
+                                <span>{content.nameLabel} <i>*</i></span>
+                                <input required autoComplete="name" value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder={content.namePlaceholder} />
+                            </label>
+                            <label>
+                                <span>{content.emailLabel} <i>*</i></span>
+                                <input required type="email" autoComplete="email" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} placeholder={content.emailPlaceholder} />
+                            </label>
+                        </div>
+                        <label>
+                            <span>{content.messageLabel}</span>
+                            <textarea required rows={8} value={form.message} onChange={event => setForm(current => ({ ...current, message: event.target.value }))} placeholder={content.messagePlaceholder} />
+                        </label>
+
+                        {status === 'success' && <p className={styles.success}><CheckCircle2 size={17} />{content.successMessage}</p>}
+                        {status === 'error' && <p className={styles.error}>{content.errorMessage}</p>}
+
+                        <button type="submit" disabled={sending}>
+                            {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={16} />}
+                            {sending ? 'Sending...' : content.submitLabel}
+                        </button>
+                    </form>
+                </motion.section>
             </div>
-        </main>
+        </div>
     );
 }

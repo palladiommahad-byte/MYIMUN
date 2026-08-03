@@ -1,13 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 interface Toast {
-    id: number;
+    id: string;
     message: string;
     type: ToastType;
 }
@@ -20,9 +20,11 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
+    const nextToastId = useRef(0);
 
     const showToast = useCallback((message: string, type: ToastType = 'success') => {
-        const id = Date.now();
+        nextToastId.current += 1;
+        const id = `${Date.now()}-${nextToastId.current}`;
         setToasts(prev => [...prev, { id, message, type }]);
 
         // Auto remove after 4 seconds
@@ -31,7 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         }, 4000);
     }, []);
 
-    const removeToast = (id: number) => {
+    const removeToast = (id: string) => {
         setToasts(prev => prev.filter(toast => toast.id !== id));
     };
 
@@ -56,7 +58,7 @@ const ACCENT: Record<ToastType, string> = {
     info: '#22D3EE',    // cyan
 };
 
-function ToastItem({ toast, onRemove }: { toast: Toast, onRemove: (id: number) => void }) {
+function ToastItem({ toast, onRemove }: { toast: Toast, onRemove: (id: string) => void }) {
     const accent = ACCENT[toast.type];
     const icons = {
         success: <CheckCircle size={20} style={{ color: accent }} />,

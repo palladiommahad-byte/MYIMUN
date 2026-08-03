@@ -5,7 +5,7 @@ import { ok, fail, route } from '@/lib/api';
 import { notifyDelegate } from '@/lib/notifications';
 
 const schema = z.discriminatedUnion('action', [
-    z.object({ action: z.literal('resetPassword'), newPassword: z.string().min(6) }),
+    z.object({ action: z.literal('resetPassword'), newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200) }),
     z.object({ action: z.literal('updateEmail'), email: z.string().trim().toLowerCase().email() }),
     z.object({ action: z.literal('setStatus'), status: z.enum(['active', 'inactive']) }),
 ]);
@@ -26,8 +26,20 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
     }
 
     const data =
-        body.action === 'resetPassword' ? { passwordHash: await hashPassword(body.newPassword) }
-        : body.action === 'updateEmail' ? { email: body.email }
+        body.action === 'resetPassword' ? {
+            passwordHash: await hashPassword(body.newPassword),
+            failedLoginAttempts: 0,
+            loginLockUntil: null,
+            loginLockLevel: 0,
+            accessReviewRequired: false,
+        }
+        : body.action === 'updateEmail' ? {
+            email: body.email,
+            failedLoginAttempts: 0,
+            loginLockUntil: null,
+            loginLockLevel: 0,
+            accessReviewRequired: false,
+        }
         : { status: body.status };
 
     const row = await prisma.user.update({ where: { id }, data });
