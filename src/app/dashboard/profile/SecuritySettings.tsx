@@ -130,14 +130,14 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
             {/* Password Section */}
             <div style={sectionStyle}>
                 {sectionTitle(<Lock size={18} />, 'Change Password')}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
                     {([
                         { key: 'current', label: 'Current Password' },
                         { key: 'new',     label: 'New Password' },
                         { key: 'confirm', label: 'Confirm New Password' },
                     ] as const).map(({ key, label }) => (
-                        <div key={key}>
-                            <label style={labelStyle}>{label}</label>
+                        <div key={key} style={{ minWidth: 0 }}>
+                            <label style={{ ...labelStyle, minHeight: 32, display: 'flex', alignItems: 'flex-end', lineHeight: 1.25 }}>{label}</label>
                             <input
                                 type="password"
                                 value={passwords[key]}
