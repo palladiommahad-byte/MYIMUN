@@ -9,8 +9,18 @@ export default function VantaClouds({ children, className }: { children?: React.
     const vantaRef = useRef<HTMLDivElement>(null);
     const [vantaEffect, setVantaEffect] = useState<any>(null);
     const [isVisible, setIsVisible] = useState(false);
+    const [canAnimate, setCanAnimate] = useState(false);
 
     useEffect(() => {
+        const media = window.matchMedia('(min-width: 768px) and (prefers-reduced-motion: no-preference)');
+        const sync = () => setCanAnimate(media.matches);
+        sync();
+        media.addEventListener('change', sync);
+        return () => media.removeEventListener('change', sync);
+    }, []);
+
+    useEffect(() => {
+        const node = vantaRef.current;
         const observer = new IntersectionObserver(
             ([entry]) => {
                 setIsVisible(entry.isIntersecting);
@@ -18,19 +28,19 @@ export default function VantaClouds({ children, className }: { children?: React.
             { threshold: 0.1 } // Trigger when 10% visible
         );
 
-        if (vantaRef.current) {
-            observer.observe(vantaRef.current);
+        if (node) {
+            observer.observe(node);
         }
 
         return () => {
-            if (vantaRef.current) {
-                observer.unobserve(vantaRef.current);
+            if (node) {
+                observer.unobserve(node);
             }
         };
     }, []);
 
     useEffect(() => {
-        if (isVisible && !vantaEffect && vantaRef.current) {
+        if (isVisible && canAnimate && !vantaEffect && vantaRef.current) {
             try {
                 const effect = CLOUDS({
                     el: vantaRef.current,
@@ -52,11 +62,11 @@ export default function VantaClouds({ children, className }: { children?: React.
             } catch (error) {
                 console.error("Vanta error:", error);
             }
-        } else if (!isVisible && vantaEffect) {
+        } else if ((!isVisible || !canAnimate) && vantaEffect) {
             vantaEffect.destroy();
             setVantaEffect(null);
         }
-    }, [isVisible, vantaEffect]);
+    }, [isVisible, canAnimate, vantaEffect]);
 
     // Cleanup on unmount
     useEffect(() => {

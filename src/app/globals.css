@@ -299,6 +299,24 @@ body {
   overscroll-behavior: contain;
 }
 
+@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+  .auth-modal-backdrop,
+  .auth-modal-card,
+  .mobile-no-blur {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .auth-modal-card,
+  .mobile-no-blur {
+    background-color: #0A0F1E !important;
+  }
+
+  .auth-modal-decoration {
+    display: none !important;
+  }
+}
+
 /* ---- Legacy support ---- */
 .sphere-card {
   background: var(--color-bg-surface);

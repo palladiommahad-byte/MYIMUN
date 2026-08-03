@@ -81,7 +81,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
                 router.push(firstAllowed?.path ?? '/admin');
             }
-            router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {
@@ -101,7 +100,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm"
+                        className="auth-modal-backdrop fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm"
                     />
 
                     {/* Modal */}
@@ -112,10 +111,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                         transition={{ type: "spring", duration: 0.5, bounce: 0.2 }}
                         className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] w-full max-w-[500px] p-6"
                     >
-                        <div className="relative overflow-hidden rounded-[2rem] bg-[#0A0F1E]/90 backdrop-blur-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-white/10">
+                        <div className="auth-modal-card relative overflow-hidden rounded-[2rem] bg-[#0A0F1E]/90 backdrop-blur-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-white/10">
                             {/* Decorative Gradients */}
-                            <div className="absolute -top-32 -right-32 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50" />
-                            <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50" />
+                            <div className="auth-modal-decoration absolute -top-32 -right-32 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50" />
+                            <div className="auth-modal-decoration absolute -bottom-32 -left-32 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none mix-blend-screen opacity-50" />
 
                             {/* Close Button */}
                             <button

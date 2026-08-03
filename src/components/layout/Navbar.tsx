@@ -33,14 +33,20 @@ export const Navbar: React.FC = () => {
     const isHome = pathname === '/';
     const transparent = isHome && !scrolled;
 
-    useEffect(() => { document.body.style.overflow = isMobileMenuOpen ? "hidden" : "unset"; }, [isMobileMenuOpen]);
-    useEffect(() => { setIsMobileMenuOpen(false); }, [pathname]);
     useEffect(() => {
-        if (!isHome) { setScrolled(false); return; }
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = isMobileMenuOpen ? 'hidden' : previousOverflow;
+        return () => { document.body.style.overflow = previousOverflow; };
+    }, [isMobileMenuOpen]);
+    useEffect(() => {
+        if (!isHome) return;
         const onScroll = () => setScrolled(window.scrollY > 40);
-        onScroll();
+        const frame = requestAnimationFrame(onScroll);
         window.addEventListener('scroll', onScroll, { passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
+        return () => {
+            cancelAnimationFrame(frame);
+            window.removeEventListener('scroll', onScroll);
+        };
     }, [isHome]);
 
     const openAuthModal = (mode: 'login' | 'register') => {
@@ -68,7 +74,7 @@ export const Navbar: React.FC = () => {
                 <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 64px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }} className="nav-inner">
 
                     {/* Logo */}
-                    <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                    <Link href="/" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
                         <img
                             src={transparent ? '/assets/MYIMUN-LOGO-WHITE-.png' : '/assets/MYIMUN-BLUE-LOGO.png'}
                             alt="MYIMUN Logo"

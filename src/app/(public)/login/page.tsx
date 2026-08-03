@@ -42,7 +42,6 @@ export default function LoginPage() {
                 const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
                 router.replace(firstAllowed?.path ?? '/admin');
             }
-            router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
             setBusy(false);
@@ -72,7 +71,7 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden mesh-gradient-hero">
             <div className="w-full max-w-md relative z-10">
-                <div className="bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl shadow-black/20 p-8 md:p-12 relative overflow-hidden">
+                <div className="mobile-no-blur bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl shadow-black/20 p-8 md:p-12 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
                     {/* Header */}

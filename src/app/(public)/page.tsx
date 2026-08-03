@@ -64,6 +64,20 @@ function Tag({ children }: { children: React.ReactNode }) {
 
 const triggerRegister = () => document.getElementById('register-trigger')?.click();
 
+function useAutoplayEnabled() {
+    const [enabled, setEnabled] = useState(false);
+
+    useEffect(() => {
+        const media = window.matchMedia('(min-width: 768px) and (prefers-reduced-motion: no-preference)');
+        const sync = () => setEnabled(media.matches);
+        sync();
+        media.addEventListener('change', sync);
+        return () => media.removeEventListener('change', sync);
+    }, []);
+
+    return enabled;
+}
+
 /* ════ PAGE ════ */
 export default function LandingPage() {
     return (
@@ -87,23 +101,24 @@ function Hero() {
     const h = landingPage.hero;
     const slides = h.backgroundImages ?? [];
     const [index, setIndex] = useState(0);
+    const autoplay = useAutoplayEnabled();
 
     useEffect(() => {
-        if (slides.length < 2) return;
+        if (!autoplay || slides.length < 2) return;
         const id = setInterval(() => setIndex(i => (i + 1) % slides.length), 5000);
         return () => clearInterval(id);
-    }, [slides.length]);
+    }, [autoplay, slides.length]);
 
     return (
         <section style={{ position: 'relative', minHeight: 620, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
                 {slides.length > 0 ? (
                     slides.map((src, i) => (
-                        <img key={src + i} src={src} alt=""
+                        <img key={src + i} src={src} alt="" decoding="async"
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: i === index ? 1 : 0, transition: 'opacity 1.4s ease-in-out' }} />
                     ))
                 ) : (
-                    <img src={h.imageUrl || IMG.hero} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={h.imageUrl || IMG.hero} alt="" decoding="async" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,9,28,0.78) 0%, rgba(0,9,28,0.5) 45%, rgba(0,9,28,0.18) 100%)' }} />
                 <img src="/assets/MYIMUN-LOGO-WHITE-.png" alt="" aria-hidden
@@ -155,7 +170,7 @@ function WhoWeAre() {
         <section style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF1FD 100%)', padding: '96px 64px' }} className="lp-section">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }} className="lp-2col">
                 <div style={{ flex: '0 0 42%' }} className="lp-2col-img">
-                    <img src={w.image || IMG.whoWeAre} alt="MYIMUN delegates at conference table" className="img-corner-cut" style={{ aspectRatio: '4 / 3.4' }} />
+                    <img src={w.image || IMG.whoWeAre} alt="MYIMUN delegates at conference table" loading="lazy" decoding="async" className="img-corner-cut" style={{ aspectRatio: '4 / 3.4' }} />
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{w.tag}</Tag>
@@ -200,7 +215,7 @@ function Partners() {
             <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', flexWrap: 'wrap', gap: 40 }}>
                 {p.logos.map((logo, i) => (
                     logo.image
-                        ? <img key={i} src={logo.image} alt={logo.name} style={{ height: 64, objectFit: 'contain', filter: 'grayscale(1) brightness(0.4)' }} />
+                        ? <img key={i} src={logo.image} alt={logo.name} loading="lazy" decoding="async" style={{ height: 64, objectFit: 'contain', filter: 'grayscale(1) brightness(0.4)' }} />
                         : <span key={i} style={{ fontWeight: 700, fontSize: 20, letterSpacing: '0.05em', color: C.heading, opacity: 0.7 }}>{logo.name}</span>
                 ))}
             </div>
@@ -248,7 +263,7 @@ function EventAnnouncement() {
                 </div>
 
                 <div style={{ flex: '0 0 45%' }} className="lp-2col-img">
-                    <img src={a.image || IMG.announcement} alt="MYIMUN conference room" style={{ width: '100%', objectFit: 'cover', borderRadius: '0 0 32px 0', aspectRatio: '4 / 5' }} />
+                    <img src={a.image || IMG.announcement} alt="MYIMUN conference room" loading="lazy" decoding="async" style={{ width: '100%', objectFit: 'cover', borderRadius: '0 0 32px 0', aspectRatio: '4 / 5' }} />
                 </div>
             </div>
         </section>
@@ -264,7 +279,7 @@ function GetStarted() {
         <section style={{ background: C.white, padding: '96px 64px' }} className="lp-section">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }} className="lp-2col">
                 <div style={{ flex: '0 0 42%' }} className="lp-2col-img">
-                    <img src={g.image || IMG.getStarted} alt="MYIMUN delegates with country flags" className="img-corner-cut" style={{ aspectRatio: '4 / 3' }} />
+                    <img src={g.image || IMG.getStarted} alt="MYIMUN delegates with country flags" loading="lazy" decoding="async" className="img-corner-cut" style={{ aspectRatio: '4 / 3' }} />
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{g.tag}</Tag>
@@ -290,19 +305,19 @@ function GallerySection() {
     const N = images.length;
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
-
-    useEffect(() => { if (active > N - 1) setActive(0); }, [N, active]);
+    const autoplay = useAutoplayEnabled();
+    const currentActive = N > 0 ? active % N : 0;
 
     useEffect(() => {
-        if (paused || N < 2) return;
+        if (!autoplay || paused || N < 2) return;
         const id = setInterval(() => setActive(a => (a + 1) % N), 4500);
         return () => clearInterval(id);
-    }, [paused, N]);
+    }, [autoplay, paused, N]);
 
     const go = (dir: number) => setActive(a => (a + dir + N) % N);
 
     const slideStyle = (i: number): React.CSSProperties => {
-        let off = i - active;
+        let off = i - currentActive;
         if (off > N / 2) off -= N;
         if (off < -N / 2) off += N;
         const abs = Math.abs(off);
@@ -345,7 +360,7 @@ function GallerySection() {
                             transformStyle: 'preserve-3d', willChange: 'transform',
                             ...slideStyle(i),
                         }}>
-                        <img src={src} alt={`Gallery ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={src} alt={`Gallery ${i + 1}`} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                 ))}
             </div>
