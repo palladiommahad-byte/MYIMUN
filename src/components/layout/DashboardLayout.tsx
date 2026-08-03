@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
     { label: 'Overview',        icon: LayoutDashboard, path: '/dashboard' },
@@ -60,9 +61,19 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                 </div>
                 <div className="flex items-center gap-1">
                     <NotificationBell />
-                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
+                    <motion.button
+                        type="button"
+                        aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                        aria-expanded={sidebarOpen}
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        initial={false}
+                        animate={{ rotate: sidebarOpen ? 180 : 0, scale: 1 }}
+                        whileTap={{ scale: 0.82 }}
+                        transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+                        style={{ width: 38, height: 38, color: sidebarOpen ? S.accent : S.textSec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
                         {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 

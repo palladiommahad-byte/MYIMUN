@@ -32,6 +32,7 @@ export const Navbar: React.FC = () => {
     // On the homepage, the nav floats transparent over the hero photo until scrolled.
     const isHome = pathname === '/';
     const transparent = isHome && !scrolled;
+    const navTransparent = transparent && !isMobileMenuOpen;
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -55,7 +56,7 @@ export const Navbar: React.FC = () => {
         setIsMobileMenuOpen(false);
     };
 
-    const txt = transparent ? '#FFFFFF' : HEADING;
+    const txt = navTransparent ? '#FFFFFF' : HEADING;
 
     return (
         <>
@@ -63,8 +64,8 @@ export const Navbar: React.FC = () => {
                 className="fixed top-0 left-0 w-full z-50"
                 style={{
                     height: 80,
-                    background: transparent ? 'transparent' : '#FFFFFF',
-                    boxShadow: transparent ? 'none' : '0 2px 12px rgba(0,0,0,0.10)',
+                    background: navTransparent ? 'transparent' : '#FFFFFF',
+                    boxShadow: navTransparent ? 'none' : '0 2px 12px rgba(0,0,0,0.10)',
                     fontFamily: FONT,
                     display: 'flex',
                     alignItems: 'center',
@@ -76,7 +77,7 @@ export const Navbar: React.FC = () => {
                     {/* Logo */}
                     <Link href="/" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
                         <img
-                            src={transparent ? '/assets/MYIMUN-LOGO-WHITE-.png' : '/assets/MYIMUN-BLUE-LOGO.png'}
+                            src={navTransparent ? '/assets/MYIMUN-LOGO-WHITE-.png' : '/assets/MYIMUN-BLUE-LOGO.png'}
                             alt="MYIMUN Logo"
                             style={{ height: 48, width: 'auto', maxWidth: 260, objectFit: 'contain', display: 'block' }}
                         />
@@ -88,7 +89,7 @@ export const Navbar: React.FC = () => {
                             const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href);
                             return (
                                 <Link key={link.label} href={link.href}
-                                    style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 19, fontWeight: 500, textDecoration: 'none', color: isActive ? (transparent ? '#FFFFFF' : BLUE) : txt, paddingBottom: 6 }}
+                                    style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 19, fontWeight: 500, textDecoration: 'none', color: isActive ? (navTransparent ? '#FFFFFF' : BLUE) : txt, paddingBottom: 6 }}
                                 >
                                     {link.label}
                                     {link.dropdown && <ChevronDown size={12} />}
@@ -103,7 +104,7 @@ export const Navbar: React.FC = () => {
                         {!user ? (
                             <>
                                 <button onClick={() => openAuthModal('login')}
-                                    style={{ padding: '9px 20px', borderRadius: 9999, fontSize: 16, fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${transparent ? 'rgba(255,255,255,0.55)' : '#E5E7EB'}`, background: 'transparent', color: txt, fontFamily: FONT }}>
+                                    style={{ padding: '9px 20px', borderRadius: 9999, fontSize: 16, fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${navTransparent ? 'rgba(255,255,255,0.55)' : '#E5E7EB'}`, background: 'transparent', color: txt, fontFamily: FONT }}>
                                     Log In
                                 </button>
                                 <button id="register-trigger" onClick={() => openAuthModal('register')}
@@ -121,10 +122,20 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     {/* Mobile hamburger */}
-                    <button className="md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        style={{ padding: 8, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: txt, lineHeight: 0 }}>
+                    <motion.button
+                        className="md:hidden"
+                        type="button"
+                        aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                        aria-expanded={isMobileMenuOpen}
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        initial={false}
+                        animate={{ rotate: isMobileMenuOpen ? 180 : 0, scale: 1 }}
+                        whileTap={{ scale: 0.82 }}
+                        transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+                        style={{ width: 40, height: 40, padding: 8, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: txt, lineHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
                         {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-                    </button>
+                    </motion.button>
                 </div>
             </nav>
 
