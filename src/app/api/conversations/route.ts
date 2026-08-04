@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-import { notifyStaff } from '@/lib/notifications';
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 /** GET — staff with Messages access see all conversations; delegates see their own (with messages). */
 export const GET = route(async () => {
@@ -47,6 +47,12 @@ export const POST = route(async (req: Request) => {
         title: 'New support message',
         message: `${user.fullName} sent a message: "${body.subject}"`,
         link: '/admin/messages',
+    });
+    await notifyDelegate(user.id, {
+        type: 'message_sent',
+        title: 'Message sent',
+        message: `Your message about "${body.subject}" was sent to the secretariat.`,
+        link: '/dashboard/messages',
     });
 
     return ok(row, 201);

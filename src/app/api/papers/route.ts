@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-import { notifyStaff } from '@/lib/notifications';
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async () => {
     const user = await requireUser();
@@ -36,6 +36,12 @@ export const POST = route(async (req: Request) => {
         title: 'New position paper',
         message: `${data.delegateName} submitted a position paper for ${data.committee}.`,
         link: '/admin/papers',
+    });
+    await notifyDelegate(user.id, {
+        type: 'paper_submitted',
+        title: 'Position paper submitted',
+        message: `Your position paper for ${data.committee} is awaiting review.`,
+        link: '/dashboard/papers',
     });
 
     return ok(row, 201);

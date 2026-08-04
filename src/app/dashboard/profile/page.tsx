@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../../../auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
 import { useRouter } from 'next/navigation';
-import { User, Mail, MapPin, Calendar, X, Save, Trash2, AlertTriangle } from 'lucide-react';
+import { User, Mail, MapPin, Calendar, X, Save, Trash2, AlertTriangle, Camera, LoaderCircle } from 'lucide-react';
 import { SecuritySettings } from './SecuritySettings';
 import { useToast } from '@/components/ui/Toast';
+import { fileUrl, uploadFile } from '@/lib/fileStore';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -111,20 +112,35 @@ export default function ProfilePage() {
 function ProfileContent({ user }: { user: any }) {
     const [isEditing, setIsEditing] = useState(false);
     const { showToast } = useToast();
+    const { refresh } = useAuth();
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [saving, setSaving] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [formData, setFormData] = useState({
         email: user.email || '',
         address: user.address || '',
         country: user.country || '',
-        joined: user.joined || new Date().toISOString().slice(0, 10),
+        avatarUrl: user.avatarUrl || '',
     });
 
-    const handleSave = () => {
-        user.email = formData.email;
-        user.address = formData.address;
-        user.country = formData.country;
-        user.joined = formData.joined;
-        setIsEditing(false);
-        showToast('Profile updated successfully', 'success');
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || json?.ok === false) throw new Error(json?.error || 'Could not update your profile');
+            await refresh();
+            setIsEditing(false);
+            showToast('Profile updated successfully', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not update your profile', 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleCancel = () => {
@@ -132,9 +148,33 @@ function ProfileContent({ user }: { user: any }) {
             email: user.email || '',
             address: user.address || '',
             country: user.country || '',
-            joined: user.joined || new Date().toISOString().slice(0, 10),
+            avatarUrl: user.avatarUrl || '',
         });
         setIsEditing(false);
+    };
+
+    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            showToast('Choose a JPG, PNG, GIF, or WebP image.', 'error');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('Profile images must be 5 MB or smaller.', 'error');
+            return;
+        }
+        setUploadingAvatar(true);
+        try {
+            const uploaded = await uploadFile(file);
+            setFormData(current => ({ ...current, avatarUrl: fileUrl(uploaded.key) }));
+            showToast('Profile photo ready. Save your changes to use it.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not upload your profile photo', 'error');
+        } finally {
+            setUploadingAvatar(false);
+        }
     };
 
     const inputStyle: React.CSSProperties = {
@@ -143,10 +183,9 @@ function ProfileContent({ user }: { user: any }) {
         outline: 'none', boxSizing: 'border-box',
     };
 
-    const EDITABLE_FIELDS: Array<{ icon: any; label: string; key: 'email' | 'address' | 'country' | 'joined'; type: string; placeholder: string; display: string; fullWidth?: boolean }> = [
+    const EDITABLE_FIELDS: Array<{ icon: any; label: string; key: 'email' | 'address' | 'country'; type: string; placeholder: string; display: string; fullWidth?: boolean }> = [
         { icon: MapPin,    label: 'Country / Delegation', key: 'country', type: 'text',  placeholder: 'Enter country / delegation', display: user.country || 'Unassigned' },
         { icon: Mail,      label: 'Email Address',        key: 'email',   type: 'email', placeholder: 'Enter your email',           display: user.email || 'Not set' },
-        { icon: Calendar,  label: 'Joined',                key: 'joined',  type: 'date',  placeholder: '',                            display: user.joined ? new Date(user.joined).toLocaleDateString() : new Date().toLocaleDateString() },
         { icon: MapPin,    label: 'Address',               key: 'address', type: 'text',  placeholder: 'Enter your address',          display: user.address || 'Not set', fullWidth: true },
     ];
 
@@ -155,14 +194,32 @@ function ProfileContent({ user }: { user: any }) {
             <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left" style={{ gap: 24 }}>
 
                 {/* Avatar */}
-                <div style={{
-                    width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #3B7FFF, #00D4FF)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 28, fontWeight: 700, color: 'white',
-                    boxShadow: '0 4px 16px rgba(59,127,255,0.35)',
-                }}>
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                <div style={{ position: 'relative', width: 80, flexShrink: 0 }}>
+                    <div style={{
+                        width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
+                        background: 'linear-gradient(135deg, #3B7FFF, #00D4FF)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 28, fontWeight: 700, color: 'white',
+                        boxShadow: '0 4px 16px rgba(59,127,255,0.35)',
+                    }}>
+                        {(isEditing ? formData.avatarUrl : user.avatarUrl)
+                            ? <img src={isEditing ? formData.avatarUrl : user.avatarUrl} alt="Profile photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : (user.name ? user.name.charAt(0).toUpperCase() : 'U')}
+                    </div>
+                    {isEditing && (
+                        <button type="button" onClick={() => avatarInputRef.current?.click()} title="Change profile photo"
+                            style={{ position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: '50%', border: '2px solid white', background: C.accent, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: uploadingAvatar ? 'wait' : 'pointer' }}
+                            disabled={uploadingAvatar}>
+                            {uploadingAvatar ? <LoaderCircle size={15} style={{ animation: 'spin 0.9s linear infinite' }} /> : <Camera size={15} />}
+                        </button>
+                    )}
+                    <input ref={avatarInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                    {isEditing && formData.avatarUrl && (
+                        <button type="button" onClick={() => setFormData(current => ({ ...current, avatarUrl: '' }))}
+                            style={{ width: '100%', marginTop: 10, background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                            Remove photo
+                        </button>
+                    )}
                 </div>
 
                 <div className="w-full" style={{ flex: 1, minWidth: 0 }}>
@@ -176,6 +233,16 @@ function ProfileContent({ user }: { user: any }) {
                             </div>
                             <p style={{ fontSize: 15, fontWeight: 500, color: C.text, borderBottom: `1px solid ${C.border}`, paddingBottom: 6, overflowWrap: 'anywhere' }}>
                                 {user.name || 'Not set'}
+                            </p>
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                            <div className="flex items-center justify-center sm:justify-start" style={{ gap: 5, marginBottom: 4 }}>
+                                <Calendar size={13} style={{ color: C.textMuted }} />
+                                <span style={{ fontSize: 12, color: C.textMuted }}>Joined</span>
+                            </div>
+                            <p style={{ fontSize: 15, fontWeight: 500, color: C.text, borderBottom: `1px solid ${C.border}`, paddingBottom: 6 }}>
+                                {user.joined ? new Date(user.joined).toLocaleDateString() : 'Not available'}
                             </p>
                         </div>
 
@@ -207,11 +274,11 @@ function ProfileContent({ user }: { user: any }) {
                     <div style={{ display: 'flex', gap: 10 }}>
                         {isEditing ? (
                             <>
-                                <button onClick={handleSave}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', background: C.green, color: 'white', fontSize: 14, fontWeight: 600, boxShadow: `0 2px 8px ${C.green}40` }}
+                                <button onClick={handleSave} disabled={saving || uploadingAvatar}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 20px', borderRadius: 8, border: 'none', cursor: saving || uploadingAvatar ? 'wait' : 'pointer', background: C.green, color: 'white', fontSize: 14, fontWeight: 600, boxShadow: `0 2px 8px ${C.green}40`, opacity: saving || uploadingAvatar ? 0.7 : 1 }}
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#0DA271'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.green}
-                                ><Save size={14} /> Save Changes</button>
+                                >{saving ? <LoaderCircle size={14} style={{ animation: 'spin 0.9s linear infinite' }} /> : <Save size={14} />} Save Changes</button>
                                 <button onClick={handleCancel}
                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.border}`, cursor: 'pointer', background: 'transparent', color: C.textSec, fontSize: 14, fontWeight: 500 }}
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.bg}

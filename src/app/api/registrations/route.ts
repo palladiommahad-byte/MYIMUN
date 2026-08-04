@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-import { notifyStaff } from '@/lib/notifications';
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 /** GET — staff with Registrations access see all; delegates see their own. */
 export const GET = route(async () => {
@@ -63,6 +63,12 @@ export const POST = route(async (req: Request) => {
         title: 'New registration',
         message: `${data.fullName} submitted a registration for review.`,
         link: '/admin/registration',
+    });
+    await notifyDelegate(user.id, {
+        type: 'registration_submitted',
+        title: 'Registration submitted',
+        message: 'Your registration was sent to the secretariat for review.',
+        link: '/dashboard/registration',
     });
 
     return ok(row, 201);

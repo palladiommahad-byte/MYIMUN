@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-import { notifyStaff } from '@/lib/notifications';
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async (req: Request) => {
     const user = await requireUser();
@@ -39,6 +39,12 @@ export const POST = route(async (req: Request) => {
         title: 'New committee application',
         message: `${data.delegateName} applied to ${data.committeeAbbr}.`,
         link: '/admin/committees',
+    });
+    await notifyDelegate(user.id, {
+        type: 'committee_application_submitted',
+        title: 'Committee application submitted',
+        message: `Your application for ${data.committeeAbbr} is awaiting review.`,
+        link: '/dashboard/committee',
     });
 
     return ok(row, 201);

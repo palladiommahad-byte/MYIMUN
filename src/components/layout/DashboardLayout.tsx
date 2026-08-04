@@ -4,7 +4,7 @@ import React, { ReactNode, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
     LayoutDashboard, FileText, Users, LogOut,
-    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star
+    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star, CircleUserRound
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -48,6 +48,14 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
         path === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(path);
 
     const initials = user?.country ? user.country.substring(0, 2).toUpperCase() : 'DE';
+    const profileButton = (
+        <button type="button" onClick={() => router.push('/dashboard/profile')} title="My profile" aria-label="Open my profile"
+            style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${S.border}`, background: S.surface, color: S.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+            {user?.avatarUrl
+                ? <img src={user.avatarUrl} alt="My profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <CircleUserRound size={19} />}
+        </button>
+    );
 
     return (
         <div className="light-ui min-h-screen flex" style={{ background: S.bg, fontFamily: '"Inter", system-ui, sans-serif' }}>
@@ -61,6 +69,7 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                 </div>
                 <div className="flex items-center gap-1">
                     <NotificationBell />
+                    {profileButton}
                     <motion.button
                         type="button"
                         aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -122,9 +131,11 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
                 {/* User card */}
                 <div className="p-3 border-t flex-shrink-0" style={{ borderColor: S.border }}>
                     <div className="sidebar-nav-item flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white overflow-hidden"
                             style={{ background: 'linear-gradient(135deg,#3B7FFF,#7C5FFF)' }}>
-                            {initials}
+                            {user?.avatarUrl
+                                ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : initials}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold truncate" style={{ color: S.text }}>{user?.name || 'Delegate'}</p>
@@ -151,9 +162,10 @@ export const DashboardLayout: React.FC<{ children: ReactNode }> = ({ children })
             <main className="flex-1 pt-16 md:pt-0 min-w-0" style={{ width: '100%' }}>
                 <div className="md:ml-[220px]" style={{ minHeight: '100vh', boxSizing: 'border-box' }}>
                     {/* Desktop top bar — just the notification bell for now */}
-                    <div className="hidden md:flex items-center justify-end px-6"
+                    <div className="hidden md:flex items-center justify-end gap-2 px-6"
                         style={{ height: 56, borderBottom: `1px solid ${S.border}`, background: S.surface, flexShrink: 0 }}>
                         <NotificationBell />
+                        {profileButton}
                     </div>
                     <div className="px-4 py-5 md:px-6 md:py-7" style={{ boxSizing: 'border-box' }}>
                         <div style={{ maxWidth: 1000, margin: '0 auto' }}>

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
-import { notifyStaff } from '@/lib/notifications';
+import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 import { formatMoney } from '@/lib/currency';
 
 export const GET = route(async () => {
@@ -46,6 +46,12 @@ export const POST = route(async (req: Request) => {
         title: 'New payment receipt',
         message: `${data.senderName} submitted a ${formatMoney(data.amount, selectedPackage?.currency)} receipt for ${data.participantName}.`,
         link: '/admin/payments',
+    });
+    await notifyDelegate(user.id, {
+        type: 'payment_submitted',
+        title: 'Payment receipt submitted',
+        message: 'Your payment receipt was sent to the secretariat for verification.',
+        link: '/dashboard/payments',
     });
 
     return ok(row, 201);

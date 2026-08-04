@@ -9,6 +9,7 @@ export interface User {
     email?: string;
     committee?: string;
     address?: string;
+    joined?: string;
     passportUrl?: string;
     mustChangeCredentials?: boolean;
     permissions?: string[] | null; // secretary/manager: allowed /admin/* page paths; admin: full access regardless

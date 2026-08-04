@@ -17,7 +17,12 @@ export const GET = route(async (_req: Request, ctx: { params: Promise<{ key: str
     const { key } = await ctx.params;
 
     if (!STAFF.includes(user.role)) {
+        const avatar = await prisma.user.findFirst({
+            where: { id: user.id, avatarUrl: `/api/files/${key}` },
+            select: { id: true },
+        });
         const owns =
+            avatar ||
             (await prisma.registration.findFirst({ where: { delegateId: user.id, idDocKey: key }, select: { id: true } })) ||
             (await prisma.paymentSubmission.findFirst({ where: { delegateId: user.id, receiptKey: key }, select: { id: true } })) ||
             (await prisma.positionPaper.findFirst({ where: { delegateId: user.id, fileKey: key }, select: { id: true } }));
