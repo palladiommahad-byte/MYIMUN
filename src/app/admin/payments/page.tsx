@@ -8,8 +8,8 @@ import {
     EyeOff, Eye as EyeOn, Tag, Upload,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { useConference, PaymentSubmission, PaymentSettings, ConferencePackage } from '@/context/ConferenceContext';
-import { fileUrl } from '@/lib/fileStore';
+import { useConference, BankAccount, PaymentSubmission, PaymentSettings, ConferencePackage } from '@/context/ConferenceContext';
+import { fileUrl, uploadFile } from '@/lib/fileStore';
 import { currencyOptionsWithCurrent, formatMoney, normalizeCurrency } from '@/lib/currency';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 
@@ -31,6 +31,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; border: string }
 };
 
 type FilterKey = 'All' | 'Pending' | 'Approved' | 'Declined';
+type PaymentSetupField = Exclude<keyof PaymentSettings, 'banks'>;
 
 const BLANK_PKG: Omit<ConferencePackage, 'id'> = {
     name: '', price: 0, currency: 'USD', description: '',
@@ -54,13 +55,39 @@ export default function AdminPaymentsPage() {
     /* ── Payment setup ── */
     const [setupOpen, setSetupOpen] = useState(false);
     const [setupForm, setSetupForm] = useState<PaymentSettings>(paymentSettings);
+    const bankLogoInputRef = useRef<HTMLInputElement>(null);
+    const [logoBankId, setLogoBankId] = useState<string | null>(null);
     const openSetup = () => { setSetupForm(paymentSettings); setSetupOpen(o => !o); };
     const saveSetup = () => {
         updatePaymentSettings({ ...setupForm, fee: Number(setupForm.fee) || 0 });
         showToast('Payment details updated.', 'success');
         setSetupOpen(false);
     };
-    const setupField = (key: keyof PaymentSettings, v: string) => setSetupForm(f => ({ ...f, [key]: v }));
+    const setupField = (key: PaymentSetupField, v: string) => setSetupForm(f => ({ ...f, [key]: v }));
+    const addBank = () => setSetupForm(form => ({
+        ...form,
+        banks: [...form.banks, { id: `bank-${Date.now()}`, bankName: '', accountName: '', accountNumber: '', iban: '', swift: '' }],
+    }));
+    const updateBank = (bankId: string, patch: Partial<BankAccount>) => setSetupForm(form => ({
+        ...form,
+        banks: form.banks.map(bank => bank.id === bankId ? { ...bank, ...patch } : bank),
+    }));
+    const removeBank = (bankId: string) => setSetupForm(form => ({ ...form, banks: form.banks.filter(bank => bank.id !== bankId) }));
+    const uploadBankLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        const bankId = logoBankId;
+        event.target.value = '';
+        setLogoBankId(null);
+        if (!file || !bankId) return;
+        if (!file.type.startsWith('image/')) { showToast('Bank logo must be an image file.', 'error'); return; }
+        try {
+            const uploaded = await uploadFile(file);
+            updateBank(bankId, { logoKey: uploaded.key });
+            showToast('Bank logo added. Save payment details to publish it.', 'success');
+        } catch {
+            showToast('Could not upload the bank logo.', 'error');
+        }
+    };
 
     /* ── Packages state ── */
     const [pkgsOpen, setPkgsOpen]     = useState(true);
@@ -227,13 +254,8 @@ export default function AdminPaymentsPage() {
                             {([
                                 ['fee', 'Registration Fee', 'e.g. 150', 'number'],
                                 ['currency', 'Currency', 'e.g. USD', 'text'],
-                                ['bankName', 'Bank Name', 'e.g. MYIMUN Bank', 'text'],
-                                ['accountName', 'Account Name', 'e.g. MYIMUN Events Ltd.', 'text'],
-                                ['accountNumber', 'Account Number', 'e.g. 0001234567', 'text'],
-                                ['iban', 'IBAN', 'e.g. MA00 1234 …', 'text'],
-                                ['swift', 'SWIFT / BIC', 'e.g. MYIMMAMC', 'text'],
                                 ['paypalEmail', 'PayPal Email', 'e.g. payments@myimun.org', 'text'],
-                            ] as [keyof PaymentSettings, string, string, string][]).map(([key, label, ph, type]) => (
+                            ] as [PaymentSetupField, string, string, string][]).map(([key, label, ph, type]) => (
                                 <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: C.textSec }}>{label}</label>
                                     {key === 'currency' ? (
@@ -251,6 +273,46 @@ export default function AdminPaymentsPage() {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                        <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                                <div>
+                                    <p style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Bank Accounts</p>
+                                    <p style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Delegates can choose one of these accounts before uploading a receipt.</p>
+                                </div>
+                                <button type="button" onClick={addBank} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 8, border: `1px solid ${C.accent}30`, background: `${C.accent}08`, color: C.accent, fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}><Plus size={14} /> Add Bank</button>
+                            </div>
+                            {setupForm.banks.length === 0 ? (
+                                <div style={{ padding: 18, borderRadius: 8, border: `1px dashed ${C.border}`, textAlign: 'center', fontSize: 12.5, color: C.textMuted }}>No bank accounts yet. Add a bank account for delegates to use.</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {setupForm.banks.map((bank, index) => (
+                                        <div key={bank.id} style={{ border: `1px solid ${C.border}`, background: '#FAFBFC', borderRadius: 10, padding: 14 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                                    <button type="button" title="Upload bank logo" onClick={() => { setLogoBankId(bank.id); bankLogoInputRef.current?.click(); }} style={{ width: 42, height: 42, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden', background: C.surface, color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        {bank.logoKey ? <img src={fileUrl(bank.logoKey)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} /> : <ImageIcon size={18} />}
+                                                    </button>
+                                                    <div><p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Bank Account {index + 1}</p><p style={{ fontSize: 11.5, color: C.textMuted }}>Upload an optional bank logo</p></div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    {bank.logoKey && <button type="button" title="Remove logo" onClick={() => updateBank(bank.id, { logoKey: undefined })} style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>}
+                                                    <button type="button" title="Remove bank" onClick={() => removeBank(bank.id)} style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.red}30`, background: `${C.red}08`, color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+                                                {([
+                                                    ['bankName', 'Bank Name', 'e.g. Attijariwafa Bank'], ['accountName', 'Account Name', 'e.g. Moroccan Youth Forum'],
+                                                    ['accountNumber', 'Account Number', 'e.g. 007 450 001045'], ['iban', 'IBAN', 'e.g. MA00 1234 ...'], ['swift', 'SWIFT / BIC', 'e.g. MYIMMAMC'],
+                                                ] as [keyof Omit<BankAccount, 'id' | 'logoKey'>, string, string][]).map(([key, label, placeholder]) => (
+                                                    <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><span style={{ fontSize: 11, fontWeight: 600, color: C.textSec }}>{label}</span><input value={bank[key]} onChange={event => updateBank(bank.id, { [key]: event.target.value })} placeholder={placeholder} style={{ padding: '9px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} /></label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <input ref={bankLogoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={uploadBankLogo} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
                             <label style={{ fontSize: 12, fontWeight: 600, color: C.textSec }}>Instructions / Other Methods</label>
@@ -395,15 +457,15 @@ export default function AdminPaymentsPage() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                         <thead>
                             <tr style={{ background: '#FAFBFC', borderBottom: `1px solid ${C.border}` }}>
-                                {['Sender', 'Participant', 'Package', 'Amount', 'Method', 'Receipt', 'Date', 'Status', 'Actions'].map((h, i) => (
-                                    <th key={h} style={{ padding: '11px 14px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 8 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                {['Sender', 'Participant', 'Package', 'Amount', 'Method', 'Bank', 'Receipt', 'Date', 'Status', 'Actions'].map((h, i) => (
+                                    <th key={h} style={{ padding: '11px 14px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 9 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                                    <td colSpan={10} style={{ padding: '56px 20px', textAlign: 'center' }}>
                                         <CreditCard size={36} style={{ color: C.border, margin: '0 auto 12px' }} />
                                         <p style={{ fontSize: 15, fontWeight: 500, color: C.textMuted }}>
                                             {payments.length === 0 ? 'No payment receipts yet.' : `No ${filter.toLowerCase()} payments.`}
@@ -439,6 +501,7 @@ export default function AdminPaymentsPage() {
                                         </td>
                                         <td style={{ padding: '13px 14px', fontSize: 13.5, fontWeight: 700, color: C.text }}>{formatMoney(p.amount, pkg?.currency ?? paymentSettings.currency)}</td>
                                         <td style={{ padding: '13px 14px', fontSize: 13, color: C.textSec }}>{p.method}</td>
+                                        <td style={{ padding: '13px 14px', fontSize: 13, color: C.textSec }}>{p.bankName || '—'}</td>
                                         <td style={{ padding: '13px 14px' }}>
                                             <button onClick={() => viewReceipt(p.receiptKey)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                                                 {p.receiptType === 'application/pdf' ? <FileText size={13} /> : <ImageIcon size={13} />} View
@@ -508,6 +571,7 @@ export default function AdminPaymentsPage() {
                                 [Users, 'Participant', viewPay.participantName],
                                 [CreditCard, 'Amount', formatMoney(viewPay.amount, currencyForPayment(viewPay))],
                                 [Landmark, 'Method', viewPay.method],
+                                [Landmark, 'Bank account', viewPay.bankName || 'Not specified'],
                                 [Clock, 'Submitted', viewPay.submittedAt],
                             ].map(([Icon, label, val]: any) => (
                                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>

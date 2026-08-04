@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     CreditCard, CheckCircle2, Clock, AlertCircle, Sparkles, Upload, FileText,
     Image as ImageIcon, X as XIcon, User, Users, ArrowRight, XCircle, Landmark,
@@ -20,7 +20,7 @@ const C = {
 };
 
 const MAX_RECEIPT_MB = 20;
-const PAYMENT_METHODS = ['Bank Transfer', 'Credit Card', 'PayPal', 'Cash Deposit', 'Other'];
+const PAYMENT_METHODS = ['Bank Transfer', 'Cash Transfer'];
 
 function openStoredDoc(key: string) {
     window.open(fileUrl(key), '_blank', 'noopener');
@@ -55,9 +55,16 @@ export default function PaymentsPage() {
     const [senderName, setSenderName]         = useState(reg?.fullName ?? user?.name ?? '');
     const [participantName, setParticipantName] = useState(reg?.fullName ?? user?.name ?? '');
     const [method, setMethod]                  = useState('Bank Transfer');
+    const [selectedBankId, setSelectedBankId]  = useState('');
     const [receipt, setReceipt]               = useState<File | null>(null);
     const [submitting, setSubmitting]          = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const banks = paymentSettings.banks;
+    const selectedBank = banks.find(bank => bank.id === selectedBankId) ?? null;
+
+    useEffect(() => {
+        if (!selectedBankId || !banks.some(bank => bank.id === selectedBankId)) setSelectedBankId(banks[0]?.id ?? '');
+    }, [banks, selectedBankId]);
 
     const pickFile = (file: File) => {
         const okType = file.type === 'application/pdf' || file.type.startsWith('image/');
@@ -69,6 +76,7 @@ export default function PaymentsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!senderName.trim() || !participantName.trim()) { showToast('Please enter both sender and participant names.', 'error'); return; }
+        if (method === 'Bank Transfer' && banks.length > 0 && !selectedBank) { showToast('Please choose the bank account you used.', 'error'); return; }
         if (!receipt) { showToast('Please upload your payment receipt.', 'error'); return; }
 
         setSubmitting(true);
@@ -80,6 +88,8 @@ export default function PaymentsPage() {
                 participantName: participantName.trim(),
                 amount: activePrice,
                 method,
+                bankId: method === 'Bank Transfer' ? selectedBank?.id : undefined,
+                bankName: method === 'Bank Transfer' ? selectedBank?.bankName : undefined,
                 packageId: selectedPkg?.id,
                 packageName: selectedPkg?.name,
                 receiptName: receipt.name,
@@ -287,21 +297,31 @@ export default function PaymentsPage() {
                             <Landmark size={15} style={{ color: C.accent }} />
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Payment Details</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16 }}>
-                            {[
-                                ['Bank', paymentSettings.bankName],
-                                ['Account Name', paymentSettings.accountName],
-                                ['Account Number', paymentSettings.accountNumber],
-                                ['IBAN', paymentSettings.iban],
-                                ['SWIFT / BIC', paymentSettings.swift],
-                                ['PayPal', paymentSettings.paypalEmail],
-                            ].filter(([, v]) => v && String(v).trim()).map(([l, v]) => (
-                                <div key={l}>
-                                    <p style={{ fontSize: 10.5, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 3 }}>{l}</p>
-                                    <p style={{ fontSize: 13, fontWeight: 600, color: C.text, wordBreak: 'break-word' }}>{v}</p>
-                                </div>
-                            ))}
-                        </div>
+                        {banks.length > 0 && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }} role="radiogroup" aria-label="Choose bank account">
+                                {banks.map(bank => {
+                                    const active = selectedBank?.id === bank.id;
+                                    return (
+                                        <button key={bank.id} type="button" onClick={() => setSelectedBankId(bank.id)} aria-checked={active} role="radio"
+                                            style={{ padding: 14, borderRadius: 10, border: `1px solid ${active ? C.accent : C.border}`, background: active ? `${C.accent}08` : '#FAFBFC', textAlign: 'left', cursor: 'pointer', boxShadow: active ? `0 0 0 2px ${C.accent}12` : 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 11 }}>
+                                                <div style={{ width: 38, height: 38, borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                                    {bank.logoKey ? <img src={fileUrl(bank.logoKey)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} /> : <Landmark size={18} style={{ color: C.accent }} />}
+                                                </div>
+                                                <div style={{ minWidth: 0, flex: 1 }}><p style={{ fontSize: 13.5, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bank.bankName || 'Bank Account'}</p><p style={{ fontSize: 11.5, color: active ? C.accent : C.textMuted, marginTop: 2 }}>{active ? 'Selected for this payment' : 'Select this account'}</p></div>
+                                                {active && <CheckCircle2 size={17} style={{ color: C.accent, flexShrink: 0 }} />}
+                                            </div>
+                                            {[['Account Name', bank.accountName], ['Account Number', bank.accountNumber], ['IBAN', bank.iban], ['SWIFT / BIC', bank.swift]].filter(([, value]) => value.trim()).map(([label, value]) => (
+                                                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, paddingTop: 7, marginTop: 7, borderTop: `1px solid ${C.border}` }}><span style={{ fontSize: 10.5, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{label}</span><span style={{ fontSize: 12.5, color: C.text, fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span></div>
+                                            ))}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {paymentSettings.paypalEmail?.trim() && (
+                            <div style={{ marginTop: banks.length ? 14 : 0, display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 12px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}` }}><span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>PayPal</span><span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{paymentSettings.paypalEmail}</span></div>
+                        )}
                         {paymentSettings.instructions?.trim() && (
                             <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10 }}>
                                 <AlertCircle size={15} style={{ color: C.accent, flexShrink: 0, marginTop: 1 }} />

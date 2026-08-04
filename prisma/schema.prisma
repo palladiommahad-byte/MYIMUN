@@ -151,6 +151,8 @@ model PaymentSubmission {
   participantName String
   amount          Float
   method          String
+  bankId          String?
+  bankName        String?
   packageId       Int?
   packageName     String?
   receiptName     String

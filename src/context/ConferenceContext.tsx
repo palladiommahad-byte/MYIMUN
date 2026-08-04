@@ -189,6 +189,8 @@ export interface PaymentSubmission {
     participantName: string;  // the delegate the payment is for
     amount: number;
     method: string;           // Bank Transfer, Credit Card, PayPal, Cash, Other
+    bankId?: string;
+    bankName?: string;
     packageId?: number;
     packageName?: string;
     // Receipt file lives in IndexedDB
@@ -201,6 +203,16 @@ export interface PaymentSubmission {
     submittedAt: string;
 }
 
+export interface BankAccount {
+    id: string;
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    iban: string;
+    swift: string;
+    logoKey?: string;
+}
+
 export interface PaymentSettings {
     fee: number;
     currency: string;        // e.g. "USD", "$"
@@ -211,6 +223,23 @@ export interface PaymentSettings {
     swift: string;
     paypalEmail: string;
     instructions: string;    // free-text additional notes / other methods
+    banks: BankAccount[];
+}
+
+export function resolvePaymentSettings(saved: Partial<PaymentSettings> | null | undefined): PaymentSettings {
+    const legacyBank = saved?.bankName?.trim() || saved?.accountName?.trim() || saved?.accountNumber?.trim() || saved?.iban?.trim() || saved?.swift?.trim()
+        ? [{
+            id: 'legacy-bank', bankName: saved?.bankName ?? '', accountName: saved?.accountName ?? '',
+            accountNumber: saved?.accountNumber ?? '', iban: saved?.iban ?? '', swift: saved?.swift ?? '',
+        }]
+        : [];
+    const banks = Array.isArray(saved?.banks) ? saved.banks : legacyBank;
+    const primary = banks[0];
+    return {
+        fee: 0, currency: 'USD', paypalEmail: '', instructions: '', ...saved, banks,
+        bankName: primary?.bankName ?? saved?.bankName ?? '', accountName: primary?.accountName ?? saved?.accountName ?? '',
+        accountNumber: primary?.accountNumber ?? saved?.accountNumber ?? '', iban: primary?.iban ?? saved?.iban ?? '', swift: primary?.swift ?? saved?.swift ?? '',
+    };
 }
 
 export interface ConferenceSettings {
@@ -521,6 +550,7 @@ const SEED_PAYMENT_SETTINGS: PaymentSettings = {
     swift: 'MYIMMAMC',
     paypalEmail: 'payments@myimun.org',
     instructions: 'Please include your full name as the transfer reference. After paying, upload your receipt below for verification.',
+    banks: [{ id: 'myimun-bank', bankName: 'MYIMUN Bank', accountName: 'MYIMUN Events Ltd.', accountNumber: '0001234567', iban: 'MA00 1234 5678 9012 3456', swift: 'MYIMMAMC' }],
 };
 
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -710,7 +740,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [announcements,  setAnnouncements]  = useState<Announcement[]>([]);
     const [registrations,  setRegistrations]  = useState<Registration[]>([]);
     const [payments,       setPayments]       = useState<PaymentSubmission[]>([]);
-    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '' });
+    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(() => resolvePaymentSettings(null));
     const [packages,       setPackages]       = useState<ConferencePackage[]>([]);
     const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
     const [landingPage,    setLandingPage]    = useState<LandingPageData>(DEFAULT_LANDING);
@@ -798,7 +828,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
             getData('/api/password-reset').then(pr => { if (pr !== null) setPasswordResetRequests(pr.map(mapResetReq)); }),
             getData('/api/announcements').then(an => { if (an !== null) setAnnouncements(an.map(mapAnnouncement)); }),
             getData('/api/settings/payment').then(pay => {
-                if (pay !== null) setPaymentSettings({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '', ...pay });
+                if (pay !== null) setPaymentSettings(resolvePaymentSettings(pay));
             }),
         ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1033,7 +1063,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         payments.find(p => p.delegateId === delegateId);
 
     const updatePaymentSettings = async (patch: Partial<PaymentSettings>) => {
-        const next = { ...paymentSettings, ...patch };
+        const next = resolvePaymentSettings({ ...paymentSettings, ...patch });
         setPaymentSettings(next);
         await send('PUT', '/api/settings/payment', next).catch(() => {});
     };

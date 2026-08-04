@@ -17,6 +17,8 @@ const schema = z.object({
     participantName: z.string().trim().min(1),
     amount: z.number().nonnegative(),
     method: z.string().trim().min(1),
+    bankId: z.string().trim().optional(),
+    bankName: z.string().trim().optional(),
     packageId: z.number().optional(),
     packageName: z.string().optional(),
     receiptName: z.string().min(1),
