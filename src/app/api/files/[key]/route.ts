@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { fail, route } from '@/lib/api';
 
 const STAFF = ['admin', 'secretary', 'manager'];
+const PUBLIC_FILE_SETTING_KEYS = ['landing', 'about', 'committees-page', 'contact-page'];
 
 // Only these types are rendered inline; everything else is forced to download so a
 // malicious upload (e.g. HTML/SVG) can never execute script in our origin.
@@ -10,13 +11,31 @@ const INLINE_TYPES = new Set([
     'application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp',
 ]);
 
+function valueReferencesFile(value: unknown, key: string): boolean {
+    const url = `/api/files/${key}`;
+    if (typeof value === 'string') return value === url || value.startsWith(`${url}?`) || value.startsWith(`${url}#`);
+    if (Array.isArray(value)) return value.some(item => valueReferencesFile(item, key));
+    if (value && typeof value === 'object') return Object.values(value).some(item => valueReferencesFile(item, key));
+    return false;
+}
+
+async function isPublicSiteFile(key: string) {
+    const settings = await prisma.appSetting.findMany({
+        where: { key: { in: PUBLIC_FILE_SETTING_KEYS } },
+        select: { value: true },
+    });
+    return settings.some(setting => valueReferencesFile(setting.value, key));
+}
+
 /** Stream a stored file. Staff can read any file; a delegate can only read files
     referenced by their own registration / payment / position paper. */
 export const GET = route(async (_req: Request, ctx: { params: Promise<{ key: string }> }) => {
-    const user = await requireUser();
     const { key } = await ctx.params;
 
-    if (!STAFF.includes(user.role)) {
+    const isPublic = await isPublicSiteFile(key);
+    const user = isPublic ? null : await requireUser();
+
+    if (user && !STAFF.includes(user.role)) {
         const exampleSetting = await prisma.appSetting.findUnique({
             where: { key: 'position-paper-example' },
             select: { value: true },

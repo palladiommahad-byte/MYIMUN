@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { fileUrl, uploadFile } from '@/lib/fileStore';
 
 /* ─── palette ─── */
 const S = {
@@ -32,7 +33,18 @@ const compressImage = (file: File, maxWidth = 1400, quality = 0.78): Promise<str
             canvas.width  = Math.round(img.width  * scale);
             canvas.height = Math.round(img.height * scale);
             canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            canvas.toBlob(async blob => {
+                if (!blob) {
+                    reject(new Error('Image compression failed'));
+                    return;
+                }
+                try {
+                    const uploaded = await uploadFile(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg') || 'landing-image.jpg', { type: 'image/jpeg' }));
+                    resolve(fileUrl(uploaded.key));
+                } catch (error) {
+                    reject(error);
+                }
+            }, 'image/jpeg', quality);
         };
         img.onerror = reject;
         img.src = url;

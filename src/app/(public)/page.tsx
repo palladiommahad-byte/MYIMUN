@@ -48,6 +48,34 @@ const DEFAULT_GALLERY = [
     'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80',
 ];
 
+function ImagePlaceholder({ className, style }: { className?: string; style?: React.CSSProperties }) {
+    return (
+        <div
+            className={className}
+            aria-hidden
+            style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #00091C 0%, #102A5C 52%, #2C74FF 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                ...style,
+            }}
+        >
+            <img src="/assets/MYIMUN-LOGO-WHITE-.png" alt="" style={{ width: '58%', maxWidth: 280, opacity: 0.22 }} />
+        </div>
+    );
+}
+
+function AdminImage({ src, fallback, loading, alt, className, style }: {
+    src: string; fallback: string; loading: boolean; alt: string; className?: string; style?: React.CSSProperties;
+}) {
+    const resolvedSrc = src || (!loading ? fallback : '');
+    if (!resolvedSrc) return <ImagePlaceholder className={className} style={style} />;
+    return <img src={resolvedSrc} alt={alt} loading="lazy" decoding="async" className={className} style={style} />;
+}
+
 /* Parse **bold** spans (admin-editable) into <strong> on dark bg */
 function renderBold(text: string) {
     return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
@@ -97,7 +125,7 @@ export default function LandingPage() {
 
 /* ════ HERO ════ */
 function Hero() {
-    const { landingPage } = useConference();
+    const { landingPage, isPublicLoading } = useConference();
     const h = landingPage.hero;
     const slides = h.backgroundImages ?? [];
     const [index, setIndex] = useState(0);
@@ -117,8 +145,12 @@ function Hero() {
                         <img key={src + i} src={src} alt="" decoding="async"
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: i === index ? 1 : 0, transition: 'opacity 1.4s ease-in-out' }} />
                     ))
+                ) : h.imageUrl ? (
+                    <img src={h.imageUrl} alt="" decoding="async" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : isPublicLoading ? (
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #00091C 0%, #102A5C 52%, #2C74FF 100%)' }} />
                 ) : (
-                    <img src={h.imageUrl || IMG.hero} alt="" decoding="async" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={IMG.hero} alt="" decoding="async" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,9,28,0.78) 0%, rgba(0,9,28,0.5) 45%, rgba(0,9,28,0.18) 100%)' }} />
                 <img src="/assets/MYIMUN-LOGO-WHITE-.png" alt="" aria-hidden
@@ -164,13 +196,13 @@ function Ticker() {
 
 /* ════ WHO WE ARE ════ */
 function WhoWeAre() {
-    const { landingPage } = useConference();
+    const { landingPage, isPublicLoading } = useConference();
     const w = landingPage.whoWeAre;
     return (
         <section style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #EAF1FD 100%)', padding: '96px 64px' }} className="lp-section">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }} className="lp-2col">
                 <div style={{ flex: '0 0 42%' }} className="lp-2col-img">
-                    <img src={w.image || IMG.whoWeAre} alt="MYIMUN delegates at conference table" loading="lazy" decoding="async" className="img-corner-cut" style={{ aspectRatio: '4 / 3.4' }} />
+                    <AdminImage src={w.image} fallback={IMG.whoWeAre} loading={isPublicLoading} alt="MYIMUN delegates at conference table" className="img-corner-cut" style={{ aspectRatio: '4 / 3.4' }} />
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{w.tag}</Tag>
@@ -225,7 +257,7 @@ function Partners() {
 
 /* ════ EVENT ANNOUNCEMENT (DARK) ════ */
 function EventAnnouncement() {
-    const { landingPage, events } = useConference();
+    const { landingPage, events, isPublicLoading } = useConference();
     const a = landingPage.announcement;
     // Countdown is tied to the actual conference start date (Admin → Events), not a
     // separately-set value, so it's always in sync with the real schedule.
@@ -263,7 +295,7 @@ function EventAnnouncement() {
                 </div>
 
                 <div style={{ flex: '0 0 45%' }} className="lp-2col-img">
-                    <img src={a.image || IMG.announcement} alt="MYIMUN conference room" loading="lazy" decoding="async" style={{ width: '100%', objectFit: 'cover', borderRadius: '0 0 32px 0', aspectRatio: '4 / 5' }} />
+                    <AdminImage src={a.image} fallback={IMG.announcement} loading={isPublicLoading} alt="MYIMUN conference room" style={{ width: '100%', objectFit: 'cover', borderRadius: '0 0 32px 0', aspectRatio: '4 / 5' }} />
                 </div>
             </div>
         </section>
@@ -272,14 +304,14 @@ function EventAnnouncement() {
 
 /* ════ GET STARTED TODAY ════ */
 function GetStarted() {
-    const { landingPage } = useConference();
+    const { landingPage, isPublicLoading } = useConference();
     const g = landingPage.getStarted;
     const waLink = `https://wa.me/${g.phone.replace(/[^0-9]/g, '')}`;
     return (
         <section style={{ background: C.white, padding: '96px 64px' }} className="lp-section">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }} className="lp-2col">
                 <div style={{ flex: '0 0 42%' }} className="lp-2col-img">
-                    <img src={g.image || IMG.getStarted} alt="MYIMUN delegates with country flags" loading="lazy" decoding="async" className="img-corner-cut" style={{ aspectRatio: '4 / 3' }} />
+                    <AdminImage src={g.image} fallback={IMG.getStarted} loading={isPublicLoading} alt="MYIMUN delegates with country flags" className="img-corner-cut" style={{ aspectRatio: '4 / 3' }} />
                 </div>
                 <div style={{ flex: '0 0 58%' }}>
                     <Tag>{g.tag}</Tag>
@@ -299,9 +331,9 @@ function GetStarted() {
 
 /* ════ GALLERY (3D coverflow carousel) ════ */
 function GallerySection() {
-    const { landingPage } = useConference();
+    const { landingPage, isPublicLoading } = useConference();
     const g = landingPage.gallery;
-    const images = (g.images && g.images.length > 0) ? g.images : DEFAULT_GALLERY;
+    const images = (g.images && g.images.length > 0) ? g.images : (isPublicLoading ? [] : DEFAULT_GALLERY);
     const N = images.length;
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
@@ -350,7 +382,9 @@ function GallerySection() {
                 onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
                 style={{ position: 'relative', height: 470, maxWidth: 1100, margin: '0 auto', perspective: '1600px' }}
             >
-                {images.map((src, i) => (
+                {images.length === 0 ? (
+                    <ImagePlaceholder style={{ height: 440, maxWidth: 340, margin: '15px auto 0', borderRadius: 18, boxShadow: '0 24px 60px rgba(11,18,32,0.18)' }} />
+                ) : images.map((src, i) => (
                     <div key={i} onClick={() => setActive(i)}
                         style={{
                             position: 'absolute', left: '50%', top: '50%',
@@ -366,7 +400,7 @@ function GallerySection() {
             </div>
 
             {/* Nav arrows */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 36 }}>
+            {images.length > 0 && <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 36 }}>
                 {[{ Icon: ArrowLeft, dir: -1, label: 'Previous' }, { Icon: ArrowRight, dir: 1, label: 'Next' }].map(({ Icon, dir, label }) => (
                     <button key={label} onClick={() => go(dir)} aria-label={label}
                         style={{ width: 48, height: 48, borderRadius: '50%', border: `1.5px solid ${C.border}`, background: C.white, color: C.heading, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s ease' }}
@@ -375,7 +409,7 @@ function GallerySection() {
                         <Icon size={18} />
                     </button>
                 ))}
-            </div>
+            </div>}
         </section>
     );
 }
