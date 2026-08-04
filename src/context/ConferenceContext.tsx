@@ -592,6 +592,9 @@ function nowStr() {
 
 /* ── Context type ── */
 interface ConferenceCtx {
+    isPublicLoading: boolean;
+    isUserDataLoading: boolean;
+
     committees: Committee[];
     addCommittee:    (c: Omit<Committee, 'id'>) => void;
     updateCommittee: (id: number, patch: Partial<Committee>) => void;
@@ -692,6 +695,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
     const [landingPage,    setLandingPage]    = useState<LandingPageData>(DEFAULT_LANDING);
     const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false });
+    const [isPublicLoading, setIsPublicLoading] = useState(true);
+    const [isUserDataLoading, setIsUserDataLoading] = useState(true);
 
     /* ── Mappers: server record → client shape ── */
     const fmt = (iso: string) => { try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
@@ -719,7 +724,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Fetch helpers ── */
     const getData = async (url: string) => {
-        try { const res = await fetch(url); if (!res.ok) return null; const j = await res.json(); return j?.ok ? j.data : null; } catch { return null; }
+        try { const res = await fetch(url, { cache: 'no-store' }); if (!res.ok) return null; const j = await res.json(); return j?.ok ? j.data : null; } catch { return null; }
     };
     const send = async (method: string, url: string, body?: unknown) => {
         const res = await fetch(url, {
@@ -735,18 +740,18 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Initial load: public config always; per-user data when signed in ── */
     const loadPublic = useCallback(async () => {
-        const [c, e, pk, sc, pay, conf, land] = await Promise.all([
-            getData('/api/committees'), getData('/api/events'), getData('/api/packages'),
-            getData('/api/schedule'), getData('/api/settings/payment'),
-            getData('/api/settings/conference'), getData('/api/settings/landing'),
+        setIsPublicLoading(true);
+        await Promise.allSettled([
+            getData('/api/committees').then(c => { if (c !== null) applyCommittees(c); }),
+            getData('/api/events').then(e => { if (e !== null) setEvents(e); }),
+            getData('/api/packages').then(pk => { if (pk !== null) setPackages(pk); }),
+            getData('/api/schedule').then(sc => { if (sc !== null) setScheduleEvents(sc); }),
+            getData('/api/settings/conference').then(conf => {
+                if (conf !== null) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, ...conf });
+            }),
+            getData('/api/settings/landing').then(land => { if (land !== null) setLandingPage(resolveLandingPage(land)); }),
         ]);
-        if (c) applyCommittees(c);
-        if (e) setEvents(e);
-        if (pk) setPackages(pk);
-        if (sc) setScheduleEvents(sc);
-        if (pay) setPaymentSettings({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '', ...pay });
-        if (conf) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, ...conf });
-        if (land) setLandingPage(resolveLandingPage(land));
+        setIsPublicLoading(false);
     }, [applyCommittees]);
 
     useEffect(() => { loadPublic(); }, [loadPublic]);
@@ -756,19 +761,19 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
        other side (admin <-> delegate), so the UI updates instantly instead
        of waiting for a manual page reload. ── */
     const refreshAll = useCallback(async () => {
-        const [r, p, pa, ap, cv, nf, pr, an] = await Promise.all([
-            getData('/api/registrations'), getData('/api/payments'), getData('/api/papers'),
-            getData('/api/applications'), getData('/api/conversations'), getData('/api/notifications'),
-            getData('/api/password-reset'), getData('/api/announcements'),
+        await Promise.allSettled([
+            getData('/api/registrations').then(r => { if (r !== null) setRegistrations(r.map(mapReg)); }),
+            getData('/api/payments').then(p => { if (p !== null) setPayments(p.map(mapPay)); }),
+            getData('/api/papers').then(pa => { if (pa !== null) setPapers(pa.map(mapPaper)); }),
+            getData('/api/applications').then(ap => { if (ap !== null) setApplications(ap.map(mapApp)); }),
+            getData('/api/conversations').then(cv => { if (cv !== null) setConversations(cv.map(mapConvo)); }),
+            getData('/api/notifications').then(nf => { if (nf !== null) setNotifications(nf.map(mapNotification)); }),
+            getData('/api/password-reset').then(pr => { if (pr !== null) setPasswordResetRequests(pr.map(mapResetReq)); }),
+            getData('/api/announcements').then(an => { if (an !== null) setAnnouncements(an.map(mapAnnouncement)); }),
+            getData('/api/settings/payment').then(pay => {
+                if (pay !== null) setPaymentSettings({ fee: 0, currency: 'USD', bankName: '', accountName: '', accountNumber: '', iban: '', swift: '', paypalEmail: '', instructions: '', ...pay });
+            }),
         ]);
-        setRegistrations((r ?? []).map(mapReg));
-        setPayments((p ?? []).map(mapPay));
-        setPapers((pa ?? []).map(mapPaper));
-        setApplications((ap ?? []).map(mapApp));
-        setConversations((cv ?? []).map(mapConvo));
-        setNotifications((nf ?? []).map(mapNotification));
-        setPasswordResetRequests((pr ?? []).map(mapResetReq));
-        setAnnouncements((an ?? []).map(mapAnnouncement));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -792,9 +797,14 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         let alive = true;
         if (!user) {
             setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
+            setIsUserDataLoading(false);
             return;
         }
-        (async () => { if (alive) await refreshAll(); })();
+        setIsUserDataLoading(true);
+        (async () => {
+            await refreshAll();
+            if (alive) setIsUserDataLoading(false);
+        })();
         return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
@@ -1044,6 +1054,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     const ctxValue = useMemo(() => ({
+        isPublicLoading, isUserDataLoading,
         committees, addCommittee, updateCommittee, deleteCommittee,
         papers, submitPaper, updatePaperStatus, getPapersForDelegate,
         applications, applyToCommittee, updateApplicationStatus, withdrawApplication, reassignApplication, assignCountryToDelegate,
@@ -1063,7 +1074,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         deleteDelegate, suspendDelegate,
         conferenceSettings, updateConferenceSettings,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), [committees, papers, applications, waitingCounts, scheduleEvents, conversations, notifications,
+    }), [isPublicLoading, isUserDataLoading, committees, papers, applications, waitingCounts, scheduleEvents, conversations, notifications,
          passwordResetRequests, announcements, registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
 
     return (

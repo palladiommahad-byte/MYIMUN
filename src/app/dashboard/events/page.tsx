@@ -354,10 +354,23 @@ function ApplyCallToAction() {
 }
 
 export default function DelegateEventsPage() {
-    const { events } = useConference();
+    const { events, isPublicLoading } = useConference();
     const published = events.filter(e => e.published);
-    const [selected, setSelected] = useState<number | null>(published[0]?.id ?? null);
-    const activeEvent = published.find(e => e.id === selected) ?? null;
+    const [selected, setSelected] = useState<number | null>(null);
+    const selectedId = published.some(e => e.id === selected) ? selected : (published[0]?.id ?? null);
+    const activeEvent = published.find(e => e.id === selectedId) ?? null;
+
+    if (isPublicLoading && events.length === 0) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, textAlign: 'center', fontFamily: '"Inter",system-ui,sans-serif' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 18, background: `${C.accent}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <Star size={28} style={{ color: C.accent }} />
+                </div>
+                <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 8 }}>Loading Events</h2>
+                <p style={{ fontSize: 14, color: C.textSec, maxWidth: 360 }}>Getting the latest conference details for you.</p>
+            </div>
+        );
+    }
 
     if (published.length === 0) {
         return (
@@ -385,7 +398,7 @@ export default function DelegateEventsPage() {
                 <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', paddingBottom: 4 }}>
                     {published.map(ev => (
                         <button key={ev.id} onClick={() => setSelected(ev.id)}
-                            style={{ padding: '8px 18px', borderRadius: 999, border: `1.5px solid ${selected === ev.id ? C.accent : C.border}`, background: selected === ev.id ? `${C.accent}10` : C.surface, color: selected === ev.id ? C.accent : C.textSec, fontSize: 13, fontWeight: selected === ev.id ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s' }}
+                            style={{ padding: '8px 18px', borderRadius: 999, border: `1.5px solid ${selectedId === ev.id ? C.accent : C.border}`, background: selectedId === ev.id ? `${C.accent}10` : C.surface, color: selectedId === ev.id ? C.accent : C.textSec, fontSize: 13, fontWeight: selectedId === ev.id ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s' }}
                         >{ev.title}{ev.edition ? ` (${ev.edition})` : ''}</button>
                     ))}
                 </div>
