@@ -99,6 +99,8 @@ model Registration {
   phone                String
   address              String
   country              String
+  age                  Int      @default(18)
+  parentApproval       Boolean  @default(false)
   heardFrom            String
   firstTimeMun         Boolean
   attendedMyimunBefore Boolean
@@ -183,6 +185,7 @@ model ConferenceEvent {
   description          String   @default("")
   guidelines           Json     @default("[]") // string[]
   bannerUrl            String   @default("")
+  guideImageUrl        String   @default("")
   galleryUrls          Json     @default("[]") // string[]
   hotel                Json?    // EventHotel | null
   agenda               Json     @default("[]") // EventDay[]

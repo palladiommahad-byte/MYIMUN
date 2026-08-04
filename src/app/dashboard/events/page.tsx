@@ -166,6 +166,13 @@ function EventDetail({ event }: { event: ConferenceEvent }) {
                 </section>
             )}
 
+            {/* Image before guidelines */}
+            {event.guideImageUrl && (
+                <section style={{ borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow, overflow: 'hidden', background: C.surface }}>
+                    <img src={event.guideImageUrl} alt="" style={{ display: 'block', width: '100%', aspectRatio: '16 / 9', maxHeight: 420, objectFit: 'cover' }} />
+                </section>
+            )}
+
             {/* Guidelines */}
             {event.guidelines.filter(g => g.trim()).length > 0 && (
                 <section style={{ background: C.surface, borderRadius: 14, padding: '24px 28px', border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow }}>

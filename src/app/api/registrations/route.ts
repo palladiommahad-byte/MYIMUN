@@ -22,6 +22,8 @@ const schema = z.object({
     phone: z.string().trim().min(3),
     address: z.string().trim().min(2),
     country: z.string().trim().min(2),
+    age: z.number().int().min(1).max(120),
+    parentApproval: z.boolean().default(false),
     heardFrom: z.string().trim().min(1),
     firstTimeMun: z.boolean(),
     attendedMyimunBefore: z.boolean(),
@@ -34,6 +36,14 @@ const schema = z.object({
     groupName: z.string().optional(),
     groupSize: z.number().optional(),
     institution: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.age < 18 && !data.parentApproval) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['parentApproval'],
+            message: 'Parent or guardian approval is required for delegates under 18.',
+        });
+    }
 });
 
 /** POST — a delegate submits (or re-submits) their registration. */

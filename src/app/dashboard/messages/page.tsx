@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, Send, MoreVertical, Mail, Shield, Paperclip, Plus, X, ChevronDown } from 'lucide-react';
+import { Search, Filter, Send, MoreVertical, Mail, Shield, Paperclip, Plus, X, ChevronDown, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference, Conversation } from '@/context/ConferenceContext';
@@ -35,6 +35,7 @@ export default function DelegateMessagesPage() {
     const [search,     setSearch]     = useState('');
     const [newOpen,    setNewOpen]    = useState(false);
     const [newForm,    setNewForm]    = useState({ subject: '', category: 'General', message: '' });
+    const [mobilePane, setMobilePane] = useState<'list' | 'detail'>('list');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const selected = myConversations.find(c => c.id === selectedId) ?? null;
@@ -72,16 +73,59 @@ export default function DelegateMessagesPage() {
         startConversation(delegateId, delegateName, delegateEmail, delegateCountry, newForm.subject.trim(), newForm.category, newForm.message.trim());
         setNewForm({ subject: '', category: 'General', message: '' });
         setNewOpen(false);
+        setMobilePane('detail');
         showToast('Message sent to admin team.', 'success');
     };
 
     const totalUnread = myConversations.reduce((s, c) => s + c.delegateUnread, 0);
 
     return (
-        <div style={{ height: 'calc(100vh - 140px)', display: 'flex', gap: 16, fontFamily: '"Inter",system-ui,sans-serif' }}>
+        <div className="delegate-messages-shell" data-mobile-pane={mobilePane} style={{ fontFamily: '"Inter",system-ui,sans-serif' }}>
+            <style jsx>{`
+                .delegate-messages-shell {
+                    height: calc(100vh - 140px);
+                    min-height: 560px;
+                    display: grid;
+                    grid-template-columns: minmax(260px, 280px) minmax(0, 1fr);
+                    gap: 16px;
+                }
+                .delegate-messages-sidebar,
+                .delegate-messages-pane {
+                    min-width: 0;
+                }
+                .delegate-mobile-back {
+                    display: none;
+                }
+                @media (max-width: 720px) {
+                    .delegate-messages-shell {
+                        height: auto;
+                        min-height: calc(100vh - 96px);
+                        display: block;
+                    }
+                    .delegate-messages-sidebar,
+                    .delegate-messages-pane {
+                        width: 100% !important;
+                        min-height: calc(100vh - 122px);
+                    }
+                    .delegate-messages-shell[data-mobile-pane="list"] .delegate-messages-pane,
+                    .delegate-messages-shell[data-mobile-pane="detail"] .delegate-messages-sidebar {
+                        display: none !important;
+                    }
+                    .delegate-mobile-back {
+                        display: inline-flex;
+                    }
+                    .delegate-new-row {
+                        flex-direction: column;
+                    }
+                    .delegate-new-row > *,
+                    .delegate-new-row select {
+                        width: 100%;
+                    }
+                }
+            `}</style>
 
             {/* ── Sidebar ── */}
-            <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
+            <div className="delegate-messages-sidebar" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 22, color: C.text }}>Messages</h1>
@@ -89,7 +133,7 @@ export default function DelegateMessagesPage() {
                             <span style={{ background: C.accent, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>{totalUnread}</span>
                         )}
                     </div>
-                    <button onClick={() => setNewOpen(o => !o)}
+                    <button onClick={() => { setNewOpen(o => !o); setMobilePane('detail'); }}
                         title="New message"
                         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.accent}`, background: newOpen ? C.accent : 'transparent', color: newOpen ? '#fff' : C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                     >
@@ -117,14 +161,14 @@ export default function DelegateMessagesPage() {
                         {filtered.length === 0 ? (
                             <div style={{ padding: '32px 16px', textAlign: 'center' }}>
                                 <Mail size={28} style={{ color: C.border, margin: '0 auto 8px' }} />
-                                <p style={{ fontSize: 13, color: C.textMuted }}>No conversations yet.<br />Click "New" to message the admin team.</p>
+                                <p style={{ fontSize: 13, color: C.textMuted }}>No conversations yet.<br />Click &quot;New&quot; to message the admin team.</p>
                             </div>
                         ) : filtered.map(conv => {
                             const isActive = selectedId === conv.id;
                             const col = avatarColor(conv.id);
                             const lastMsg = conv.messages[conv.messages.length - 1];
                             return (
-                                <div key={conv.id} onClick={() => setSelectedId(conv.id)}
+                                <div key={conv.id} onClick={() => { setSelectedId(conv.id); setMobilePane('detail'); }}
                                     style={{
                                         padding: '12px 14px', cursor: 'pointer',
                                         borderLeft: `3px solid ${isActive ? C.accent : 'transparent'}`,
@@ -159,7 +203,7 @@ export default function DelegateMessagesPage() {
             </div>
 
             {/* ── Detail / New Message pane ── */}
-            <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
+            <div className="delegate-messages-pane" style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
 
                 {/* New Message form */}
                 {newOpen && (
@@ -169,7 +213,7 @@ export default function DelegateMessagesPage() {
                             <button onClick={() => setNewOpen(false)} style={{ padding: 4, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', color: C.textMuted }}><X size={16} /></button>
                         </div>
                         <form onSubmit={handleStartNew} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <div style={{ display: 'flex', gap: 10 }}>
+                            <div className="delegate-new-row" style={{ display: 'flex', gap: 10 }}>
                                 <input value={newForm.subject} onChange={e => setNewForm(f => ({ ...f, subject: e.target.value }))}
                                     placeholder="Subject *"
                                     style={{ flex: 1, padding: '8px 12px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', fontFamily: 'inherit' }}
@@ -206,6 +250,10 @@ export default function DelegateMessagesPage() {
                         {/* Header */}
                         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FAFBFC' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <button className="delegate-mobile-back" onClick={() => setMobilePane('list')} title="Back to messages"
+                                    style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', flexShrink: 0 }}>
+                                    <ArrowLeft size={16} />
+                                </button>
                                 <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: `${C.accent}20`, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
                                     S
                                 </div>
@@ -273,9 +321,13 @@ export default function DelegateMessagesPage() {
                     </>
                 ) : (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.textMuted, gap: 8 }}>
+                        <button className="delegate-mobile-back" onClick={() => setMobilePane('list')} title="Back to messages"
+                            style={{ marginBottom: 8, alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            <ArrowLeft size={15} /> Back
+                        </button>
                         <Mail size={44} style={{ opacity: 0.3 }} />
-                        <p style={{ fontSize: 15, fontWeight: 500 }}>Select a conversation</p>
-                        <p style={{ fontSize: 13 }}>Or click "New" to contact the admin team.</p>
+                        <p style={{ fontSize: 15, fontWeight: 500 }}>No conversation selected</p>
+                        <p style={{ fontSize: 13, textAlign: 'center', padding: '0 18px' }}>Choose a recent message or click &quot;New&quot; to contact the admin team.</p>
                     </div>
                 )}
             </div>

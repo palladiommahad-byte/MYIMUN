@@ -1,0 +1,2 @@
+ALTER TABLE "Registration" ADD COLUMN "age" INTEGER NOT NULL DEFAULT 18;
+ALTER TABLE "Registration" ADD COLUMN "parentApproval" BOOLEAN NOT NULL DEFAULT false;

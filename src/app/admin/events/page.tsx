@@ -47,7 +47,7 @@ function Inp({ label, value, onChange, placeholder, type = 'text', required }: {
 
 const EMPTY_EVENT: Omit<ConferenceEvent, 'id' | 'createdAt'> = {
     title: '', subtitle: '', edition: '', startDate: '', endDate: '', venue: '', address: '',
-    city: '', country: '', description: '', guidelines: [''], bannerUrl: '', galleryUrls: [],
+    city: '', country: '', description: '', guidelines: [''], bannerUrl: '', guideImageUrl: '', galleryUrls: [],
     hotel: null, agenda: [], published: false, registrationDeadline: '', capacity: 300,
 };
 
@@ -68,6 +68,7 @@ export default function AdminEventsPage() {
     const [showCommitteeEditor, setShowCommitteeEditor] = useState(false);
     const [showContactEditor, setShowContactEditor] = useState(false);
     const bannerRef = useRef<HTMLInputElement>(null);
+    const guideImageRef = useRef<HTMLInputElement>(null);
     const galleryRef = useRef<HTMLInputElement>(null);
     const hotelImgRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +108,13 @@ export default function AdminEventsPage() {
         const file = e.target.files?.[0]; if (!file) return;
         e.target.value = '';
         try { set('bannerUrl', await compressImage(file, 1400)); }
+        catch { showToast('Failed to process image', 'warning'); }
+    };
+
+    const handleGuideImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        e.target.value = '';
+        try { set('guideImageUrl', await compressImage(file, 1200)); }
         catch { showToast('Failed to process image', 'warning'); }
     };
 
@@ -355,6 +363,22 @@ export default function AdminEventsPage() {
                                             onFocus={e => e.target.style.borderColor = C.accent}
                                             onBlur={e => e.target.style.borderColor = C.border}
                                         />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Image Before Guidelines</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                            <div style={{ width: 120, height: 76, borderRadius: 10, border: `2px dashed ${C.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, flexShrink: 0 }}>
+                                                {form.guideImageUrl ? <img src={form.guideImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={22} style={{ color: C.textMuted }} />}
+                                            </div>
+                                            <button type="button" onClick={() => guideImageRef.current?.click()}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg, fontSize: 13, color: C.textSec, cursor: 'pointer' }}
+                                            ><Upload size={14} /> Upload Image</button>
+                                            {form.guideImageUrl && (
+                                                <button type="button" onClick={() => set('guideImageUrl', '')}
+                                                    style={{ fontSize: 12, color: C.red, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
+                                            )}
+                                            <input ref={guideImageRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGuideImageUpload} />
+                                        </div>
                                     </div>
                                     <div>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

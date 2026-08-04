@@ -100,8 +100,99 @@ function YesNoField({ label, value, onChange }: YesNoProps) {
     );
 }
 
+function RegistrationResponsiveStyles() {
+    return (
+        <style jsx global>{`
+            .registration-page,
+            .registration-status-page {
+                width: 100%;
+                min-width: 0;
+                box-sizing: border-box;
+            }
+
+            .registration-card {
+                box-sizing: border-box;
+            }
+
+            @media (max-width: 720px) {
+                .registration-page,
+                .registration-status-page {
+                    max-width: 100% !important;
+                    gap: 18px !important;
+                    overflow-x: hidden;
+                }
+
+                .registration-card {
+                    padding: 18px !important;
+                    border-radius: 12px !important;
+                }
+
+                .registration-progress {
+                    padding: 10px 12px !important;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .registration-progress::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .registration-progress-step {
+                    min-width: max-content;
+                }
+
+                .registration-progress-label {
+                    font-size: 11.5px !important;
+                }
+
+                .registration-progress-line {
+                    min-width: 10px !important;
+                    margin: 0 8px !important;
+                }
+
+                .registration-option-grid,
+                .registration-two-grid,
+                .registration-status-grid,
+                .registration-letter-grid {
+                    grid-template-columns: 1fr !important;
+                }
+
+                .registration-submit {
+                    justify-content: stretch !important;
+                }
+
+                .registration-submit button,
+                .registration-action-button {
+                    width: 100%;
+                    justify-content: center;
+                }
+
+                .registration-status-banner,
+                .registration-doc-row {
+                    align-items: stretch !important;
+                }
+
+                .registration-verified-pill {
+                    display: none !important;
+                }
+            }
+
+            @media (max-width: 430px) {
+                .registration-progress {
+                    justify-content: space-between;
+                }
+
+                .registration-progress-label:not(.is-active) {
+                    display: none;
+                }
+            }
+        `}</style>
+    );
+}
+
 const EMPTY = {
-    fullName: '', email: '', phone: '', address: '', country: '', heardFrom: '',
+    fullName: '', email: '', phone: '', address: '', country: '', age: '', parentApproval: false, heardFrom: '',
     firstTimeMun: null as boolean | null,
     attendedMyimunBefore: null as boolean | null,
     motivation: '',
@@ -133,6 +224,8 @@ export default function DelegateRegistrationPage() {
 
     const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
         setForm(f => ({ ...f, [key]: value }));
+    const ageNumber = Number(form.age);
+    const requiresParentApproval = Number.isFinite(ageNumber) && ageNumber > 0 && ageNumber < 18;
 
     const pickFile = (file: File) => {
         const okType = file.type === 'application/pdf' || file.type.startsWith('image/');
@@ -143,8 +236,16 @@ export default function DelegateRegistrationPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.address.trim() || !form.country.trim() || !form.heardFrom) {
+        if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.address.trim() || !form.country.trim() || !form.age.trim() || !form.heardFrom) {
             showToast('Please fill in all required fields.', 'error');
+            return;
+        }
+        if (!Number.isInteger(ageNumber) || ageNumber < 1 || ageNumber > 120) {
+            showToast('Please enter a valid age.', 'error');
+            return;
+        }
+        if (ageNumber < 18 && !form.parentApproval) {
+            showToast('Parent or guardian approval is required for delegates under 18.', 'error');
             return;
         }
         if (form.firstTimeMun === null || form.attendedMyimunBefore === null) {
@@ -187,6 +288,8 @@ export default function DelegateRegistrationPage() {
                 phone: form.phone.trim(),
                 address: form.address.trim(),
                 country: form.country.trim(),
+                age: ageNumber,
+                parentApproval: ageNumber < 18 ? form.parentApproval : false,
                 heardFrom: form.heardFrom,
                 firstTimeMun: form.firstTimeMun,
                 attendedMyimunBefore: form.attendedMyimunBefore,
@@ -214,6 +317,8 @@ export default function DelegateRegistrationPage() {
                 phone: existing.phone,
                 address: existing.address,
                 country: existing.country,
+                age: existing.age ? String(existing.age) : '',
+                parentApproval: Boolean(existing.parentApproval),
                 heardFrom: existing.heardFrom,
                 firstTimeMun: existing.firstTimeMun,
                 attendedMyimunBefore: existing.attendedMyimunBefore,
@@ -241,14 +346,15 @@ export default function DelegateRegistrationPage() {
 
     if (!conferenceSettings.registrationOpen) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 720 }}>
+            <div className="registration-page" style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 720 }}>
+                <RegistrationResponsiveStyles />
                 <div>
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 4 }}>
                         Event Registration
                     </h1>
                     <p style={{ fontSize: 14, color: C.textSec }}>Complete your registration to participate in MYIMUN events.</p>
                 </div>
-                <div style={{ background: `${C.red}08`, border: `1px solid ${C.red}28`, borderRadius: 14, padding: '32px 28px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <div className="registration-card registration-status-banner" style={{ background: `${C.red}08`, border: `1px solid ${C.red}28`, borderRadius: 14, padding: '32px 28px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                     <div style={{ width: 48, height: 48, borderRadius: 12, background: C.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: C.shadow }}>
                         <Lock size={24} style={{ color: C.red }} />
                     </div>
@@ -264,7 +370,8 @@ export default function DelegateRegistrationPage() {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 760 }}>
+        <div className="registration-page" style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 760 }}>
+            <RegistrationResponsiveStyles />
 
             {/* Header */}
             <div>
@@ -272,12 +379,12 @@ export default function DelegateRegistrationPage() {
                     Event Registration
                 </h1>
                 <p style={{ fontSize: 14, color: C.textSec }}>
-                    Complete your registration to participate in MYIMUN events. Once approved, you'll unlock payment and full platform access.
+                    Complete your registration to participate in MYIMUN events. Once approved, you&apos;ll unlock payment and full platform access.
                 </p>
             </div>
 
             {/* Progress indicator */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 20px', boxShadow: C.shadow }}>
+            <div className="registration-progress" style={{ display: 'flex', alignItems: 'center', gap: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 20px', boxShadow: C.shadow }}>
                 {[
                     { label: 'Register', active: true },
                     { label: 'Approval', active: false },
@@ -285,16 +392,16 @@ export default function DelegateRegistrationPage() {
                     { label: 'Full Access', active: false },
                 ].map((step, i, arr) => (
                     <React.Fragment key={step.label}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="registration-progress-step" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{
                                 width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                                 background: step.active ? C.accent : C.bg, color: step.active ? '#fff' : C.textMuted,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
                                 border: step.active ? 'none' : `1px solid ${C.border}`,
                             }}>{i + 1}</div>
-                            <span style={{ fontSize: 12.5, fontWeight: step.active ? 700 : 500, color: step.active ? C.text : C.textMuted, whiteSpace: 'nowrap' }}>{step.label}</span>
+                            <span className={`registration-progress-label ${step.active ? 'is-active' : ''}`} style={{ fontSize: 12.5, fontWeight: step.active ? 700 : 500, color: step.active ? C.text : C.textMuted, whiteSpace: 'nowrap' }}>{step.label}</span>
                         </div>
-                        {i < arr.length - 1 && <div style={{ flex: 1, height: 2, background: C.border, margin: '0 12px', minWidth: 16 }} />}
+                        {i < arr.length - 1 && <div className="registration-progress-line" style={{ flex: 1, height: 2, background: C.border, margin: '0 12px', minWidth: 16 }} />}
                     </React.Fragment>
                 ))}
             </div>
@@ -302,9 +409,9 @@ export default function DelegateRegistrationPage() {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
                 {/* ── Participation type ── */}
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow }}>
+                <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>Participation Type</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="registration-option-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         {([
                             { val: 'Individual', icon: UserCircle, title: 'Individual Delegate', desc: 'I am registering as a single participant.' },
                             { val: 'Group', icon: Users, title: 'Group Representative', desc: 'I am registering a group from my school/university.' },
@@ -343,7 +450,7 @@ export default function DelegateRegistrationPage() {
                                 <Users size={13} /> Group Details
                             </p>
                             <TextField icon={Building2} label="School / University Name" value={form.institution} onChange={v => set('institution', v)} placeholder="e.g. Royal University of Diplomacy" />
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                            <div className="registration-two-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                                 <TextField icon={Users} label="Group / Delegation Name" value={form.groupName} onChange={v => set('groupName', v)} placeholder="e.g. Team Falcon" />
                                 <TextField icon={Hash} label="Number of Delegates" value={form.groupSize} onChange={v => set('groupSize', v)} placeholder="e.g. 8" type="number" />
                             </div>
@@ -352,15 +459,35 @@ export default function DelegateRegistrationPage() {
                 </div>
 
                 {/* ── Personal information ── */}
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                         {form.type === 'Group' ? 'Representative Information' : 'Personal Information'}
                     </p>
                     <TextField icon={User} label="Full Name" value={form.fullName} onChange={v => set('fullName', v)} placeholder="Your full name" />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="registration-two-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                         <TextField icon={Mail} label="Email Address" value={form.email} onChange={v => set('email', v)} placeholder="you@example.com" type="email" />
                         <TextField icon={Phone} label="Phone Number" value={form.phone} onChange={v => set('phone', v)} placeholder="+1 555 000 0000" type="tel" />
                     </div>
+                    <TextField icon={Hash} label="Age" value={form.age} onChange={v => set('age', v)} placeholder="e.g. 18" type="number" />
+                    {requiresParentApproval && (
+                        <label style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10, padding: '13px 14px',
+                            borderRadius: 12, border: `1px solid ${C.amber}35`, background: `${C.amber}0D`, cursor: 'pointer',
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={form.parentApproval}
+                                onChange={e => set('parentApproval', e.target.checked)}
+                                style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: C.accent, cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: 12.8, color: C.textSec, lineHeight: 1.55 }}>
+                                Since you are under 18, please confirm that your parent or guardian knows about and approves your participation in the MYIMUN conference.
+                                <strong style={{ display: 'block', color: C.text, marginTop: 4 }}>
+                                    I confirm my parent/guardian is aware of and approves my participation.
+                                </strong>
+                            </span>
+                        </label>
+                    )}
                     <TextField icon={MapPin} label="Address" value={form.address} onChange={v => set('address', v)} placeholder="Street, City, ZIP" />
                     <TextField icon={Globe} label="Country" value={form.country} onChange={v => set('country', v)} placeholder="e.g. France" />
 
@@ -386,10 +513,10 @@ export default function DelegateRegistrationPage() {
                 </div>
 
                 {/* ── Experience & motivation ── */}
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Experience & Motivation</p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="registration-two-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                         <YesNoField label="Is this your first time in a MUN?" value={form.firstTimeMun} onChange={v => set('firstTimeMun', v)} />
                         <YesNoField label="Have you participated in MYIMUN before?" value={form.attendedMyimunBefore} onChange={v => set('attendedMyimunBefore', v)} />
                     </div>
@@ -414,7 +541,7 @@ export default function DelegateRegistrationPage() {
                 </div>
 
                 {/* ── Identity document ── */}
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Identity Document</p>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: C.green, fontWeight: 600 }}>
@@ -444,7 +571,7 @@ export default function DelegateRegistrationPage() {
                             <p style={{ fontSize: 12.5, color: C.textMuted, marginTop: 5 }}>PDF or image · Max {MAX_DOC_MB} MB</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, background: `${C.green}08`, border: `1px solid ${C.green}30` }}>
+                        <div className="registration-doc-row" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, background: `${C.green}08`, border: `1px solid ${C.green}30` }}>
                             <div style={{ width: 44, height: 44, borderRadius: 10, background: C.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: C.shadow }}>
                                 {idFile.type === 'application/pdf'
                                     ? <FileText size={20} style={{ color: C.red }} />
@@ -470,11 +597,11 @@ export default function DelegateRegistrationPage() {
                 </div>
 
                 {/* ── Legal agreement ── */}
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '16px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadow, cursor: 'pointer' }}>
+                <label className="registration-card" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '16px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadow, cursor: 'pointer' }}>
                     <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
                         style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: C.accent, cursor: 'pointer' }} />
                     <span style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>
-                        I have read and agree to MYIMUN's{' '}
+                        I have read and agree to MYIMUN&apos;s{' '}
                         <Link href="/dashboard/terms" target="_blank" style={{ color: C.accent, fontWeight: 600 }}>Terms &amp; Conditions</Link>
                         {' '}and{' '}
                         <Link href="/dashboard/privacy" target="_blank" style={{ color: C.accent, fontWeight: 600 }}>Privacy Policy</Link>.
@@ -483,7 +610,7 @@ export default function DelegateRegistrationPage() {
                 </label>
 
                 {/* Submit */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="registration-submit" style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button type="submit" disabled={submitting} style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '12px 26px', borderRadius: 10, border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
@@ -523,7 +650,8 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
     }[existing.status as 'Pending' | 'Accepted' | 'Declined'];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 720 }}>
+        <div className="registration-status-page" style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif', maxWidth: 720 }}>
+            <RegistrationResponsiveStyles />
             <div>
                 <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 4 }}>Event Registration</h1>
                 <p style={{ fontSize: 14, color: C.textSec }}>Your registration status and submitted details.</p>
@@ -533,7 +661,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
             {isConfirmed ? (
                 <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: `0 8px 28px ${C.green}22`, border: `1px solid ${C.green}30` }}>
                     {/* Green hero */}
-                    <div style={{ background: `linear-gradient(135deg, #059669, #10B981)`, padding: '24px 24px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div className="registration-status-banner" style={{ background: `linear-gradient(135deg, #059669, #10B981)`, padding: '24px 24px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
                         <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 26 }}>
                             🏅
                         </div>
@@ -542,7 +670,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                             <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 2 }}>Confirmed Participant</p>
                             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>Your registration and payment are both verified. You have full access to all conference features.</p>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.2)' }}>
+                        <div className="registration-verified-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.2)' }}>
                             <ShieldCheck size={14} style={{ color: '#fff' }} />
                             <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Verified</span>
                         </div>
@@ -566,7 +694,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                     {/* Features */}
                     {paidPkg && paidPkg.features.length > 0 && (
                         <div style={{ padding: '14px 24px', background: C.surface, borderTop: `1px solid ${C.border}` }}>
-                            <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>What's included in your package</p>
+                            <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>What&apos;s included in your package</p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                                 {paidPkg.features.map((f: string, i: number) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 13, color: C.text }}>
@@ -582,7 +710,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                 </div>
             ) : (
                 /* ── Normal status banner ── */
-                <div style={{ background: meta.bg, border: `1px solid ${meta.color}28`, borderRadius: 14, padding: '24px 24px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <div className="registration-card registration-status-banner" style={{ background: meta.bg, border: `1px solid ${meta.color}28`, borderRadius: 14, padding: '24px 24px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                     <div style={{ width: 48, height: 48, borderRadius: 12, background: C.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: C.shadow }}>
                         <meta.Icon size={24} style={{ color: meta.color }} />
                     </div>
@@ -598,7 +726,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                         )}
 
                         {existing.status === 'Accepted' && (
-                            <button onClick={onGoToPayment} style={{
+                            <button className="registration-action-button" onClick={onGoToPayment} style={{
                                 marginTop: 16, display: 'flex', alignItems: 'center', gap: 8,
                                 padding: '11px 22px', borderRadius: 9, border: 'none', cursor: 'pointer',
                                 background: C.green, color: '#fff', fontSize: 13.5, fontWeight: 700,
@@ -609,7 +737,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                         )}
                         {existing.status === 'Declined' && (
                             registrationOpen ? (
-                                <button onClick={onReapply} style={{
+                                <button className="registration-action-button" onClick={onReapply} style={{
                                     marginTop: 16, display: 'flex', alignItems: 'center', gap: 8,
                                     padding: '10px 20px', borderRadius: 9, border: `1px solid ${C.border}`, cursor: 'pointer',
                                     background: C.surface, color: C.text, fontSize: 13, fontWeight: 600,
@@ -629,7 +757,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
             {/* ── Acceptance Letter card (when accepted) ── */}
             {existing.status === 'Accepted' && (
                 <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: C.shadow }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, padding: 22, alignItems: 'center' }}>
+                    <div className="registration-letter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, padding: 22, alignItems: 'center' }}>
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                                 <div style={{ width: 36, height: 36, borderRadius: 10, background: `${C.green}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -672,12 +800,14 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                         color: existing.type === 'Group' ? C.purple : C.accent,
                     }}>{existing.type === 'Group' ? 'Group Representative' : 'Individual Delegate'}</span>
                 </div>
-                <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="registration-status-grid" style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     {[
                         ['Full Name', existing.fullName],
                         ['Email', existing.email],
                         ['Phone', existing.phone],
                         ['Country', existing.country],
+                        ['Age', existing.age ? String(existing.age) : '—'],
+                        ['Parent approval', existing.age < 18 ? (existing.parentApproval ? 'Confirmed' : 'Missing') : 'Not required'],
                         ['Address', existing.address],
                         ['Heard from', existing.heardFrom],
                         ['First MUN?', existing.firstTimeMun ? 'Yes' : 'No'],

@@ -56,7 +56,7 @@ export interface ConferenceEvent {
     id: number; title: string; subtitle: string; edition: string;
     startDate: string; endDate: string; venue: string; address: string;
     city: string; country: string; description: string; guidelines: string[];
-    bannerUrl: string; galleryUrls: string[];
+    bannerUrl: string; guideImageUrl: string; galleryUrls: string[];
     hotel: EventHotel | null; agenda: EventDay[];
     published: boolean; registrationDeadline: string; capacity: number; createdAt: string;
     certEditionNumber?: number;
@@ -141,6 +141,8 @@ export interface Registration {
     phone: string;
     address: string;
     country: string;
+    age: number;
+    parentApproval: boolean;
     heardFrom: string;
     // Experience
     firstTimeMun: boolean;       // first time participating in any MUN?
@@ -545,6 +547,7 @@ function stripBlobs(state: StoredState): StoredState {
         events: state.events.map(ev => ({
             ...ev,
             bannerUrl: ev.bannerUrl.startsWith('data:') ? '' : ev.bannerUrl,
+            guideImageUrl: ev.guideImageUrl?.startsWith('data:') ? '' : (ev.guideImageUrl ?? ''),
             galleryUrls: ev.galleryUrls.filter(u => !u.startsWith('data:')),
             hotel: ev.hotel && ev.hotel.imageUrl.startsWith('data:')
                 ? { ...ev.hotel, imageUrl: '' }

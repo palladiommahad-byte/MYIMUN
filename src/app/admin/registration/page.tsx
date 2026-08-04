@@ -280,6 +280,8 @@ export default function AdminRegistrationPage() {
                                 [Phone, 'Phone', viewReg.phone],
                                 [MapPin, 'Address', viewReg.address],
                                 [Globe, 'Country', viewReg.country],
+                                [Hash, 'Age', viewReg.age ? String(viewReg.age) : '—'],
+                                [CheckCircle2, 'Parent / guardian approval', viewReg.age < 18 ? (viewReg.parentApproval ? 'Confirmed' : 'Missing') : 'Not required'],
                                 [Megaphone, 'Heard about us from', viewReg.heardFrom],
                                 [Award, 'First time in a MUN?', viewReg.firstTimeMun ? 'Yes' : 'No'],
                                 [Repeat, 'Attended MYIMUN before?', viewReg.attendedMyimunBefore ? 'Yes' : 'No'],

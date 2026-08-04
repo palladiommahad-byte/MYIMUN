@@ -4,7 +4,7 @@ import { ok, route } from '@/lib/api';
 
 export const EVENT_FIELDS = [
     'title', 'subtitle', 'edition', 'startDate', 'endDate', 'venue', 'address', 'city', 'country',
-    'description', 'guidelines', 'bannerUrl', 'galleryUrls', 'hotel', 'agenda', 'published',
+    'description', 'guidelines', 'bannerUrl', 'guideImageUrl', 'galleryUrls', 'hotel', 'agenda', 'published',
     'registrationDeadline', 'capacity', 'certEditionNumber', 'certDateDisplay', 'certLocation',
     'certSignatory', 'letterEditionYear',
 ] as const;
