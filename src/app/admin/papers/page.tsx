@@ -25,7 +25,7 @@ type PaperExample = { fileKey: string; name: string; type: string; size: number 
 
 export default function AdminPapersPage() {
     const { showToast } = useToast();
-    const { papers, updatePaperStatus, registrations } = useConference();
+    const { papers, openingSpeeches, updatePaperStatus, registrations } = useConference();
     const [filter, setFilter] = useState<FilterKey>('All');
     const [example, setExample] = useState<PaperExample>(null);
     const [exampleLoading, setExampleLoading] = useState(true);
@@ -335,6 +335,60 @@ export default function AdminPapersPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Opening speeches share this workspace, but never require staff approval. */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
+                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Opening Speeches</p>
+                        <p style={{ fontSize: 12.5, color: C.textSec, marginTop: 3 }}>Delegate speeches are saved immediately and do not need approval.</p>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: `${C.green}14`, color: C.green, whiteSpace: 'nowrap' }}>
+                        {openingSpeeches.length} submitted
+                    </span>
+                </div>
+                {openingSpeeches.length === 0 ? (
+                    <div style={{ padding: '42px 20px', textAlign: 'center' }}>
+                        <FileText size={32} style={{ color: C.border, margin: '0 auto 10px' }} />
+                        <p style={{ fontSize: 14, fontWeight: 600, color: C.textMuted }}>No opening speeches submitted yet.</p>
+                    </div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                            <thead>
+                                <tr style={{ background: '#FAFBFC', borderBottom: `1px solid ${C.border}` }}>
+                                    {['Delegate', 'Committee / Country', 'Opening Speech', 'Submitted'].map(header => (
+                                        <th key={header} style={{ padding: '10px 18px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' }}>{header}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {openingSpeeches.map((speech, index) => (
+                                    <tr key={speech.id} style={{ borderBottom: index < openingSpeeches.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{speech.delegateName}</p>
+                                            <p style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{speech.delegateId}</p>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <p style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{speech.country}</p>
+                                            <p style={{ fontSize: 11, color: C.textMuted }}>{speech.committee}</p>
+                                        </td>
+                                        <td style={{ padding: '14px 18px', maxWidth: 390 }}>
+                                            <details>
+                                                <summary style={{ color: C.accent, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Read opening speech</summary>
+                                                <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.65, whiteSpace: 'pre-wrap', marginTop: 10 }}>{speech.speech}</p>
+                                            </details>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.textSec }}><Clock size={11} />{speech.submittedAt}</div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

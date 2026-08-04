@@ -96,9 +96,14 @@
 
 .socials a:hover {
     transform: translateY(-3px);
-    background: var(--blue);
     color: #ffffff;
 }
+
+.socials a[data-platform="youtube"]:hover { background: #ff0033; }
+.socials a[data-platform="facebook"]:hover { background: #1877f2; }
+.socials a[data-platform="instagram"]:hover { background: #d94685; }
+.socials a[data-platform="linkedin"]:hover { background: #0a66c2; }
+.socials a[data-platform="other"]:hover { background: var(--blue); }
 
 .formPanel {
     min-height: 610px;

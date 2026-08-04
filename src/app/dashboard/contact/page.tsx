@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { DEFAULT_DELEGATE_SUPPORT, resolveDelegateSupport } from '@/lib/delegateSupport';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -20,12 +21,34 @@ const inputStyle: React.CSSProperties = {
 export default function ContactPage() {
     const { showToast } = useToast();
     const [formData, setFormData] = useState({ subject: '', category: 'General Inquiry', message: '' });
+    const [support, setSupport] = useState(DEFAULT_DELEGATE_SUPPORT);
+    const [sending, setSending] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    useEffect(() => {
+        void fetch('/api/settings/delegate-support', { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => { if (json?.ok) setSupport(resolveDelegateSupport(json.data)); })
+            .catch(() => {});
+    }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.subject || !formData.message) { showToast('Please fill in all fields', 'warning'); return; }
-        showToast('Message sent to Secretariat', 'success');
-        setFormData({ subject: '', category: 'General Inquiry', message: '' });
+        if (!formData.subject.trim() || !formData.message.trim()) { showToast('Please fill in all fields', 'warning'); return; }
+        setSending(true);
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject: formData.subject.trim(), category: formData.category, firstMessage: formData.message.trim() }),
+            });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok || json?.ok === false) throw new Error(json?.error || 'Could not send your message');
+            showToast('Message sent to Secretariat', 'success');
+            setFormData({ subject: '', category: 'General Inquiry', message: '' });
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not send your message', 'error');
+        } finally {
+            setSending(false);
+        }
     };
 
     const focusBorder = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.target.style.borderColor = C.accent; };
@@ -81,12 +104,12 @@ export default function ContactPage() {
                             />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <button type="submit"
+                            <button type="submit" disabled={sending}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', background: C.accent, color: 'white', fontSize: 14, fontWeight: 600, boxShadow: `0 2px 8px ${C.accent}40` }}
                                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#2C6FEF'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.accent}
                             >
-                                <Send size={14} /> Send Message
+                                <Send size={14} /> {sending ? 'Sending...' : 'Send Message'}
                             </button>
                         </div>
                     </form>
@@ -96,9 +119,9 @@ export default function ContactPage() {
                 <div className="p-4 sm:p-6" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Direct Contact</p>
                     {[
-                        { Icon: Mail,   color: C.accent,  label: 'Email Us',            detail: 'secretariat@myimun.org', sub: 'Response time: < 24h', href: 'mailto:secretariat@myimun.org' },
-                        { Icon: Phone,  color: C.green,   label: 'Emergency Line',      detail: '+212 555 0192',           sub: 'Available 24/7 during conference', href: 'tel:+2125550192' },
-                        { Icon: MapPin, color: C.purple,  label: 'Secretariat Office',  detail: 'Room 102, 1st Floor',     sub: 'Main Conference Hall', href: undefined },
+                        { Icon: Mail,   color: C.accent,  label: 'Email Us',            detail: support.email,          sub: support.emailNote,     href: `mailto:${support.email}` },
+                        { Icon: Phone,  color: C.green,   label: 'Emergency Line',      detail: support.emergencyPhone, sub: support.emergencyNote, href: `tel:${support.emergencyPhone.replace(/\s/g, '')}` },
+                        { Icon: MapPin, color: C.purple,  label: 'Secretariat Office',  detail: support.office,         sub: support.officeNote,    href: undefined },
                     ].map(({ Icon, color, label, detail, sub, href }) => (
                         <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
                             <div style={{ width: 38, height: 38, borderRadius: '50%', background: `${color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

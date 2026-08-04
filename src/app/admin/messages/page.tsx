@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, Send, MoreVertical, User, Mail, Paperclip, CheckCheck, Clock } from 'lucide-react';
+import { Search, Filter, Send, MoreVertical, User, Mail, Paperclip, CheckCheck, Clock, Settings2, Save, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Conversation } from '@/context/ConferenceContext';
+import { DEFAULT_DELEGATE_SUPPORT, DelegateSupportData, resolveDelegateSupport } from '@/lib/delegateSupport';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -15,6 +16,15 @@ const C = {
 const AVATAR_COLORS = ['#3B7FFF', '#7C5FFF', '#10B981', '#EC4899', '#F59E0B'];
 function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
 
+const SUPPORT_FIELDS: Array<{ key: keyof DelegateSupportData; label: string; placeholder: string; type?: string }> = [
+    { key: 'email', label: 'Support Email', placeholder: 'secretariat@myimun.org', type: 'email' },
+    { key: 'emailNote', label: 'Email Note', placeholder: 'Response time: < 24h' },
+    { key: 'emergencyPhone', label: 'Emergency Phone', placeholder: '+212 555 0192', type: 'tel' },
+    { key: 'emergencyNote', label: 'Emergency Note', placeholder: 'Available 24/7 during conference' },
+    { key: 'office', label: 'Secretariat Office', placeholder: 'Room 102, 1st Floor' },
+    { key: 'officeNote', label: 'Office Note', placeholder: 'Main Conference Hall' },
+];
+
 export default function AdminMessagesPage() {
     const { showToast } = useToast();
     const { conversations, sendChatMessage, markRead } = useConference();
@@ -22,6 +32,9 @@ export default function AdminMessagesPage() {
     const [selectedId, setSelectedId] = useState<number | null>(conversations[0]?.id ?? null);
     const [replyText,  setReplyText]  = useState('');
     const [search,     setSearch]     = useState('');
+    const [supportOpen, setSupportOpen] = useState(false);
+    const [supportSaving, setSupportSaving] = useState(false);
+    const [support, setSupport] = useState<DelegateSupportData>(DEFAULT_DELEGATE_SUPPORT);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const selected = conversations.find(c => c.id === selectedId) ?? null;
@@ -35,6 +48,13 @@ export default function AdminMessagesPage() {
     useEffect(() => {
         if (selectedId) markRead(selectedId, 'admin');
     }, [selectedId]); // eslint-disable-line
+
+    useEffect(() => {
+        void fetch('/api/settings/delegate-support', { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => { if (json?.ok) setSupport(resolveDelegateSupport(json.data)); })
+            .catch(() => {});
+    }, []);
 
     const totalUnread = conversations.reduce((s, c) => s + c.adminUnread, 0);
 
@@ -56,20 +76,42 @@ export default function AdminMessagesPage() {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }
     };
 
+    const saveSupport = async () => {
+        setSupportSaving(true);
+        try {
+            const response = await fetch('/api/settings/delegate-support', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(support),
+            });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok || json?.ok === false) throw new Error(json?.error || 'Could not save support contact details');
+            setSupportOpen(false);
+            showToast('Delegate support contact details updated.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not save support contact details', 'error');
+        } finally {
+            setSupportSaving(false);
+        }
+    };
+
     const lastMsg = (conv: Conversation) => conv.messages[conv.messages.length - 1];
 
     return (
+        <>
         <div style={{ height: 'calc(100vh - 140px)', display: 'flex', gap: 16, fontFamily: '"Inter",system-ui,sans-serif' }}>
 
             {/* ── Sidebar ── */}
             <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 22, color: C.text }}>Inbox</h1>
-                    {totalUnread > 0 && (
-                        <span style={{ background: C.accent, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
-                            {totalUnread} New
-                        </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {totalUnread > 0 && (
+                            <span style={{ background: C.accent, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
+                                {totalUnread} New
+                            </span>
+                        )}
+                        <button type="button" onClick={() => setSupportOpen(true)} title="Edit delegate support contact details"
+                            style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Settings2 size={14} /></button>
+                    </div>
                 </div>
 
                 {/* Search */}
@@ -234,6 +276,28 @@ export default function AdminMessagesPage() {
                     </div>
                 )}
             </div>
+            {supportOpen && (
+                <div role="dialog" aria-modal="true" aria-label="Delegate support contact details" style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(17,24,39,0.42)' }}>
+                    <div style={{ width: '100%', maxWidth: 620, background: C.surface, borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.22)', overflow: 'hidden' }}>
+                        <div style={{ padding: '18px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                            <div><p style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Delegate Support Contact Details</p><p style={{ fontSize: 12.5, color: C.textSec, marginTop: 3 }}>Shown on the delegate Contact Support page.</p></div>
+                            <button type="button" onClick={() => setSupportOpen(false)} title="Close" style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                            {SUPPORT_FIELDS.map(field => <label key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{field.label}</span>
+                                <input type={field.type ?? 'text'} value={support[field.key]} placeholder={field.placeholder} onChange={event => setSupport(current => ({ ...current, [field.key]: event.target.value }))}
+                                    style={{ width: '100%', padding: '9px 11px', boxSizing: 'border-box', borderRadius: 8, border: `1px solid ${C.border}`, color: C.text, fontSize: 13, outline: 'none' }} />
+                            </label>)}
+                        </div>
+                        <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#FAFBFC' }}>
+                            <button type="button" onClick={() => setSupportOpen(false)} disabled={supportSaving} style={{ padding: '9px 16px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                            <button type="button" onClick={saveSupport} disabled={supportSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: C.accent, color: 'white', fontSize: 13, fontWeight: 700, cursor: supportSaving ? 'wait' : 'pointer' }}><Save size={14} /> {supportSaving ? 'Saving...' : 'Save Details'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+        </>
     );
 }

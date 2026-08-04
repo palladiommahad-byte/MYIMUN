@@ -12,6 +12,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
 import { useRouter } from 'next/navigation';
 import { uploadFile, fileUrl } from '@/lib/fileStore';
+import { formatMoney } from '@/lib/currency';
 import { AcceptanceLetterDownloadButton, AcceptanceLetterPreview } from '@/components/AcceptanceLetterButton';
 
 function openStoredDoc(key: string) {
@@ -691,7 +692,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Amount Paid</p>
-                                <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 18, fontWeight: 800, color: paidPkg?.color ?? C.green }}>${Number(payment.amount).toFixed(2)}</p>
+                                <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 18, fontWeight: 800, color: paidPkg?.color ?? C.green }}>{formatMoney(Number(payment.amount), paidPkg?.currency)}</p>
                             </div>
                         </div>
                     )}

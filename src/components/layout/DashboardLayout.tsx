@@ -4,7 +4,7 @@ import React, { ReactNode, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
     LayoutDashboard, FileText, Users, LogOut,
-    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star, CircleUserRound
+    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star, CircleUserRound, Mic
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
     { label: 'Events',          icon: Star,            path: '/dashboard/events',       color: '#F59E0B' },
     { label: 'Registration',    icon: ClipboardList,   path: '/dashboard/registration', color: '#8B5CF6' },
     { label: 'Position Papers', icon: FileText,        path: '/dashboard/papers',       color: '#06B6D4' },
+    { label: 'Opening Speech',  icon: Mic,             path: '/dashboard/opening-speech', color: '#8B5CF6' },
     { label: 'My Committee',    icon: Users,           path: '/dashboard/committee',    color: '#10B981' },
     { label: 'Profile',         icon: User,            path: '/dashboard/profile',      color: '#6366F1' },
     { label: 'Payments',        icon: CreditCard,      path: '/dashboard/payments',     color: '#14B8A6' },

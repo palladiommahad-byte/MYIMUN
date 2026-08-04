@@ -2,11 +2,12 @@ import { prisma } from '@/lib/prisma';
 import { requirePage, requireUser } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 
-const ALLOWED = ['payment', 'conference', 'landing', 'about', 'committees-page', 'contact-page', 'position-paper-example'];
+const ALLOWED = ['payment', 'conference', 'landing', 'about', 'committees-page', 'contact-page', 'position-paper-example', 'delegate-support'];
 const PAGE_BY_KEY: Record<string, string> = {
     payment: '/admin/payments', conference: '/admin/settings', landing: '/admin/landing',
     about: '/admin/events', 'committees-page': '/admin/events', 'contact-page': '/admin/events',
     'position-paper-example': '/admin/papers',
+    'delegate-support': '/admin/messages',
 };
 
 /** GET - public read of a site-config document. */

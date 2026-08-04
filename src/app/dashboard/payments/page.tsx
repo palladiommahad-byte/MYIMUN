@@ -38,7 +38,10 @@ export default function PaymentsPage() {
     const accepted = reg?.status === 'Accepted';
     const paid = reg?.paymentStatus === 'Paid' && payment?.status !== 'Declined';
 
-    const visiblePackages = packages.filter(p => !p.hidden);
+    const isMostPopular = (pkg: ConferencePackage) => pkg.badge.trim().toLowerCase() === 'most popular';
+    const visiblePackages = packages
+        .filter(p => !p.hidden)
+        .sort((a, b) => Number(isMostPopular(b)) - Number(isMostPopular(a)));
     const currencyForPayment = () =>
         packages.find(pkg => pkg.id === payment?.packageId)?.currency ?? paymentSettings.currency;
 
@@ -185,15 +188,22 @@ export default function PaymentsPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 20 }}>
                             {visiblePackages.map(pkg => {
                                 const sel = selectedPkg?.id === pkg.id;
+                                const popular = isMostPopular(pkg);
                                 return (
                                     <div key={pkg.id} onClick={() => setSelectedPkg(pkg)}
-                                        style={{ borderRadius: 16, border: `2px solid ${sel ? pkg.color : C.border}`, overflow: 'hidden', cursor: 'pointer', boxShadow: sel ? `0 8px 28px ${pkg.color}28` : C.shadow, transition: 'all 0.18s', background: C.surface }}>
+                                        style={{
+                                            borderRadius: 16,
+                                            border: `${popular ? 3 : 2}px solid ${sel || popular ? pkg.color : C.border}`,
+                                            overflow: 'hidden', cursor: 'pointer', position: 'relative',
+                                            boxShadow: popular ? `0 12px 34px ${pkg.color}32` : sel ? `0 8px 28px ${pkg.color}28` : C.shadow,
+                                            transform: popular ? 'translateY(-6px)' : 'none', transition: 'all 0.18s', background: C.surface,
+                                        }}>
 
                                         {/* Colored header */}
-                                        <div style={{ background: pkg.color, padding: '22px 20px 18px', position: 'relative' }}>
+                                        <div style={{ background: pkg.color, padding: popular ? '26px 20px 18px' : '22px 20px 18px', position: 'relative' }}>
                                             {pkg.badge && (
-                                                <span style={{ position: 'absolute', top: 14, right: 14, fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.3)', color: '#fff' }}>
-                                                    {pkg.badge}
+                                                <span style={{ position: 'absolute', top: popular ? 12 : 14, right: 14, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 999, background: popular ? '#FFFFFF' : 'rgba(255,255,255,0.3)', color: popular ? pkg.color : '#fff', boxShadow: popular ? '0 2px 8px rgba(0,0,0,0.12)' : 'none' }}>
+                                                    {popular && <Sparkles size={11} />} {pkg.badge}
                                                 </span>
                                             )}
                                             <div style={{ fontSize: 36, lineHeight: 1, marginBottom: 10 }}>{pkg.emoji}</div>
@@ -206,6 +216,12 @@ export default function PaymentsPage() {
 
                                         {/* Body */}
                                         <div style={{ padding: '16px 18px 18px' }}>
+                                            {popular && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 10px', marginBottom: 14, borderRadius: 8, background: `${pkg.color}10`, border: `1px solid ${pkg.color}24`, color: pkg.color }}>
+                                                    <Sparkles size={14} style={{ flexShrink: 0 }} />
+                                                    <p style={{ fontSize: 12, fontWeight: 700 }}>Best value: stay, meals, and full conference support included.</p>
+                                                </div>
+                                            )}
                                             <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.55, marginBottom: 14 }}>{pkg.description}</p>
                                             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
                                                 {pkg.features.map((f, i) => (
@@ -219,8 +235,8 @@ export default function PaymentsPage() {
                                             </ul>
                                             <button
                                                 onClick={e => { e.stopPropagation(); setSelectedPkg(pkg); }}
-                                                style={{ width: '100%', padding: '11px', borderRadius: 10, border: `2px solid ${sel ? pkg.color : C.border}`, background: sel ? pkg.color : 'transparent', color: sel ? '#fff' : pkg.color, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                                {sel ? <><CheckCircle2 size={15} /> Selected</> : 'Select This Plan'}
+                                                style={{ width: '100%', padding: '11px', borderRadius: 10, border: `2px solid ${sel || popular ? pkg.color : C.border}`, background: sel || popular ? pkg.color : 'transparent', color: sel || popular ? '#fff' : pkg.color, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: popular && !sel ? `0 4px 12px ${pkg.color}30` : 'none' }}>
+                                                {sel ? <><CheckCircle2 size={15} /> Selected</> : popular ? 'Choose Most Popular' : 'Select This Plan'}
                                             </button>
                                         </div>
                                     </div>
@@ -455,7 +471,7 @@ export default function PaymentsPage() {
                 <AlertCircle size={18} style={{ color: C.accent, flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>
                     Need help with payments? Contact our finance team at{' '}
-                    <a href="mailto:finance@myimun.org" style={{ color: C.accent, fontWeight: 500 }}>finance@myimun.org</a>.
+                    <a href="mailto:contact@moroccanmun.org" style={{ color: C.accent, fontWeight: 500 }}>contact@moroccanmun.org</a>.
                 </p>
             </div>
         </div>

@@ -31,6 +31,16 @@ export interface PositionPaper {
     fileSize: number;
 }
 
+export interface OpeningSpeech {
+    id: number;
+    delegateId: string;
+    delegateName: string;
+    committee: string;
+    country: string;
+    speech: string;
+    submittedAt: string;
+}
+
 export interface CommitteeApplication {
     id: number;
     delegateId: string;
@@ -611,6 +621,9 @@ interface ConferenceCtx {
     updatePaperStatus: (id: number, status: 'Approved' | 'Rejected') => void;
     getPapersForDelegate: (delegateId: string) => PositionPaper[];
 
+    openingSpeeches: OpeningSpeech[];
+    submitOpeningSpeech: (speech: string) => Promise<void>;
+
     applications: CommitteeApplication[];
     applyToCommittee:           (delegateId: string, delegateName: string, country: string, committeeAbbr: string, whyThisCommittee: string, preferredCountry: string, whyShouldWePickYou: string) => void;
     updateApplicationStatus:    (id: number, status: 'Approved' | 'Rejected') => void;
@@ -687,6 +700,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     // Production starts empty. The API is the single source of truth.
     const [committees,     setCommittees]     = useState<Committee[]>([]);
     const [papers,         setPapers]         = useState<PositionPaper[]>([]);
+    const [openingSpeeches, setOpeningSpeeches] = useState<OpeningSpeech[]>([]);
     const [applications,   setApplications]   = useState<CommitteeApplication[]>([]);
     const [waitingCounts,  setWaitingCounts]  = useState<Record<string, number>>({});
     const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
@@ -708,6 +722,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const fmt = (iso: string) => { try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
     const mapCommittee = (r: any): Committee => ({ id: r.id, name: r.name, abbr: r.abbr, delegates: r.capacity, topics: r.topics, director: r.director, topicList: r.topicList ?? [], logoUrl: r.logoUrl ?? undefined, visible: r.visible ?? true, applicationState: r.applicationState ?? 'open', approvedDelegates: r.approvedDelegates ?? 0 });
     const mapPaper = (r: any): PositionPaper => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, status: r.status, submittedAt: fmt(r.submittedAt), fileName: r.fileName, fileUrl: r.fileKey ? `/api/files/${r.fileKey}` : '', fileSize: r.fileSize ?? 0 });
+    const mapOpeningSpeech = (r: any): OpeningSpeech => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, speech: r.speech, submittedAt: fmt(r.submittedAt) });
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapApp = (r: any): CommitteeApplication => ({ ...r, appliedAt: fmt(r.appliedAt) });
@@ -776,6 +791,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
             getData('/api/registrations').then(r => { if (r !== null) setRegistrations(r.map(mapReg)); }),
             getData('/api/payments').then(p => { if (p !== null) setPayments(p.map(mapPay)); }),
             getData('/api/papers').then(pa => { if (pa !== null) setPapers(pa.map(mapPaper)); }),
+            getData('/api/opening-speeches').then(sp => { if (sp !== null) setOpeningSpeeches(sp.map(mapOpeningSpeech)); }),
             getData('/api/applications').then(ap => { if (ap !== null) setApplications(ap.map(mapApp)); }),
             getData('/api/conversations').then(cv => { if (cv !== null) setConversations(cv.map(mapConvo)); }),
             getData('/api/notifications').then(nf => { if (nf !== null) setNotifications(nf.map(mapNotification)); }),
@@ -807,7 +823,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     useEffect(() => {
         let alive = true;
         if (!user) {
-            setRegistrations([]); setPayments([]); setPapers([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
+            setRegistrations([]); setPayments([]); setPapers([]); setOpeningSpeeches([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
             setIsUserDataLoading(false);
             return;
         }
@@ -894,6 +910,16 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     };
     const getPapersForDelegate = (delegateId: string) =>
         papers.filter(p => p.delegateId === delegateId);
+
+    const submitOpeningSpeech = async (speech: string) => {
+        const row = await send('POST', '/api/opening-speeches', { speech });
+        const mapped = mapOpeningSpeech(row);
+        setOpeningSpeeches(prev => {
+            const idx = prev.findIndex(item => item.delegateId === mapped.delegateId && item.committee === mapped.committee);
+            if (idx >= 0) { const next = [...prev]; next[idx] = mapped; return next; }
+            return [...prev, mapped];
+        });
+    };
 
     /* ── Applications ── */
     const applyToCommittee = async (_delegateId: string, delegateName: string, country: string, committeeAbbr: string, whyThisCommittee: string, preferredCountry: string, whyShouldWePickYou: string) => {
@@ -1056,6 +1082,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         setConversations(prev => prev.filter(c => c.delegateId !== delegateId));
         setApplications(prev => prev.filter(a => a.delegateId !== delegateId));
         setPapers(prev => prev.filter(p => p.delegateId !== delegateId));
+        setOpeningSpeeches(prev => prev.filter(speech => speech.delegateId !== delegateId));
     };
 
     /** Suspend/reactivate a delegate's account — blocks them from every authenticated route immediately. */
@@ -1068,6 +1095,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         isPublicLoading, isUserDataLoading,
         committees, addCommittee, updateCommittee, deleteCommittee,
         papers, submitPaper, updatePaperStatus, getPapersForDelegate,
+        openingSpeeches, submitOpeningSpeech,
         applications, applyToCommittee, updateApplicationStatus, withdrawApplication, reassignApplication, assignCountryToDelegate,
         getApplicationForDelegate, getApplicationsForCommittee,
         waitingCounts,
@@ -1085,7 +1113,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         deleteDelegate, suspendDelegate,
         conferenceSettings, updateConferenceSettings,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }), [isPublicLoading, isUserDataLoading, committees, papers, applications, waitingCounts, scheduleEvents, conversations, notifications,
+    }), [isPublicLoading, isUserDataLoading, committees, papers, openingSpeeches, applications, waitingCounts, scheduleEvents, conversations, notifications,
          passwordResetRequests, announcements, registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
 
     return (

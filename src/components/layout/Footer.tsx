@@ -76,7 +76,7 @@ export const Footer: React.FC = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <Link href="/" style={{ ...linkStyle, color: C.blue, fontWeight: 500 }}>Home</Link>
                             <Link href="/committees" style={linkStyle}>Committees</Link>
-                            <Link href="/about" style={linkStyle}>Terms &amp; conditions</Link>
+                            <Link href="/terms" style={linkStyle}>Terms &amp; conditions</Link>
                         </div>
                     </div>
 
@@ -85,7 +85,6 @@ export const Footer: React.FC = () => {
                         <p style={{ fontWeight: 600, fontSize: 20, color: C.heading, marginBottom: 16 }}>Info</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <Link href="/about" style={linkStyle}>About</Link>
-                            <Link href="/schedule" style={linkStyle}>Plans</Link>
                             <Link href="/contact" style={linkStyle}>Contact</Link>
                         </div>
                     </div>

@@ -35,7 +35,7 @@ const PSTYLE: Record<string, { iconBg: string; iconColor: string; labelColor: st
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const { committees, getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, landingPage, events, announcements } = useConference();
+    const { committees, getApplicationForDelegate, getRegistrationForDelegate, getPapersForDelegate, openingSpeeches, landingPage, events, announcements } = useConference();
 
     const delegateId = user?.id ?? '';
     const application = getApplicationForDelegate(delegateId);
@@ -75,6 +75,9 @@ export default function DashboardPage() {
     /* ── Position paper deadline: first day of conference at 00:00 Morocco time (UTC+1) ── */
     const papers        = getPapersForDelegate(delegateId);
     const latestPaper   = papers.length > 0 ? papers[papers.length - 1] : null;
+    const openingSpeech = approvedApp
+        ? openingSpeeches.find(speech => speech.delegateId === delegateId && speech.committee === approvedApp.committeeAbbr) ?? null
+        : null;
     const isPaperDeadlinePassed = (() => {
         if (!activeEvent?.startDate) return false;
         const deadline = new Date(activeEvent.startDate + 'T00:00:00+01:00'); // midnight Morocco (UTC+1)
@@ -94,7 +97,12 @@ export default function DashboardPage() {
             priority: registration?.paymentStatus === 'Paid' ? 'done' : 'high',
             due: registration?.paymentStatus === 'Paid' ? 'Confirmed' : 'Required',
             done: registration?.paymentStatus === 'Paid' },
-        { id: 3, title: 'Opening Speech Draft',    href: null, priority: 'medium', due: '5 Days', done: false },
+        {
+            id: 3, title: 'Opening Speech Draft', href: '/dashboard/opening-speech',
+            priority: openingSpeech ? 'done' : 'medium',
+            due: openingSpeech ? 'Submitted' : '5 Days',
+            done: !!openingSpeech,
+        },
     ];
 
     return (

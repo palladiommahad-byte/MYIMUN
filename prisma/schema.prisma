@@ -33,9 +33,10 @@ model User {
   updatedAt    DateTime @updatedAt
 
   registrations Registration[]
-  payments      PaymentSubmission[]
-  papers        PositionPaper[]
-  applications  CommitteeApplication[]
+    payments      PaymentSubmission[]
+    papers        PositionPaper[]
+    openingSpeeches OpeningSpeech[]
+    applications  CommitteeApplication[]
   conversations Conversation[]
 }
 
@@ -68,6 +69,21 @@ model PositionPaper {
   fileName     String
   fileKey      String?  // key into the uploaded-files store
   fileSize     Int      @default(0)
+  submittedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([delegateId, committee])
+}
+
+/// Opening speech drafts (one per delegate per approved committee). No staff approval is required.
+model OpeningSpeech {
+  id           Int      @id @default(autoincrement())
+  delegate     User     @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId   String
+  delegateName String
+  committee    String
+  country      String
+  speech       String
   submittedAt  DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
