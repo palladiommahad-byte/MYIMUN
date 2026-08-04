@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requirePage } from '@/lib/auth';
+import { getCurrentUser, requirePage } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
+import { broadcast } from '@/lib/events';
 
 /** GET — public list of committees. */
 export const GET = route(async () => {
-    const rows = await prisma.committee.findMany({ orderBy: { id: 'asc' } });
+    const user = await getCurrentUser();
+    const isStaff = !!user && ['admin', 'secretary', 'manager'].includes(user.role);
+    const rows = await prisma.committee.findMany({
+        where: isStaff ? {} : { visible: true },
+        orderBy: { id: 'asc' },
+    });
     return ok(rows);
 });
 
@@ -17,6 +23,8 @@ const schema = z.object({
     director: z.string().default(''),
     topicList: z.array(z.string()).default([]),
     logoUrl: z.string().optional(),
+    visible: z.boolean().default(true),
+    applicationState: z.enum(['open', 'closed', 'comingSoon']).default('open'),
 });
 
 /** POST — staff create a committee. */
@@ -26,5 +34,6 @@ export const POST = route(async (req: Request) => {
     const row = await prisma.committee.create({
         data: { ...data, abbr: data.abbr.toUpperCase(), waiting: 0 },
     });
+    broadcast({ audience: 'everyone' });
     return ok(row, 201);
 });

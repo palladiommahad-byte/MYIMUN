@@ -18,7 +18,8 @@ const C = {
 
 const EMPTY_FORM = {
     name: '', abbr: '', delegates: 30, topics: 2,
-    director: '', topicList: ['', ''], logoUrl: '',
+    director: '', topicList: ['', ''], logoUrl: '', visible: true,
+    applicationState: 'open' as Committee['applicationState'],
 };
 
 /* ── Input helper ── */
@@ -144,6 +145,8 @@ function CommitteeModal({ committee, onClose, onSave }: {
                 delegates: committee.delegates, topics: committee.topics,
                 director: committee.director, logoUrl: committee.logoUrl ?? '',
                 topicList: [...committee.topicList, ...Array(Math.max(0, 2 - committee.topicList.length)).fill('')],
+                visible: committee.visible,
+                applicationState: committee.applicationState,
             };
         }
         return { ...EMPTY_FORM };
@@ -178,6 +181,8 @@ function CommitteeModal({ committee, onClose, onSave }: {
             director: form.director.trim(),
             topicList: form.topicList.filter(t => t.trim()),
             logoUrl: form.logoUrl,
+            visible: form.visible,
+            applicationState: form.applicationState,
         });
     };
 
@@ -223,6 +228,28 @@ function CommitteeModal({ committee, onClose, onSave }: {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <Input label="Max Delegates"     value={form.delegates} onChange={v => setF('delegates', v)} type="number" />
                         <Input label="Committee Director" value={form.director}  onChange={v => setF('director', v)} placeholder="Dr. Jane Smith" />
+                    </div>
+
+                    <div style={{ padding: '14px', borderRadius: 10, border: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Delegate Availability</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'end' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textSec, marginBottom: 6 }}>Applications</label>
+                                <select value={form.applicationState} onChange={e => setF('applicationState', e.target.value)}
+                                    style={{ width: '100%', padding: '9px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.surface, outline: 'none' }}>
+                                    <option value="open">Open for applications</option>
+                                    <option value="closed">Applications closed</option>
+                                    <option value="comingSoon">Coming soon</option>
+                                </select>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 9, minHeight: 38, padding: '0 10px', border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, fontSize: 13, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={form.visible} onChange={e => setF('visible', e.target.checked)} style={{ width: 16, height: 16, accentColor: C.accent }} />
+                                Visible to delegates
+                            </label>
+                        </div>
+                        <p style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.45, marginTop: 9 }}>
+                            Invisible committees are hidden from delegates. Closed and coming-soon committees remain visible but cannot receive applications.
+                        </p>
                     </div>
 
                     {/* Topics */}
@@ -424,6 +451,12 @@ export default function AdminCommitteesPage() {
                                                     <div>
                                                         <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{c.name}</p>
                                                         {c.director && <p style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{c.director}</p>}
+                                                        <div style={{ display: 'flex', gap: 5, marginTop: 5, flexWrap: 'wrap' }}>
+                                                            {!c.visible && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: `${C.red}10`, color: C.red }}>Hidden</span>}
+                                                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: c.applicationState === 'open' ? `${C.green}12` : `${C.amber}14`, color: c.applicationState === 'open' ? C.green : C.amber }}>
+                                                                {c.applicationState === 'open' ? 'Open' : c.applicationState === 'closed' ? 'Closed' : 'Coming soon'}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

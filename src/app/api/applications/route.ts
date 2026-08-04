@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
-import { ok, route } from '@/lib/api';
+import { fail, ok, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async (req: Request) => {
@@ -27,6 +27,10 @@ const schema = z.object({
 export const POST = route(async (req: Request) => {
     const user = await requireUser();
     const data = schema.parse(await req.json());
+    const committee = await prisma.committee.findUnique({ where: { abbr: data.committeeAbbr } });
+    if (!committee || !committee.visible) return fail('This committee is not available to delegates', 404);
+    if (committee.applicationState === 'comingSoon') return fail('Applications for this committee are coming soon', 409);
+    if (committee.applicationState === 'closed') return fail('Applications for this committee are closed', 409);
 
     const row = await prisma.committeeApplication.upsert({
         where: { delegateId: user.id },

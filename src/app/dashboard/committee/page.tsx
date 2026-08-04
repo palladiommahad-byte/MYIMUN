@@ -56,12 +56,30 @@ export default function CommitteePage() {
         if (!appForm.preferredCountry.trim())    errors.preferredCountry   = 'This field is required.';
         if (!appForm.whyShouldWePickYou.trim())  errors.whyShouldWePickYou = 'This field is required.';
         if (Object.keys(errors).length) { setAppErrors(errors); return; }
+        const committee = committees.find(c => c.abbr === applyModal.abbr);
+        if (!committee || !committee.visible || committee.applicationState !== 'open') {
+            showToast('This committee is no longer accepting applications.', 'warning');
+            setApplyModal({ open: false, abbr: '' });
+            return;
+        }
         applyToCommittee(delegateId, delegateName, homeCountry, applyModal.abbr, appForm.whyThisCommittee.trim(), appForm.preferredCountry.trim(), appForm.whyShouldWePickYou.trim());
         showToast(`Application submitted for ${applyModal.abbr}`, 'success');
         setApplyModal({ open: false, abbr: '' });
     };
 
-    const handleApply = (abbr: string) => openApplyModal(abbr);
+    const handleApply = (abbr: string) => {
+        const committee = committees.find(c => c.abbr === abbr);
+        if (!committee || !committee.visible) return;
+        if (committee.applicationState === 'comingSoon') {
+            showToast(`${committee.abbr} applications are coming soon.`, 'info');
+            return;
+        }
+        if (committee.applicationState === 'closed') {
+            showToast(`${committee.abbr} is not accepting applications.`, 'warning');
+            return;
+        }
+        openApplyModal(abbr);
+    };
 
     const handleWithdraw = () => {
         if (!application) return;
@@ -329,7 +347,7 @@ export default function CommitteePage() {
                         {committees.map((c, i) => {
                             const isApplied = application?.committeeAbbr === c.abbr;
                             const appStatus = isApplied ? application!.status : null;
-                            const canApply  = !isActive && (!application || application.status === 'Rejected');
+                            const canApply  = c.applicationState === 'open' && !isActive && (!application || application.status === 'Rejected');
                             const meta      = appStatus ? APP_META[appStatus] : null;
                             const Icon      = meta?.Icon;
 
@@ -362,6 +380,11 @@ export default function CommitteePage() {
                                             {isApplied && meta && Icon && (
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: meta.bg, color: meta.color, flexShrink: 0 }}>
                                                     <Icon size={11} /> {meta.label}
+                                                </span>
+                                            )}
+                                            {!isApplied && c.applicationState !== 'open' && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: `${C.amber}14`, color: C.amber, flexShrink: 0 }}>
+                                                    <Clock size={11} /> {c.applicationState === 'comingSoon' ? 'Coming soon' : 'Closed'}
                                                 </span>
                                             )}
                                         </div>
@@ -429,6 +452,14 @@ export default function CommitteePage() {
                                             ) : isApplied && appStatus === 'Approved' ? (
                                                 <div style={{ padding: '8px 0', textAlign: 'center', fontSize: 13, fontWeight: 600, color: C.green, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                                                     <CheckCircle size={14} /> You are a member
+                                                </div>
+                                            ) : c.applicationState === 'comingSoon' ? (
+                                                <div style={{ padding: '8px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: C.amber, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                                    <Clock size={14} /> Applications coming soon
+                                                </div>
+                                            ) : c.applicationState === 'closed' ? (
+                                                <div style={{ padding: '8px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: C.textMuted }}>
+                                                    Applications are closed
                                                 </div>
                                             ) : isApplied && appStatus === 'Rejected' ? (
                                                 <button onClick={() => handleApply(c.abbr)}

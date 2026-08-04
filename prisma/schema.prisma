@@ -50,6 +50,8 @@ model Committee {
   topicList Json     @default("[]") // string[]
   logoUrl   String?
   waiting   Int      @default(0) // pending-waitlist counter
+  visible   Boolean  @default(true) // whether delegates can see this committee
+  applicationState String @default("open") // open | closed | comingSoon
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

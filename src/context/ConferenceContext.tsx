@@ -13,6 +13,8 @@ export interface Committee {
     director: string;
     topicList: string[];
     logoUrl?: string;
+    visible: boolean;
+    applicationState: 'open' | 'closed' | 'comingSoon';
 }
 
 export interface PositionPaper {
@@ -700,7 +702,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Mappers: server record → client shape ── */
     const fmt = (iso: string) => { try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
-    const mapCommittee = (r: any): Committee => ({ id: r.id, name: r.name, abbr: r.abbr, delegates: r.capacity, topics: r.topics, director: r.director, topicList: r.topicList ?? [], logoUrl: r.logoUrl ?? undefined });
+    const mapCommittee = (r: any): Committee => ({ id: r.id, name: r.name, abbr: r.abbr, delegates: r.capacity, topics: r.topics, director: r.director, topicList: r.topicList ?? [], logoUrl: r.logoUrl ?? undefined, visible: r.visible ?? true, applicationState: r.applicationState ?? 'open' });
     const mapPaper = (r: any): PositionPaper => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, status: r.status, submittedAt: fmt(r.submittedAt), fileName: r.fileName, fileUrl: r.fileKey ? `/api/files/${r.fileKey}` : '', fileSize: r.fileSize ?? 0 });
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });
@@ -755,6 +757,11 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     }, [applyCommittees]);
 
     useEffect(() => { loadPublic(); }, [loadPublic]);
+
+    // A newly signed-in staff member needs the full committee list, including hidden drafts.
+    useEffect(() => {
+        if (user) refreshCommittees();
+    }, [user?.id, refreshCommittees]);
 
     /* ── Refetch every per-user data domain at once. Used on login and again
        whenever the SSE stream below tells us something changed on the
@@ -822,7 +829,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     useEffect(() => {
         if (!user) return;
         const es = new EventSource('/api/notifications/stream');
-        es.onmessage = (e) => { if (e.data === 'update') refreshAll(); };
+        es.onmessage = (e) => { if (e.data === 'update') { refreshAll(); refreshCommittees(); } };
         return () => es.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
@@ -852,7 +859,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Committees ── */
     const addCommittee = async (c: Omit<Committee, 'id'>) => {
-        await send('POST', '/api/committees', { name: c.name, abbr: c.abbr, capacity: c.delegates, topics: c.topics, director: c.director, topicList: c.topicList, logoUrl: c.logoUrl });
+        await send('POST', '/api/committees', { name: c.name, abbr: c.abbr, capacity: c.delegates, topics: c.topics, director: c.director, topicList: c.topicList, logoUrl: c.logoUrl, visible: c.visible, applicationState: c.applicationState });
         await refreshCommittees();
     };
     const updateCommittee = async (id: number, patch: Partial<Committee>) => {
