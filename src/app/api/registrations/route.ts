@@ -21,6 +21,7 @@ const schema = z.object({
     email: z.string().trim().email(),
     phone: z.string().trim().min(3),
     address: z.string().trim().min(2),
+    city: z.string().trim().min(2),
     country: z.string().trim().min(2),
     age: z.number().int().min(1).max(120),
     parentApproval: z.boolean().default(false),

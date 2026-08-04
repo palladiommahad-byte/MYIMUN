@@ -17,11 +17,19 @@ export const GET = route(async (_req: Request, ctx: { params: Promise<{ key: str
     const { key } = await ctx.params;
 
     if (!STAFF.includes(user.role)) {
+        const exampleSetting = await prisma.appSetting.findUnique({
+            where: { key: 'position-paper-example' },
+            select: { value: true },
+        });
+        const exampleFileKey = typeof exampleSetting?.value === 'object' && exampleSetting.value !== null && !Array.isArray(exampleSetting.value)
+            ? (exampleSetting.value as { fileKey?: unknown }).fileKey
+            : undefined;
         const avatar = await prisma.user.findFirst({
             where: { id: user.id, avatarUrl: `/api/files/${key}` },
             select: { id: true },
         });
         const owns =
+            exampleFileKey === key ||
             avatar ||
             (await prisma.registration.findFirst({ where: { delegateId: user.id, idDocKey: key }, select: { id: true } })) ||
             (await prisma.paymentSubmission.findFirst({ where: { delegateId: user.id, receiptKey: key }, select: { id: true } })) ||

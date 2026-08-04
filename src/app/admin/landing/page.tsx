@@ -641,17 +641,26 @@ function LandingEditorInner() {
 
                 {/* ── FOOTER ── */}
                 {activeKey === 'footer' && (
-                    <Card title="Footer Content" subtitle="Contact details shown in the site footer" accent={S.textSec}>
-                        <Grid2>
-                            <Field label="Phone Number"><Input value={landingPage.footerData.phone} onChange={v => setFooter({ phone: v })} placeholder="+212 713 133 601" /></Field>
-                            <Field label="Office Hours"><Input value={landingPage.footerData.hours} onChange={v => setFooter({ hours: v })} placeholder="Monday to Friday: 9 am – 6 pm" /></Field>
-                        </Grid2>
-                        <Field label="Copyright Line"><Input value={landingPage.footerData.copyright} onChange={v => setFooter({ copyright: v })} placeholder="© 2025 MYIMUN  |  All Rights Reserved" /></Field>
-                        <Grid2>
-                            <Field label="Contact Email (legacy)"><Input value={landingPage.footerData.email} onChange={v => setFooter({ email: v })} placeholder="info@myimun.org" type="email" /></Field>
-                            <Field label="Location (legacy)"><Input value={landingPage.footerData.location} onChange={v => setFooter({ location: v })} placeholder="Casablanca, Morocco" /></Field>
-                        </Grid2>
-                    </Card>
+                    <>
+                        <Card title="Footer Content" subtitle="Contact details shown in the site footer" accent={S.textSec}>
+                            <Grid2>
+                                <Field label="Phone Number"><Input value={landingPage.footerData.phone} onChange={v => setFooter({ phone: v })} placeholder="+212 713 133 601" /></Field>
+                                <Field label="Office Hours"><Input value={landingPage.footerData.hours} onChange={v => setFooter({ hours: v })} placeholder="Monday to Friday: 9 am – 6 pm" /></Field>
+                            </Grid2>
+                            <Field label="Copyright Line"><Input value={landingPage.footerData.copyright} onChange={v => setFooter({ copyright: v })} placeholder="© 2025 MYIMUN  |  All Rights Reserved" /></Field>
+                            <Grid2>
+                                <Field label="Contact Email (legacy)"><Input value={landingPage.footerData.email} onChange={v => setFooter({ email: v })} placeholder="info@myimun.org" type="email" /></Field>
+                                <Field label="Location (legacy)"><Input value={landingPage.footerData.location} onChange={v => setFooter({ location: v })} placeholder="Casablanca, Morocco" /></Field>
+                            </Grid2>
+                        </Card>
+                        <Card title="Social Media Links" subtitle="Only channels with a link will appear in the footer" accent={S.accent}>
+                            <Grid3>
+                                <Field label="Facebook"><Input value={landingPage.footerData.facebookUrl} onChange={v => setFooter({ facebookUrl: v })} placeholder="https://facebook.com/..." type="url" /></Field>
+                                <Field label="YouTube"><Input value={landingPage.footerData.youtubeUrl} onChange={v => setFooter({ youtubeUrl: v })} placeholder="https://youtube.com/@..." type="url" /></Field>
+                                <Field label="Instagram"><Input value={landingPage.footerData.instagramUrl} onChange={v => setFooter({ instagramUrl: v })} placeholder="https://instagram.com/..." type="url" /></Field>
+                            </Grid3>
+                        </Card>
+                    </>
                 )}
 
                 {/* Next section navigation */}

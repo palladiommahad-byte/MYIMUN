@@ -26,6 +26,8 @@ const TYPE_COLOR: Record<string, { bg: string; color: string; border: string }> 
     'Committee Session': { bg: `${C.green}12`,     color: C.green,    border: `${C.green}30`     },
     'Opening Ceremony':  { bg: '#7C5FFF14',        color: '#7C5FFF',  border: '#7C5FFF30'        },
     'General Assembly':  { bg: `${C.accent}12`,    color: C.accent,   border: `${C.accent}30`   },
+    'Check-in':          { bg: '#2563EB12',        color: '#2563EB',  border: '#2563EB30'        },
+    'Check-out':         { bg: '#DB277712',        color: '#DB2777',  border: '#DB277730'        },
 };
 
 function parse12h(t: string): number {

@@ -110,6 +110,8 @@ export default function CommitteePage() {
     const committeeMembers = approvedCommittee
         ? rosterMembers ?? getApplicationsForCommittee(approvedCommittee.abbr).filter(a => a.status === 'Approved')
         : [];
+    // The progress is shared committee data; the roster remains personal to this delegate.
+    const visibleRosterMembers = committeeMembers.filter(member => member.delegateId === delegateId);
 
     const capacity     = approvedCommittee?.delegates ?? 0;
     const memberCount  = committeeMembers.length;
@@ -263,7 +265,7 @@ export default function CommitteePage() {
                                 <Users size={16} style={{ color: C.textSec }} />
                                 <h3 style={{ fontSize: 17, fontWeight: 700, color: C.text }}>
                                     Delegate Roster
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: C.textMuted, marginLeft: 8 }}>({memberCount} member{memberCount !== 1 ? 's' : ''})</span>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: C.textMuted, marginLeft: 8 }}>({visibleRosterMembers.length} member{visibleRosterMembers.length !== 1 ? 's' : ''})</span>
                                 </h3>
                             </div>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 12px', borderRadius: 999, background: `${C.green}12`, border: `1px solid ${C.green}30` }}>
@@ -272,14 +274,14 @@ export default function CommitteePage() {
                             </div>
                         </div>
 
-                        {committeeMembers.length === 0 ? (
+                        {visibleRosterMembers.length === 0 ? (
                             <div style={{ padding: 36, textAlign: 'center', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12 }}>
                                 <Users size={28} style={{ color: C.border, margin: '0 auto 10px' }} />
-                                <p style={{ fontSize: 14, color: C.textMuted }}>No other delegates yet. You are the first member!</p>
+                                <p style={{ fontSize: 14, color: C.textMuted }}>Your delegate details will appear here.</p>
                             </div>
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
-                                {committeeMembers.map((member) => {
+                                {visibleRosterMembers.map((member) => {
                                     const isMe = member.delegateId === delegateId;
                                     const displayCountry = member.assignedCountry || member.country;
                                     const flag = getFlag(displayCountry);
@@ -367,7 +369,7 @@ export default function CommitteePage() {
                             const Icon      = meta?.Icon;
 
                             // Per-committee counts for mini progress bar
-                            const cardMembers  = getApplicationsForCommittee(c.abbr).filter(a => a.status === 'Approved').length;
+                            const cardMembers  = c.approvedDelegates ?? 0;
                             const cardCapacity = c.delegates;
                             const cardPct      = cardCapacity > 0 ? Math.min((cardMembers / cardCapacity) * 100, 100) : 0;
                             const cardWaiting  = waitingCounts[c.abbr] ?? 0;

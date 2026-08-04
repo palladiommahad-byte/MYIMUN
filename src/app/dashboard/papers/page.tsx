@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { Upload, FileText, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Upload, FileText, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference } from '@/context/ConferenceContext';
@@ -20,6 +20,28 @@ const STATUS_META = {
     Rejected: { Icon: XCircle,     color: C.red,   bg: `${C.red}12`,   label: 'Rejected',     desc: 'Your position paper was not accepted. Please revise and resubmit.' },
 };
 
+type PaperExample = { fileKey: string; name: string; type: string; size: number } | null;
+
+function ReferenceExample({ example }: { example: NonNullable<PaperExample> }) {
+    const isImage = example.type.startsWith('image/');
+    return (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, boxShadow: C.shadow }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Reference Example</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {isImage
+                    ? <img src={fileUrl(example.fileKey)} alt="Example position paper" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover', border: `1px solid ${C.border}`, flexShrink: 0 }} />
+                    : <div style={{ width: 56, height: 56, borderRadius: 8, background: `${C.red}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><FileText size={24} style={{ color: C.red }} /></div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13.5, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{example.name}</p>
+                    <p style={{ fontSize: 12, color: C.textSec, marginTop: 3 }}>{isImage ? 'Image example' : 'PDF example'} · {(example.size / 1024).toFixed(0)} KB</p>
+                </div>
+                <a href={fileUrl(example.fileKey)} target="_blank" rel="noopener noreferrer" title="Open reference example"
+                    style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${C.accent}35`, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ExternalLink size={16} /></a>
+            </div>
+        </div>
+    );
+}
+
 export default function DelegatePapersPage() {
     const { showToast } = useToast();
     const { user } = useAuth();
@@ -27,6 +49,16 @@ export default function DelegatePapersPage() {
     const fileRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [example, setExample] = useState<PaperExample>(null);
+
+    useEffect(() => {
+        let active = true;
+        void fetch('/api/settings/position-paper-example', { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => { if (active && json?.ok) setExample(json.data ?? null); })
+            .catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     const delegateId   = user?.id ?? 'unknown';
     const delegateName = user?.name ?? 'Delegate';
@@ -84,6 +116,7 @@ export default function DelegatePapersPage() {
                         </p>
                     </div>
                 </div>
+                {example && <ReferenceExample example={example} />}
             </div>
         );
     }
@@ -100,6 +133,8 @@ export default function DelegatePapersPage() {
                     Submit your position paper for <strong style={{ color: C.text }}>{committee}</strong> representing <strong style={{ color: C.text }}>{country}</strong>.
                 </p>
             </div>
+
+            {example && <ReferenceExample example={example} />}
 
             {/* Status banner */}
             {myPaper && sm && (

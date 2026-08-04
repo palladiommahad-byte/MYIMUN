@@ -15,6 +15,7 @@ export interface Committee {
     logoUrl?: string;
     visible: boolean;
     applicationState: 'open' | 'closed' | 'comingSoon';
+    approvedDelegates?: number;
 }
 
 export interface PositionPaper {
@@ -142,6 +143,7 @@ export interface Registration {
     email: string;
     phone: string;
     address: string;
+    city: string;
     country: string;
     age: number;
     parentApproval: boolean;
@@ -271,6 +273,7 @@ export interface LandingFaq { tag: string; items: LandingFaqItem[]; }
 export interface LandingFooterData {
     tagline: string; email: string; location: string;
     phone: string; hours: string; copyright: string;
+    facebookUrl: string; youtubeUrl: string; instagramUrl: string;
 }
 export interface LandingPageData {
     hero: LandingHero;
@@ -398,6 +401,7 @@ export const DEFAULT_LANDING: LandingPageData = {
         email: 'info@myimun.org', location: 'Casablanca, Morocco',
         phone: '+212 713 133 601', hours: 'Monday to Friday: 9 am – 6 pm',
         copyright: '© 2025 MYIMUN  |  All Rights Reserved',
+        facebookUrl: '', youtubeUrl: '', instagramUrl: '',
     },
 };
 
@@ -702,7 +706,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Mappers: server record → client shape ── */
     const fmt = (iso: string) => { try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
-    const mapCommittee = (r: any): Committee => ({ id: r.id, name: r.name, abbr: r.abbr, delegates: r.capacity, topics: r.topics, director: r.director, topicList: r.topicList ?? [], logoUrl: r.logoUrl ?? undefined, visible: r.visible ?? true, applicationState: r.applicationState ?? 'open' });
+    const mapCommittee = (r: any): Committee => ({ id: r.id, name: r.name, abbr: r.abbr, delegates: r.capacity, topics: r.topics, director: r.director, topicList: r.topicList ?? [], logoUrl: r.logoUrl ?? undefined, visible: r.visible ?? true, applicationState: r.applicationState ?? 'open', approvedDelegates: r.approvedDelegates ?? 0 });
     const mapPaper = (r: any): PositionPaper => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, status: r.status, submittedAt: fmt(r.submittedAt), fileName: r.fileName, fileUrl: r.fileKey ? `/api/files/${r.fileKey}` : '', fileSize: r.fileSize ?? 0 });
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });

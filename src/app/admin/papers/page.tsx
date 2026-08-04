@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { FileText, CheckCircle, XCircle, ExternalLink, Download, Clock, Filter } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { FileText, CheckCircle, XCircle, ExternalLink, Download, Clock, Filter, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
+import { fileUrl, uploadFile } from '@/lib/fileStore';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -20,11 +21,64 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 type FilterKey = 'All' | 'Pending' | 'Approved' | 'Rejected';
+type PaperExample = { fileKey: string; name: string; type: string; size: number } | null;
 
 export default function AdminPapersPage() {
     const { showToast } = useToast();
     const { papers, updatePaperStatus, registrations } = useConference();
     const [filter, setFilter] = useState<FilterKey>('All');
+    const [example, setExample] = useState<PaperExample>(null);
+    const [exampleLoading, setExampleLoading] = useState(true);
+    const [exampleSaving, setExampleSaving] = useState(false);
+    const exampleInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        let active = true;
+        void fetch('/api/settings/position-paper-example', { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => { if (active && json?.ok) setExample(json.data ?? null); })
+            .catch(() => {})
+            .finally(() => { if (active) setExampleLoading(false); });
+        return () => { active = false; };
+    }, []);
+
+    const saveExample = async (next: PaperExample) => {
+        const response = await fetch('/api/settings/position-paper-example', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next),
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json?.ok === false) throw new Error(json?.error || 'Could not save the reference example');
+        setExample(next);
+    };
+
+    const handleExampleUpload = async (file: File) => {
+        if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+            showToast('Upload a PDF or image for the reference example.', 'error');
+            return;
+        }
+        setExampleSaving(true);
+        try {
+            const uploaded = await uploadFile(file);
+            await saveExample({ fileKey: uploaded.key, name: uploaded.name, type: uploaded.type, size: uploaded.size });
+            showToast('Position paper example updated.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not upload the reference example.', 'error');
+        } finally {
+            setExampleSaving(false);
+        }
+    };
+
+    const removeExample = async () => {
+        setExampleSaving(true);
+        try {
+            await saveExample(null);
+            showToast('Position paper example removed.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not remove the reference example.', 'error');
+        } finally {
+            setExampleSaving(false);
+        }
+    };
 
     const approve = (id: number, name: string) => {
         updatePaperStatus(id, 'Approved');
@@ -94,6 +148,42 @@ export default function AdminPapersPage() {
             </div>
 
             {/* ── Breakdown ── */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: C.shadow }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: example ? 16 : 0 }}>
+                    <div>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Position Paper Example</p>
+                        <p style={{ fontSize: 12.5, color: C.textSec, marginTop: 3 }}>A reference file delegates can open before submitting their paper.</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        {example && <button type="button" onClick={() => window.open(fileUrl(example.fileKey), '_blank', 'noopener,noreferrer')} title="Open example"
+                            style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ExternalLink size={15} /></button>}
+                        {example && <button type="button" onClick={removeExample} disabled={exampleSaving} title="Remove example"
+                            style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${C.red}30`, background: `${C.red}08`, color: C.red, cursor: exampleSaving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={15} /></button>}
+                        <button type="button" onClick={() => exampleInputRef.current?.click()} disabled={exampleSaving} title={example ? 'Replace example' : 'Upload example'}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 12px', height: 34, borderRadius: 8, border: 'none', background: C.accent, color: '#fff', cursor: exampleSaving ? 'wait' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+                            <Upload size={14} /> {exampleSaving ? 'Saving...' : example ? 'Replace' : 'Upload'}
+                        </button>
+                        <input ref={exampleInputRef} type="file" accept="application/pdf,image/png,image/jpeg,image/gif,image/webp" style={{ display: 'none' }}
+                            onChange={event => { const file = event.target.files?.[0]; if (file) void handleExampleUpload(file); event.target.value = ''; }} />
+                    </div>
+                </div>
+                {exampleLoading ? (
+                    <p style={{ fontSize: 13, color: C.textMuted }}>Loading reference example...</p>
+                ) : example ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 9, background: C.bg, border: `1px solid ${C.border}` }}>
+                        {example.type.startsWith('image/')
+                            ? <img src={fileUrl(example.fileKey)} alt="Position paper example" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 7, border: `1px solid ${C.border}` }} />
+                            : <div style={{ width: 52, height: 52, borderRadius: 7, background: `${C.red}12`, color: C.red, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FileText size={22} /></div>}
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{example.name}</p>
+                            <p style={{ fontSize: 11.5, color: C.textMuted, marginTop: 3 }}>{example.type.startsWith('image/') ? 'Image reference' : 'PDF reference'} · {(example.size / 1024).toFixed(0)} KB</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ padding: '16px', borderRadius: 9, border: `1px dashed ${C.border}`, color: C.textMuted, display: 'flex', alignItems: 'center', gap: 9, fontSize: 13 }}><ImageIcon size={17} /> No reference example has been added yet.</div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
                 <StatPanel title="Review Status" subtitle={`${papers.length} papers submitted`}>
                     <Donut centerLabel={String(papers.length)} centerSub="papers" segments={[

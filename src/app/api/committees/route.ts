@@ -8,11 +8,21 @@ import { broadcast } from '@/lib/events';
 export const GET = route(async () => {
     const user = await getCurrentUser();
     const isStaff = !!user && ['admin', 'secretary', 'manager'].includes(user.role);
-    const rows = await prisma.committee.findMany({
-        where: isStaff ? {} : { visible: true },
-        orderBy: { id: 'asc' },
-    });
-    return ok(rows);
+    const where = isStaff ? {} : { visible: true };
+    const [rows, approvedCounts] = await Promise.all([
+        prisma.committee.findMany({ where, orderBy: { id: 'asc' } }),
+        prisma.committeeApplication.groupBy({
+            by: ['committeeAbbr'],
+            where: { status: 'Approved' },
+            _count: { _all: true },
+        }),
+    ]);
+    const approvedByCommittee = new Map(approvedCounts.map(item => [item.committeeAbbr, item._count._all]));
+    return ok(rows.map(row => ({
+        ...row,
+        // Only the aggregate is public. Delegate identities remain private.
+        approvedDelegates: approvedByCommittee.get(row.abbr) ?? 0,
+    })));
 });
 
 const schema = z.object({

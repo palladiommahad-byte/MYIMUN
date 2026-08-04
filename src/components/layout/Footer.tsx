@@ -47,6 +47,11 @@ export const Footer: React.FC = () => {
     const { landingPage } = useConference();
     const fd = landingPage.footerData;
     const linkStyle: React.CSSProperties = { fontSize: 18, fontWeight: 400, color: C.body, textDecoration: 'none' };
+    const socialLinks = [
+        { label: 'Facebook', href: fd.facebookUrl, Icon: FacebookIcon },
+        { label: 'YouTube', href: fd.youtubeUrl, Icon: YoutubeIcon },
+        { label: 'Instagram', href: fd.instagramUrl, Icon: InstagramIcon },
+    ].filter(link => link.href.trim());
 
     return (
         <footer style={{ background: C.bg, padding: '80px 64px 32px', fontFamily: FONT }} className="lp-footer">
@@ -88,15 +93,15 @@ export const Footer: React.FC = () => {
                     {/* Col 4 — Connect */}
                     <div>
                         <p style={{ fontWeight: 600, fontSize: 20, color: C.heading, marginBottom: 16 }}>Connect</p>
-                        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24 }}>
-                            {[FacebookIcon, YoutubeIcon, InstagramIcon].map((Icon, i) => (
-                                <a key={i} href="#" aria-label="social" style={{ color: C.heading, lineHeight: 0 }}
+                        {socialLinks.length > 0 && <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24 }}>
+                            {socialLinks.map(({ label, href, Icon }) => (
+                                <a key={label} href={href} aria-label={label} target="_blank" rel="noopener noreferrer" style={{ color: C.heading, lineHeight: 0 }}
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = C.blue}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = C.heading}>
                                     <Icon size={22} color="currentColor" />
                                 </a>
                             ))}
-                        </div>
+                        </div>}
                         <div style={{ position: 'relative', maxWidth: 220 }}>
                             <input placeholder="Search..."
                                 style={{ width: '100%', border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 36px 10px 14px', fontSize: 18, fontFamily: FONT, color: C.heading, outline: 'none', background: '#fff' }} />

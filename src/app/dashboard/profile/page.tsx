@@ -129,7 +129,11 @@ function ProfileContent({ user }: { user: any }) {
             const res = await fetch('/api/profile', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    ...formData,
+                    // The API uses null to clear a persisted profile photo.
+                    avatarUrl: formData.avatarUrl || null,
+                }),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || json?.ok === false) throw new Error(json?.error || 'Could not update your profile');

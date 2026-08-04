@@ -205,6 +205,7 @@ export default function AdminRegistrationPage() {
                                         {/* Country */}
                                         <td style={{ padding: '13px 16px' }}>
                                             <span style={{ fontSize: 13, color: C.text }}>{reg.country}</span>
+                                            {reg.city && <p style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{reg.city}</p>}
                                         </td>
                                         {/* Heard from */}
                                         <td style={{ padding: '13px 16px' }}>
@@ -279,6 +280,7 @@ export default function AdminRegistrationPage() {
                                 [Mail, 'Email', viewReg.email],
                                 [Phone, 'Phone', viewReg.phone],
                                 [MapPin, 'Address', viewReg.address],
+                                [MapPin, 'City', viewReg.city],
                                 [Globe, 'Country', viewReg.country],
                                 [Hash, 'Age', viewReg.age ? String(viewReg.age) : '—'],
                                 [CheckCircle2, 'Parent / guardian approval', viewReg.age < 18 ? (viewReg.parentApproval ? 'Confirmed' : 'Missing') : 'Not required'],

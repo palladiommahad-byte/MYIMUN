@@ -192,7 +192,7 @@ function RegistrationResponsiveStyles() {
 }
 
 const EMPTY = {
-    fullName: '', email: '', phone: '', address: '', country: '', age: '', parentApproval: false, heardFrom: '',
+    fullName: '', email: '', phone: '', address: '', city: '', country: '', age: '', parentApproval: false, heardFrom: '',
     firstTimeMun: null as boolean | null,
     attendedMyimunBefore: null as boolean | null,
     motivation: '',
@@ -236,7 +236,7 @@ export default function DelegateRegistrationPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.address.trim() || !form.country.trim() || !form.age.trim() || !form.heardFrom) {
+        if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.address.trim() || !form.city.trim() || !form.country.trim() || !form.age.trim() || !form.heardFrom) {
             showToast('Please fill in all required fields.', 'error');
             return;
         }
@@ -287,6 +287,7 @@ export default function DelegateRegistrationPage() {
                 email: form.email.trim(),
                 phone: form.phone.trim(),
                 address: form.address.trim(),
+                city: form.city.trim(),
                 country: form.country.trim(),
                 age: ageNumber,
                 parentApproval: ageNumber < 18 ? form.parentApproval : false,
@@ -316,6 +317,7 @@ export default function DelegateRegistrationPage() {
                 email: existing.email,
                 phone: existing.phone,
                 address: existing.address,
+                city: existing.city,
                 country: existing.country,
                 age: existing.age ? String(existing.age) : '',
                 parentApproval: Boolean(existing.parentApproval),
@@ -488,8 +490,11 @@ export default function DelegateRegistrationPage() {
                             </span>
                         </label>
                     )}
-                    <TextField icon={MapPin} label="Address" value={form.address} onChange={v => set('address', v)} placeholder="Street, City, ZIP" />
-                    <TextField icon={Globe} label="Country" value={form.country} onChange={v => set('country', v)} placeholder="e.g. France" />
+                    <TextField icon={MapPin} label="Address" value={form.address} onChange={v => set('address', v)} placeholder="Street address" />
+                    <div className="registration-two-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <TextField icon={MapPin} label="City" value={form.city} onChange={v => set('city', v)} placeholder="e.g. Marrakech" />
+                        <TextField icon={Globe} label="Country" value={form.country} onChange={v => set('country', v)} placeholder="e.g. Morocco" />
+                    </div>
 
                     {/* Heard from select */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -806,6 +811,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                         ['Email', existing.email],
                         ['Phone', existing.phone],
                         ['Country', existing.country],
+                        ['City', existing.city],
                         ['Age', existing.age ? String(existing.age) : '—'],
                         ['Parent approval', existing.age < 18 ? (existing.parentApproval ? 'Confirmed' : 'Missing') : 'Not required'],
                         ['Address', existing.address],

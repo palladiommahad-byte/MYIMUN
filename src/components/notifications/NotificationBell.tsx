@@ -72,7 +72,7 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
             </button>
 
             {open && (
-                <div style={{
+                <div className="notification-panel" style={{
                     position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 360, maxWidth: '90vw',
                     background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadow,
                     zIndex: 300, overflow: 'hidden', fontFamily: '"Inter",system-ui,sans-serif',
@@ -86,7 +86,7 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
                             </button>
                         )}
                     </div>
-                    <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <div className="notification-panel-list" style={{ maxHeight: 420, overflowY: 'auto' }}>
                         {notifications.length === 0 ? (
                             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
                                 <BellOff size={26} style={{ color: C.border, margin: '0 auto 10px' }} />
@@ -121,6 +121,22 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
                     </div>
                 </div>
             )}
+            <style jsx>{`
+                @media (max-width: 767px) {
+                    .notification-panel {
+                        position: fixed !important;
+                        top: 64px !important;
+                        right: 12px !important;
+                        left: 12px !important;
+                        width: auto !important;
+                        max-width: none !important;
+                        border-radius: 12px !important;
+                    }
+                    .notification-panel-list {
+                        max-height: calc(100dvh - 150px) !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

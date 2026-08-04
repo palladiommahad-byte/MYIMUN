@@ -100,6 +100,7 @@ model Registration {
   email                String
   phone                String
   address              String
+  city                 String   @default("")
   country              String
   age                  Int      @default(18)
   parentApproval       Boolean  @default(false)
