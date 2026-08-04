@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
 import { notifyStaff } from '@/lib/notifications';
+import { formatMoney } from '@/lib/currency';
 
 export const GET = route(async () => {
     const user = await requireUser();
@@ -28,6 +29,9 @@ const schema = z.object({
 export const POST = route(async (req: Request) => {
     const user = await requireUser();
     const data = schema.parse(await req.json());
+    const selectedPackage = data.packageId
+        ? await prisma.conferencePackage.findUnique({ where: { id: data.packageId } })
+        : null;
 
     const existing = await prisma.paymentSubmission.findFirst({ where: { delegateId: user.id } });
     const row = existing
@@ -40,7 +44,7 @@ export const POST = route(async (req: Request) => {
     await notifyStaff({
         type: 'payment_submitted',
         title: 'New payment receipt',
-        message: `${data.senderName} submitted a $${data.amount.toFixed(2)} receipt for ${data.participantName}.`,
+        message: `${data.senderName} submitted a ${formatMoney(data.amount, selectedPackage?.currency)} receipt for ${data.participantName}.`,
         link: '/admin/payments',
     });
 

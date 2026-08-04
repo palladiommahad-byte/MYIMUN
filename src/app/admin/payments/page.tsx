@@ -10,6 +10,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { useConference, PaymentSubmission, PaymentSettings, ConferencePackage } from '@/context/ConferenceContext';
 import { fileUrl } from '@/lib/fileStore';
+import { currencyOptionsWithCurrent, formatMoney, normalizeCurrency } from '@/lib/currency';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 
 const C = {
@@ -154,6 +155,10 @@ export default function AdminPaymentsPage() {
             p.method.toLowerCase().includes(search.toLowerCase())
         )
         .sort((a, b) => b.id - a.id);
+    const currencyForPayment = (payment: PaymentSubmission) =>
+        packages.find(pkg => pkg.id === payment.packageId)?.currency ?? paymentSettings.currency;
+    const currencyForPackageName = (name: string) =>
+        packages.find(pkg => pkg.name === name)?.currency ?? paymentSettings.currency;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, fontFamily: '"Inter",system-ui,sans-serif' }}>
@@ -166,7 +171,7 @@ export default function AdminPaymentsPage() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Total Revenue</p>
-                    <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 28, color: C.text }}>${totalRevenue.toFixed(2)}</p>
+                    <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 28, color: C.text }}>{formatMoney(totalRevenue, paymentSettings.currency)}</p>
                 </div>
             </div>
 
@@ -183,11 +188,11 @@ export default function AdminPaymentsPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 4 }}>
                         <div>
                             <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Confirmed</p>
-                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.green }}>${totalRevenue.toFixed(2)}</p>
+                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.green }}>{formatMoney(totalRevenue, paymentSettings.currency)}</p>
                         </div>
                         <div>
                             <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Pending Verification</p>
-                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.amber }}>${pendingAmount.toFixed(2)}</p>
+                            <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 800, fontSize: 26, color: C.amber }}>{formatMoney(pendingAmount, paymentSettings.currency)}</p>
                         </div>
                     </div>
                 </StatPanel>
@@ -196,7 +201,7 @@ export default function AdminPaymentsPage() {
                         {revenueRows.length === 0 ? (
                             <p style={{ fontSize: 12.5, color: C.textMuted }}>—</p>
                         ) : revenueRows.slice(0, 4).map(([name, amount]) => (
-                            <BarRow key={name} label={name} value={amount} max={maxRevenueRow} color={C.accent} sublabel={`$${amount.toFixed(2)}`} />
+                            <BarRow key={name} label={name} value={amount} max={maxRevenueRow} color={C.accent} sublabel={formatMoney(amount, currencyForPackageName(name))} />
                         ))}
                     </div>
                 </StatPanel>
@@ -211,7 +216,7 @@ export default function AdminPaymentsPage() {
                         </div>
                         <div>
                             <p style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>Payment Details Setup</p>
-                            <p style={{ fontSize: 12.5, color: C.textSec }}>Configure the bank/transfer details delegates use to pay the ${Number(paymentSettings.fee).toFixed(2)} fee.</p>
+                            <p style={{ fontSize: 12.5, color: C.textSec }}>Configure the bank/transfer details delegates use to pay the {formatMoney(Number(paymentSettings.fee), paymentSettings.currency)} fee.</p>
                         </div>
                     </div>
                     {setupOpen ? <ChevronUp size={18} style={{ color: C.textMuted }} /> : <ChevronDown size={18} style={{ color: C.textMuted }} />}
@@ -231,10 +236,19 @@ export default function AdminPaymentsPage() {
                             ] as [keyof PaymentSettings, string, string, string][]).map(([key, label, ph, type]) => (
                                 <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: C.textSec }}>{label}</label>
-                                    <input type={type} value={String(setupForm[key] ?? '')} onChange={e => setupField(key, e.target.value)} placeholder={ph}
-                                        style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                                        onFocus={e => e.target.style.borderColor = C.accent}
-                                        onBlur={e => e.target.style.borderColor = C.border} />
+                                    {key === 'currency' ? (
+                                        <select value={normalizeCurrency(String(setupForm[key] ?? ''))} onChange={e => setupField(key, e.target.value)}
+                                            style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', cursor: 'pointer' }}>
+                                            {currencyOptionsWithCurrent(String(setupForm[key] ?? '')).map(option => (
+                                                <option key={option.code} value={option.code}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input type={type} value={String(setupForm[key] ?? '')} onChange={e => setupField(key, e.target.value)} placeholder={ph}
+                                            style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                            onFocus={e => e.target.style.borderColor = C.accent}
+                                            onBlur={e => e.target.style.borderColor = C.border} />
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -279,7 +293,7 @@ export default function AdminPaymentsPage() {
                         {packages.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}>
                                 <Package size={36} style={{ margin: '0 auto 12px', color: C.border }} />
-                                <p style={{ fontSize: 14 }}>No packages yet. Click "Add Package" to create one.</p>
+                                <p style={{ fontSize: 14 }}>No packages yet. Click &quot;Add Package&quot; to create one.</p>
                             </div>
                         ) : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
@@ -301,7 +315,7 @@ export default function AdminPaymentsPage() {
                                             )}
                                             <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{pkg.name}</p>
                                             <p style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>
-                                                {pkg.currency === 'USD' ? '$' : pkg.currency + ' '}{Number(pkg.price).toFixed(2)}
+                                                {formatMoney(Number(pkg.price), pkg.currency)}
                                                 <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}> / person</span>
                                             </p>
                                         </div>
@@ -423,7 +437,7 @@ export default function AdminPaymentsPage() {
                                                 <span style={{ fontSize: 12, color: C.textMuted }}>—</span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '13px 14px', fontSize: 13.5, fontWeight: 700, color: C.text }}>${p.amount.toFixed(2)}</td>
+                                        <td style={{ padding: '13px 14px', fontSize: 13.5, fontWeight: 700, color: C.text }}>{formatMoney(p.amount, pkg?.currency ?? paymentSettings.currency)}</td>
                                         <td style={{ padding: '13px 14px', fontSize: 13, color: C.textSec }}>{p.method}</td>
                                         <td style={{ padding: '13px 14px' }}>
                                             <button onClick={() => viewReceipt(p.receiptKey)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -492,7 +506,7 @@ export default function AdminPaymentsPage() {
                             {[
                                 [User, 'Sender (who paid)', viewPay.senderName],
                                 [Users, 'Participant', viewPay.participantName],
-                                [CreditCard, 'Amount', `$${viewPay.amount.toFixed(2)}`],
+                                [CreditCard, 'Amount', formatMoney(viewPay.amount, currencyForPayment(viewPay))],
                                 [Landmark, 'Method', viewPay.method],
                                 [Clock, 'Submitted', viewPay.submittedAt],
                             ].map(([Icon, label, val]: any) => (
@@ -587,7 +601,7 @@ export default function AdminPaymentsPage() {
                             <div>
                                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{pkgForm.name || 'Package Name'}</p>
                                 <p style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>
-                                    {pkgForm.currency === 'USD' ? '$' : (pkgForm.currency || '$')}{Number(pkgForm.price || 0).toFixed(2)}
+                                    {formatMoney(Number(pkgForm.price || 0), pkgForm.currency)}
                                     {pkgForm.badge && <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 8, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.25)' }}>{pkgForm.badge}</span>}
                                 </p>
                             </div>
@@ -622,9 +636,12 @@ export default function AdminPaymentsPage() {
                                 </div>
                                 <div>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: C.textSec, display: 'block', marginBottom: 5 }}>Currency</label>
-                                    <input value={pkgForm.currency} onChange={e => setPkgForm(f => ({ ...f, currency: e.target.value }))} placeholder="USD"
-                                        style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.border} />
+                                    <select value={normalizeCurrency(pkgForm.currency)} onChange={e => setPkgForm(f => ({ ...f, currency: e.target.value }))}
+                                        style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' }}>
+                                        {currencyOptionsWithCurrent(pkgForm.currency).map(option => (
+                                            <option key={option.code} value={option.code}>{option.label}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 
@@ -691,7 +708,7 @@ export default function AdminPaymentsPage() {
                             {/* Features */}
                             <div>
                                 <label style={{ fontSize: 12, fontWeight: 600, color: C.textSec, display: 'block', marginBottom: 8 }}>
-                                    What's Included <span style={{ fontWeight: 400, color: C.textMuted }}>({pkgForm.features.length} items)</span>
+                                    What&apos;s Included <span style={{ fontWeight: 400, color: C.textMuted }}>({pkgForm.features.length} items)</span>
                                 </label>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
                                     {pkgForm.features.map((f, i) => (
@@ -747,7 +764,7 @@ export default function AdminPaymentsPage() {
                         <div style={{ width: 48, height: 48, borderRadius: 12, background: `${C.red}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                             <Trash2 size={22} style={{ color: C.red }} />
                         </div>
-                        <p style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>Delete "{deletePkg.name}"?</p>
+                        <p style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>Delete &quot;{deletePkg.name}&quot;?</p>
                         <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55, marginBottom: 22 }}>
                             This package will be permanently removed. Delegates who selected it will keep their payment records.
                         </p>

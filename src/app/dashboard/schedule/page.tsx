@@ -20,6 +20,12 @@ const TYPE_COLOR: Record<string, { bg: string; color: string; border: string }> 
     Special:   { bg: '#7C5FFF14',        color: '#7C5FFF',  border: '#7C5FFF30'        },
     Social:    { bg: '#EC489912',        color: '#EC4899',  border: '#EC489930'        },
     Excursion: { bg: `${C.amber}14`,     color: C.amber,    border: `${C.amber}30`     },
+    'Free Time':         { bg: '#14B8A612',        color: '#0F766E',  border: '#14B8A630'        },
+    Lunch:               { bg: `${C.amber}14`,     color: C.amber,    border: `${C.amber}30`     },
+    Dinner:              { bg: '#EF444412',        color: '#EF4444',  border: '#EF444430'        },
+    'Committee Session': { bg: `${C.green}12`,     color: C.green,    border: `${C.green}30`     },
+    'Opening Ceremony':  { bg: '#7C5FFF14',        color: '#7C5FFF',  border: '#7C5FFF30'        },
+    'General Assembly':  { bg: `${C.accent}12`,    color: C.accent,   border: `${C.accent}30`   },
 };
 
 function parse12h(t: string): number {

@@ -13,7 +13,21 @@ const C = {
     overlay: 'rgba(17,24,39,0.35)',
 };
 
-const EVENT_TYPES = ['Logistics', 'Keynote', 'Break', 'Session', 'Special', 'Social', 'Excursion'];
+const EVENT_TYPES = [
+    'Logistics',
+    'Keynote',
+    'Break',
+    'Session',
+    'Special',
+    'Social',
+    'Excursion',
+    'Free Time',
+    'Lunch',
+    'Dinner',
+    'Committee Session',
+    'Opening Ceremony',
+    'General Assembly',
+];
 
 const TYPE_COLOR: Record<string, { bg: string; color: string; border: string }> = {
     Logistics: { bg: `${C.accent}12`,    color: C.accent,   border: `${C.accent}30`   },
@@ -23,6 +37,12 @@ const TYPE_COLOR: Record<string, { bg: string; color: string; border: string }> 
     Special:   { bg: '#7C5FFF14',        color: '#7C5FFF',  border: '#7C5FFF30'        },
     Social:    { bg: '#EC489912',        color: '#EC4899',  border: '#EC489930'        },
     Excursion: { bg: `${C.amber}14`,     color: C.amber,    border: `${C.amber}30`     },
+    'Free Time':         { bg: '#14B8A612',        color: '#0F766E',  border: '#14B8A630'        },
+    Lunch:               { bg: `${C.amber}14`,     color: C.amber,    border: `${C.amber}30`     },
+    Dinner:              { bg: '#EF444412',        color: C.red,      border: '#EF444430'        },
+    'Committee Session': { bg: `${C.green}12`,     color: C.green,    border: `${C.green}30`     },
+    'Opening Ceremony':  { bg: '#7C5FFF14',        color: '#7C5FFF',  border: '#7C5FFF30'        },
+    'General Assembly':  { bg: `${C.accent}12`,    color: C.accent,   border: `${C.accent}30`   },
 };
 
 const EMPTY_FORM = {
@@ -172,7 +192,7 @@ export default function AdminSchedulePage() {
                 <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '56px 24px', textAlign: 'center', boxShadow: C.shadow }}>
                     <Calendar size={40} style={{ color: C.border, margin: '0 auto 12px' }} />
                     <p style={{ fontSize: 15, fontWeight: 500, color: C.textMuted }}>No schedule events yet.</p>
-                    <p style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Click "Add Event" to build your conference itinerary.</p>
+                    <p style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Click &quot;Add Event&quot; to build your conference itinerary.</p>
                 </div>
             ) : days.map((dayGroup, di) => (
                 <div key={dayGroup.day} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>

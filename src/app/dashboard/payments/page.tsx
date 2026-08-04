@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useConference, ConferencePackage } from '@/context/ConferenceContext';
 import { useToast } from '@/components/ui/Toast';
 import { uploadFile, fileUrl } from '@/lib/fileStore';
+import { formatMoney } from '@/lib/currency';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -38,6 +39,8 @@ export default function PaymentsPage() {
     const paid = reg?.paymentStatus === 'Paid' && payment?.status !== 'Declined';
 
     const visiblePackages = packages.filter(p => !p.hidden);
+    const currencyForPayment = () =>
+        packages.find(pkg => pkg.id === payment?.packageId)?.currency ?? paymentSettings.currency;
 
     // Package selection state
     const [selectedPkg, setSelectedPkg] = useState<ConferencePackage | null>(null);
@@ -109,7 +112,7 @@ export default function PaymentsPage() {
                         <Sparkles size={20} style={{ color: C.green }} />
                     </div>
                     <div>
-                        <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 2 }}>Payment verified — you're all set!</p>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 2 }}>Payment verified - you&apos;re all set!</p>
                         <p style={{ fontSize: 13, color: C.textSec }}>Your registration fee has been confirmed. You now have full platform access.</p>
                     </div>
                 </div>
@@ -124,12 +127,12 @@ export default function PaymentsPage() {
                         </div>
                         <div style={{ flex: 1 }}>
                             <p style={{ fontSize: 15.5, fontWeight: 700, color: C.text, marginBottom: 3 }}>Payment Under Review</p>
-                            <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>We've received your receipt and our finance team is verifying it. Full access unlocks once approved.</p>
+                            <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>We&apos;ve received your receipt and our finance team is verifying it. Full access unlocks once approved.</p>
                             <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 {[
                                     ['Package', payment.packageName ?? '—'],
                                     ['Sender', payment.senderName],
-                                    ['Amount', `$${payment.amount.toFixed(2)}`],
+                                    ['Amount', formatMoney(payment.amount, currencyForPayment())],
                                     ['Method', payment.method],
                                 ].map(([l, v]) => (
                                     <div key={l} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 9, padding: '8px 14px' }}>
@@ -196,7 +199,7 @@ export default function PaymentsPage() {
                                             <div style={{ fontSize: 36, lineHeight: 1, marginBottom: 10 }}>{pkg.emoji}</div>
                                             <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{pkg.name}</p>
                                             <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                                                {pkg.currency === 'USD' ? '$' : pkg.currency + ' '}{Number(pkg.price).toFixed(2)}
+                                                {formatMoney(Number(pkg.price), pkg.currency)}
                                                 <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.85 }}> / person</span>
                                             </p>
                                         </div>
@@ -253,7 +256,7 @@ export default function PaymentsPage() {
                             </div>
                             <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{selectedPkg.name}</p>
                             <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                                {selectedPkg.currency === 'USD' ? '$' : selectedPkg.currency + ' '}{Number(selectedPkg.price).toFixed(2)}
+                                {formatMoney(Number(selectedPkg.price), selectedPkg.currency)}
                             </p>
                         </div>
                         <button onClick={() => { setShowForm(false); }}
@@ -402,7 +405,7 @@ export default function PaymentsPage() {
                                     </div>
                                     <p style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{payment.packageName ?? 'Registration Package'}</p>
                                     <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 24, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                                        ${payment.amount.toFixed(2)} <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>paid</span>
+                                        {formatMoney(payment.amount, paidPkg?.currency ?? paymentSettings.currency)} <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>paid</span>
                                     </p>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}>
@@ -414,7 +417,7 @@ export default function PaymentsPage() {
                             {/* Features list */}
                             {paidPkg && paidPkg.features.length > 0 && (
                                 <div style={{ padding: '18px 24px', background: C.surface }}>
-                                    <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>What's included</p>
+                                    <p style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>What&apos;s included</p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
                                         {paidPkg.features.map((f, i) => (
                                             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: C.text }}>
