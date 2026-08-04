@@ -114,6 +114,67 @@ body {
   }
 }
 
+@media (max-width: 767px) {
+  .committee-hero {
+    padding: 24px 20px !important;
+  }
+
+  .committee-hero-content {
+    gap: 18px !important;
+  }
+
+  .committee-hero-main {
+    width: 100%;
+    gap: 12px !important;
+    align-items: flex-start !important;
+  }
+
+  .committee-hero-logo {
+    width: 48px !important;
+    height: 48px !important;
+    flex-shrink: 0;
+  }
+
+  .committee-hero-copy {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .committee-hero-title {
+    font-size: 19px !important;
+    line-height: 1.28;
+    overflow-wrap: anywhere;
+  }
+
+  .committee-hero-country {
+    flex-wrap: wrap;
+    column-gap: 7px !important;
+    row-gap: 4px !important;
+  }
+
+  .committee-hero-details {
+    width: 100%;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.22);
+  }
+
+  .committee-hero-director,
+  .committee-hero-stat {
+    text-align: left !important;
+  }
+
+  .committee-hero-stats {
+    width: 100%;
+    gap: 18px !important;
+  }
+
+  .committee-hero-divider {
+    height: 36px;
+  }
+}
+
 /* ---- Gradient text utility ---- */
 .text-gradient {
   background: var(--gradient-hero);

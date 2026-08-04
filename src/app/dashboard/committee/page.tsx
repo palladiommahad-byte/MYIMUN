@@ -93,22 +93,22 @@ export default function CommitteePage() {
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
                     {/* Banner */}
-                    <div style={{
+                    <div className="committee-hero" style={{
                         borderRadius: 12, padding: '28px 32px',
                         background: 'linear-gradient(135deg, #0055FF 0%, #3B7FFF 55%, #00D4FF 100%)',
                         position: 'relative', overflow: 'hidden',
                     }}>
                         <div style={{ position: 'absolute', top: 0, right: 0, width: 200, height: 200, background: 'rgba(255,255,255,0.10)', borderRadius: '50%', filter: 'blur(50px)', transform: 'translate(30%,-30%)' }} />
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div className="committee-hero-content" style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
+                            <div className="committee-hero-main" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                 {approvedCommittee.logoUrl
-                                    ? <img src={approvedCommittee.logoUrl} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'contain', background: 'rgba(255,255,255,0.15)', padding: 4 }} />
-                                    : <div style={{ padding: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 12 }}><Gavel size={28} style={{ color: 'white' }} /></div>
+                                    ? <img className="committee-hero-logo" src={approvedCommittee.logoUrl} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'contain', background: 'rgba(255,255,255,0.15)', padding: 4 }} />
+                                    : <div className="committee-hero-logo" style={{ padding: 12, background: 'rgba(255,255,255,0.15)', borderRadius: 12 }}><Gavel size={28} style={{ color: 'white' }} /></div>
                                 }
-                                <div>
+                                <div className="committee-hero-copy">
                                     <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{approvedCommittee.abbr}</p>
-                                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>{approvedCommittee.name}</h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                                    <h2 className="committee-hero-title" style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>{approvedCommittee.name}</h2>
+                                    <div className="committee-hero-country" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
                                         <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>Representing:</span>
                                         <img src={(application?.assignedCountry && getFlag(application.assignedCountry)) || '/assets/010-un.png'}
                                             alt={application?.assignedCountry || 'United Nations'}
@@ -119,18 +119,18 @@ export default function CommitteePage() {
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-                                <div style={{ textAlign: 'right' }}>
+                            <div className="committee-hero-details" style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+                                <div className="committee-hero-director" style={{ textAlign: 'right' }}>
                                     <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Committee Director</p>
                                     <p style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{approvedCommittee.director || 'TBA'}</p>
                                 </div>
-                                <div style={{ display: 'flex', gap: 14 }}>
-                                    <div style={{ textAlign: 'right' }}>
+                                <div className="committee-hero-stats" style={{ display: 'flex', gap: 14 }}>
+                                    <div className="committee-hero-stat" style={{ textAlign: 'right' }}>
                                         <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>Capacity</p>
                                         <p style={{ fontSize: 18, fontWeight: 800, color: 'white' }}>{capacity}</p>
                                     </div>
-                                    <div style={{ width: 1, background: 'rgba(255,255,255,0.2)' }} />
-                                    <div style={{ textAlign: 'right' }}>
+                                    <div className="committee-hero-divider" style={{ width: 1, background: 'rgba(255,255,255,0.2)' }} />
+                                    <div className="committee-hero-stat" style={{ textAlign: 'right' }}>
                                         <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>Topics</p>
                                         <p style={{ fontSize: 18, fontWeight: 800, color: 'white' }}>{approvedCommittee.topicList.filter(t => t).length}</p>
                                     </div>
