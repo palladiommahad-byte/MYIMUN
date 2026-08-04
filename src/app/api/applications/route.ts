@@ -7,9 +7,27 @@ import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 export const GET = route(async (req: Request) => {
     const user = await requireUser();
     const committee = new URL(req.url).searchParams.get('committee');
-    const where = hasPageAccess(user, '/admin/committees')
-        ? (committee ? { committeeAbbr: committee } : {})
-        : { delegateId: user.id };
+    const isStaff = hasPageAccess(user, '/admin/committees');
+
+    if (committee && !isStaff) {
+        const membership = await prisma.committeeApplication.findFirst({
+            where: { delegateId: user.id, committeeAbbr: committee, status: 'Approved' },
+            select: { id: true },
+        });
+        if (!membership) return fail('You can only view the roster for your approved committee', 403);
+
+        const rows = await prisma.committeeApplication.findMany({
+            where: { committeeAbbr: committee, status: 'Approved' },
+            orderBy: { id: 'asc' },
+            select: {
+                id: true, delegateId: true, delegateName: true, country: true,
+                committeeAbbr: true, status: true, appliedAt: true, assignedCountry: true,
+            },
+        });
+        return ok(rows);
+    }
+
+    const where = isStaff ? (committee ? { committeeAbbr: committee } : {}) : { delegateId: user.id };
     const rows = await prisma.committeeApplication.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);
 });

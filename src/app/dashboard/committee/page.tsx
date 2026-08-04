@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MessageSquare, Gavel, Users, BookOpen, CheckCircle, XCircle, Shield, UserPlus, Clock, X, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/auth/AuthContext';
@@ -28,7 +28,7 @@ const EMPTY_APP_FORM = { whyThisCommittee: '', preferredCountry: '', whyShouldWe
 export default function CommitteePage() {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const { committees, applyToCommittee, getApplicationForDelegate, withdrawApplication, getApplicationsForCommittee, waitingCounts } = useConference();
+    const { committees, applications, applyToCommittee, getApplicationForDelegate, withdrawApplication, getApplicationsForCommittee, waitingCounts } = useConference();
 
     const delegateId   = user?.id ?? 'unknown';
     const delegateName = user?.name ?? 'Delegate';
@@ -90,10 +90,25 @@ export default function CommitteePage() {
     const approvedCommittee = application?.status === 'Approved'
         ? committees.find(c => c.abbr === application.committeeAbbr)
         : null;
+    const approvedCommitteeAbbr = approvedCommittee?.abbr;
+
+    const [rosterMembers, setRosterMembers] = useState<CommitteeApplication[] | null>(null);
+
+    useEffect(() => {
+        if (!approvedCommitteeAbbr) return;
+        let cancelled = false;
+        void fetch(`/api/applications?committee=${encodeURIComponent(approvedCommitteeAbbr)}`, { cache: 'no-store' })
+            .then(res => res.ok ? res.json() : null)
+            .then(json => {
+                if (!cancelled && json?.ok) setRosterMembers(json.data);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [approvedCommitteeAbbr, applications]);
 
     // Real approved delegates in this committee (from applications)
     const committeeMembers = approvedCommittee
-        ? getApplicationsForCommittee(approvedCommittee.abbr).filter(a => a.status === 'Approved')
+        ? rosterMembers ?? getApplicationsForCommittee(approvedCommittee.abbr).filter(a => a.status === 'Approved')
         : [];
 
     const capacity     = approvedCommittee?.delegates ?? 0;

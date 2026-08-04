@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
+import { broadcast } from '@/lib/events';
 
 const schema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('approve') }),
@@ -87,5 +88,6 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
             link: '/dashboard/committee',
         });
     }
+    broadcast({ audience: 'everyone' });
     return ok(row);
 });
