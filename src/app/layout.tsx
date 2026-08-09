@@ -4,8 +4,13 @@ import Providers from './providers';
 import GlobalBackground from '@/components/layout/GlobalBackground';
 
 export const metadata: Metadata = {
-    title: 'MYIMUN 2025 | Moroccan Youth International Model United Nations',
-    description: 'Join 500+ delegates from around the world at MYIMUN Marrakech 2025 — the premier Model United Nations conference in Morocco.',
+    title: 'MYIMUN | Moroccan Youth International Model United Nations',
+    description: 'Join delegates from around the world at Morocco\'s international Model United Nations conference.',
+    icons: {
+        icon: '/assets/MYIMUN-BLUE-LOGO-VERTICAL.png',
+        shortcut: '/assets/MYIMUN-BLUE-LOGO-VERTICAL.png',
+        apple: '/assets/MYIMUN-BLUE-LOGO-VERTICAL.png',
+    },
 };
 
 export default function RootLayout({
