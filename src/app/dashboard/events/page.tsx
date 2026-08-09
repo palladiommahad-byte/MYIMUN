@@ -100,17 +100,17 @@ function PricingTable({ packages }: { packages: ConferencePackage[] }) {
                         {visiblePackages.map((pkg, idx) => {
                             const popular = isMostPopular(pkg);
                             return (
-                                <tr key={pkg.id} style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                                <tr key={pkg.id} className={popular ? 'event-pricing-row event-pricing-row--featured' : 'event-pricing-row'} style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
                                     <td style={{ padding: '16px 18px', verticalAlign: 'top' }}>
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                                            <div style={{ width: 42, height: 42, borderRadius: 10, background: `${pkg.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                                            <div style={{ width: 42, height: 42, borderRadius: 10, border: popular ? `1px solid ${pkg.color}45` : '1px solid transparent', background: `${pkg.color}14`, boxShadow: popular ? `0 6px 16px ${pkg.color}20` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                                                 {pkg.emoji || <Package size={18} style={{ color: pkg.color }} />}
                                             </div>
                                             <div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                                                     <p style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{pkg.name}</p>
                                                     {pkg.badge && (
-                                                        <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: popular ? `${pkg.color}14` : C.bg, color: popular ? pkg.color : C.textMuted }}>
+                                                        <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: popular ? pkg.color : C.bg, color: popular ? '#FFFFFF' : C.textMuted, boxShadow: popular ? `0 4px 12px ${pkg.color}32` : 'none' }}>
                                                             {pkg.badge}
                                                         </span>
                                                     )}
@@ -145,16 +145,16 @@ function PricingTable({ packages }: { packages: ConferencePackage[] }) {
                 {visiblePackages.map((pkg, idx) => {
                     const popular = isMostPopular(pkg);
                     return (
-                        <article key={pkg.id} className="event-pricing-card" style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                        <article key={pkg.id} className={popular ? 'event-pricing-card event-pricing-card--featured' : 'event-pricing-card'} style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                                <div style={{ width: 42, height: 42, borderRadius: 10, background: `${pkg.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                                <div style={{ width: 42, height: 42, borderRadius: 10, border: popular ? `1px solid ${pkg.color}45` : '1px solid transparent', background: `${pkg.color}14`, boxShadow: popular ? `0 6px 16px ${pkg.color}20` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                                     {pkg.emoji || <Package size={18} style={{ color: pkg.color }} />}
                                 </div>
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
                                         <h4 style={{ fontSize: 14, fontWeight: 800, color: C.text, overflowWrap: 'anywhere' }}>{pkg.name}</h4>
                                         {pkg.badge && (
-                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: popular ? `${pkg.color}14` : C.bg, color: popular ? pkg.color : C.textMuted }}>
+                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: popular ? pkg.color : C.bg, color: popular ? '#FFFFFF' : C.textMuted, boxShadow: popular ? `0 4px 12px ${pkg.color}32` : 'none' }}>
                                                 {pkg.badge}
                                             </span>
                                         )}

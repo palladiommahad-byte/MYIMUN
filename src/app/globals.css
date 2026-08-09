@@ -603,6 +603,13 @@ body {
 .event-pricing-mobile {
   display: none;
 }
+.event-pricing-row--featured {
+  background: #f7faff;
+  box-shadow:
+    inset 4px 0 0 #3b7fff,
+    inset 0 1px 0 #d6e5ff,
+    inset 0 -1px 0 #d6e5ff;
+}
 
 @media (max-width: 767px) {
   .event-pricing-header {
@@ -621,6 +628,25 @@ body {
     min-width: 0;
     padding: 18px;
     overflow: hidden;
+  }
+  .event-pricing-card--featured {
+    position: relative;
+    z-index: 1;
+    background: #f7faff;
+    box-shadow:
+      inset 4px 0 0 #3b7fff,
+      inset 0 1px 0 #c9dcff,
+      inset 0 -1px 0 #c9dcff,
+      0 8px 24px rgba(59, 127, 255, 0.14);
+  }
+  .event-pricing-card--featured::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 72px;
+    height: 3px;
+    background: #3b7fff;
   }
   .event-pricing-mobile-price {
     display: flex;
