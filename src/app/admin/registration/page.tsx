@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useConference, Registration } from '@/context/ConferenceContext';
 import { fileUrl } from '@/lib/fileStore';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
+import { formatMoney } from '@/lib/currency';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -29,7 +30,7 @@ type FilterKey = 'All' | 'Pending' | 'Accepted' | 'Declined';
 
 export default function AdminRegistrationPage() {
     const { showToast } = useToast();
-    const { registrations, updateRegistrationStatus } = useConference();
+    const { packages, registrations, updateRegistrationStatus } = useConference();
 
     const [filter, setFilter]     = useState<FilterKey>('All');
     const [search, setSearch]     = useState('');
@@ -79,7 +80,8 @@ export default function AdminRegistrationPage() {
             r.fullName.toLowerCase().includes(search.toLowerCase()) ||
             r.email.toLowerCase().includes(search.toLowerCase()) ||
             r.country.toLowerCase().includes(search.toLowerCase()) ||
-            (r.institution ?? '').toLowerCase().includes(search.toLowerCase())
+            (r.institution ?? '').toLowerCase().includes(search.toLowerCase()) ||
+            (r.packageName ?? '').toLowerCase().includes(search.toLowerCase())
         )
         .sort((a, b) => b.id - a.id);
 
@@ -150,11 +152,11 @@ export default function AdminRegistrationPage() {
             {/* Table */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 880 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980 }}>
                         <thead>
                             <tr style={{ background: '#FAFBFC', borderBottom: `1px solid ${C.border}` }}>
-                                {['Applicant', 'Type', 'Contact', 'Country', 'Heard From', 'Payment', 'Status', 'Actions'].map((h, i) => (
-                                    <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 7 ? 'right' : 'left', whiteSpace: 'nowrap' }}>
+                                {['Applicant', 'Type', 'Package', 'Contact', 'Country', 'Heard From', 'Payment', 'Status', 'Actions'].map((h, i) => (
+                                    <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 8 ? 'right' : 'left', whiteSpace: 'nowrap' }}>
                                         {h}
                                     </th>
                                 ))}
@@ -163,7 +165,7 @@ export default function AdminRegistrationPage() {
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '56px 20px', textAlign: 'center' }}>
                                         <ClipboardList size={36} style={{ color: C.border, margin: '0 auto 12px' }} />
                                         <p style={{ fontSize: 15, fontWeight: 500, color: C.textMuted }}>
                                             {registrations.length === 0 ? 'No registrations yet.' : `No ${filter.toLowerCase()} registrations.`}
@@ -173,6 +175,7 @@ export default function AdminRegistrationPage() {
                                 </tr>
                             ) : filtered.map((reg, idx) => {
                                 const ss = STATUS_STYLE[reg.status];
+                                const selectedPackage = reg.packageId ? packages.find(pkg => pkg.id === reg.packageId) : null;
                                 return (
                                     <tr key={reg.id}
                                         style={{ borderBottom: idx < filtered.length - 1 ? `1px solid ${C.border}` : 'none' }}
@@ -196,6 +199,17 @@ export default function AdminRegistrationPage() {
                                             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: reg.type === 'Group' ? `${C.purple}14` : `${C.accent}14`, color: reg.type === 'Group' ? C.purple : C.accent, whiteSpace: 'nowrap' }}>
                                                 {reg.type === 'Group' ? `Group · ${reg.groupSize}` : 'Individual'}
                                             </span>
+                                        </td>
+                                        {/* Package */}
+                                        <td style={{ padding: '13px 16px' }}>
+                                            {reg.packageName || selectedPackage ? (
+                                                <div>
+                                                    <p style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{reg.packageName || selectedPackage?.name}</p>
+                                                    {selectedPackage && <p style={{ fontSize: 11, color: selectedPackage.color }}>{formatMoney(Number(selectedPackage.price), selectedPackage.currency)}</p>}
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: 12, color: C.textMuted }}>—</span>
+                                            )}
                                         </td>
                                         {/* Contact */}
                                         <td style={{ padding: '13px 16px' }}>
@@ -292,6 +306,7 @@ export default function AdminRegistrationPage() {
                                     [Users, 'Group Name', viewReg.groupName],
                                     [Hash, 'Number of Delegates', String(viewReg.groupSize)],
                                 ] as [any, string, string][] : []),
+                                [CreditCard, 'Preferred Package', viewReg.packageName || (viewReg.packageId ? packages.find(p => p.id === viewReg.packageId)?.name : '')],
                                 [CreditCard, 'Payment Status', viewReg.paymentStatus],
                             ].map(([Icon, label, val]: any) => (
                                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>

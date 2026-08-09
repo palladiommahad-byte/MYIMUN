@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
-import { ok, route } from '@/lib/api';
+import { fail, ok, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 /** GET — staff with Registrations access see all; delegates see their own. */
@@ -37,6 +37,7 @@ const schema = z.object({
     groupName: z.string().optional(),
     groupSize: z.number().optional(),
     institution: z.string().optional(),
+    packageId: z.number().int().positive().optional(),
 }).superRefine((data, ctx) => {
     if (data.age < 18 && !data.parentApproval) {
         ctx.addIssue({
@@ -51,12 +52,24 @@ const schema = z.object({
 export const POST = route(async (req: Request) => {
     const user = await requireUser();
     const data = schema.parse(await req.json());
+    const selectedPackage = data.packageId
+        ? await prisma.conferencePackage.findFirst({ where: { id: data.packageId, hidden: false } })
+        : null;
+
+    if (data.packageId && !selectedPackage) {
+        return fail('Selected package is no longer available.', 400);
+    }
+
+    const payload = {
+        ...data,
+        packageName: selectedPackage?.name ?? null,
+    };
 
     const row = await prisma.registration.upsert({
         where: { delegateId: user.id },
         // Re-applying resets the review back to Pending (matches the old client behaviour).
-        update: { ...data, status: 'Pending', declineReason: null },
-        create: { ...data, delegateId: user.id },
+        update: { ...payload, status: 'Pending', declineReason: null },
+        create: { ...payload, delegateId: user.id },
     });
 
     await notifyStaff({

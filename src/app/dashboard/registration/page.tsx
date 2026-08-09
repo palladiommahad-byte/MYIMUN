@@ -9,7 +9,7 @@ import {
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
-import { useConference } from '@/context/ConferenceContext';
+import { ConferencePackage, useConference } from '@/context/ConferenceContext';
 import { useRouter } from 'next/navigation';
 import { uploadFile, fileUrl } from '@/lib/fileStore';
 import { formatMoney } from '@/lib/currency';
@@ -29,6 +29,16 @@ const C = {
 };
 
 const HEARD_OPTIONS = ['Social Media', 'Friend / Colleague', 'School / University', 'Past MUN Event', 'Online Search', 'Other'];
+
+function isMostPopular(pkg: ConferencePackage) {
+    return pkg.badge.trim().toLowerCase() === 'most popular';
+}
+
+function visibleSortedPackages(packages: ConferencePackage[]) {
+    return packages
+        .filter(pkg => !pkg.hidden)
+        .sort((a, b) => Number(isMostPopular(b)) - Number(isMostPopular(a)));
+}
 
 /* ── Stable, module-level field components (defined OUTSIDE the page so React never remounts them) ── */
 
@@ -153,6 +163,7 @@ function RegistrationResponsiveStyles() {
                 }
 
                 .registration-option-grid,
+                .registration-package-grid,
                 .registration-two-grid,
                 .registration-status-grid,
                 .registration-letter-grid {
@@ -199,6 +210,7 @@ const EMPTY = {
     motivation: '',
     type: 'Individual' as 'Individual' | 'Group',
     groupName: '', groupSize: '', institution: '',
+    packageId: '',
 };
 
 export default function DelegateRegistrationPage() {
@@ -210,6 +222,7 @@ export default function DelegateRegistrationPage() {
     const delegateId = user?.id ?? 'unknown';
     const existing = getRegistrationForDelegate(delegateId);
     const payment = getPaymentForDelegate(delegateId);
+    const visiblePackages = visibleSortedPackages(packages);
 
     const [form, setForm] = useState({
         ...EMPTY,
@@ -227,6 +240,7 @@ export default function DelegateRegistrationPage() {
         setForm(f => ({ ...f, [key]: value }));
     const ageNumber = Number(form.age);
     const requiresParentApproval = Number.isFinite(ageNumber) && ageNumber > 0 && ageNumber < 18;
+    const selectedPackage = visiblePackages.find(pkg => String(pkg.id) === form.packageId) ?? null;
 
     const pickFile = (file: File) => {
         const okType = file.type === 'application/pdf' || file.type.startsWith('image/');
@@ -265,6 +279,10 @@ export default function DelegateRegistrationPage() {
             showToast('Please complete the group details.', 'error');
             return;
         }
+        if (visiblePackages.length > 0 && !selectedPackage) {
+            showToast('Please select the package you want.', 'error');
+            return;
+        }
         if (!agreedToTerms) {
             showToast('Please agree to the Terms & Conditions and Privacy Policy to continue.', 'error');
             return;
@@ -301,6 +319,8 @@ export default function DelegateRegistrationPage() {
                 groupName: form.type === 'Group' ? form.groupName.trim() : undefined,
                 groupSize: form.type === 'Group' ? parseInt(form.groupSize) || 0 : undefined,
                 institution: form.type === 'Group' ? form.institution.trim() : undefined,
+                packageId: selectedPackage?.id,
+                packageName: selectedPackage?.name,
             } as never);
             setReapplying(false); // return to status view (now showing the fresh Pending registration)
             showToast('Registration submitted! Our team will review it shortly.', 'success');
@@ -330,6 +350,7 @@ export default function DelegateRegistrationPage() {
                 groupName: existing.groupName ?? '',
                 groupSize: existing.groupSize ? String(existing.groupSize) : '',
                 institution: existing.institution ?? '',
+                packageId: existing.packageId ? String(existing.packageId) : '',
             });
         }
         setAgreedToTerms(false);
@@ -462,6 +483,73 @@ export default function DelegateRegistrationPage() {
                 </div>
 
                 {/* ── Personal information ── */}
+                {visiblePackages.length > 0 && (
+                    <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                            <div>
+                                <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Preferred Package</p>
+                                <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.5 }}>Choose the package you plan to pay for after approval.</p>
+                            </div>
+                            <Link href="/dashboard/events" style={{ fontSize: 12.5, fontWeight: 700, color: C.accent, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                Compare on Events <ArrowRight size={13} />
+                            </Link>
+                        </div>
+                        <div className="registration-package-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            {visiblePackages.map(pkg => {
+                                const selected = form.packageId === String(pkg.id);
+                                const popular = isMostPopular(pkg);
+                                return (
+                                    <button
+                                        key={pkg.id}
+                                        type="button"
+                                        onClick={() => set('packageId', String(pkg.id))}
+                                        style={{
+                                            minHeight: 190,
+                                            textAlign: 'left',
+                                            padding: 0,
+                                            borderRadius: 12,
+                                            border: `2px solid ${selected || popular ? pkg.color : C.border}`,
+                                            background: selected ? `${pkg.color}08` : C.surface,
+                                            cursor: 'pointer',
+                                            overflow: 'hidden',
+                                            boxShadow: selected ? `0 6px 18px ${pkg.color}20` : 'none',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                        }}
+                                    >
+                                        <div style={{ padding: '14px 16px', background: selected ? pkg.color : `${pkg.color}12`, color: selected ? '#fff' : pkg.color, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span style={{ fontSize: 22, lineHeight: 1 }}>{pkg.emoji}</span>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                                                    <p style={{ fontSize: 14, fontWeight: 800, color: selected ? '#fff' : C.text }}>{pkg.name}</p>
+                                                    {pkg.badge && <span style={{ fontSize: 9.5, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: selected ? 'rgba(255,255,255,0.22)' : `${pkg.color}16`, color: selected ? '#fff' : pkg.color }}>{pkg.badge}</span>}
+                                                </div>
+                                                <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 19, fontWeight: 800, color: selected ? '#fff' : pkg.color, marginTop: 3 }}>
+                                                    {formatMoney(Number(pkg.price), pkg.currency)}
+                                                </p>
+                                            </div>
+                                            <span style={{ width: 19, height: 19, borderRadius: '50%', border: `2px solid ${selected ? '#fff' : pkg.color}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {selected && <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fff' }} />}
+                                            </span>
+                                        </div>
+                                        <div style={{ padding: '13px 16px 15px', display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
+                                            <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.5 }}>{pkg.description}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {pkg.features.slice(0, 3).map((feature, idx) => (
+                                                    <span key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>
+                                                        <CheckCircle2 size={12} style={{ color: pkg.color, flexShrink: 0, marginTop: 1 }} />
+                                                        {feature}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 <div className="registration-card" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                         {form.type === 'Group' ? 'Representative Information' : 'Personal Information'}
@@ -648,6 +736,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
 }) {
     const isConfirmed = existing.status === 'Accepted' && existing.paymentStatus === 'Paid' && payment?.status === 'Approved';
     const paidPkg = isConfirmed && payment?.packageId ? packages.find((p: any) => p.id === payment.packageId) : null;
+    const preferredPkg = existing.packageId ? packages.find((p: any) => p.id === existing.packageId) : null;
 
     const meta = {
         Pending:  { Icon: Clock,        color: C.amber, bg: `${C.amber}12`, title: 'Registration Under Review', desc: 'Thanks for registering! Our team is reviewing your application. You will be notified once a decision is made.' },
@@ -815,6 +904,7 @@ function RegistrationStatus({ existing, payment, packages, onGoToPayment, onReap
                         ['City', existing.city],
                         ['Age', existing.age ? String(existing.age) : '—'],
                         ['Parent approval', existing.age < 18 ? (existing.parentApproval ? 'Confirmed' : 'Missing') : 'Not required'],
+                        ['Preferred package', existing.packageName || preferredPkg?.name || '—'],
                         ['Address', existing.address],
                         ['Heard from', existing.heardFrom],
                         ['First MUN?', existing.firstTimeMun ? 'Yes' : 'No'],

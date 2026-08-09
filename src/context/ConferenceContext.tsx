@@ -172,6 +172,8 @@ export interface Registration {
     groupName?: string;
     groupSize?: number;
     institution?: string;
+    packageId?: number;
+    packageName?: string;
     // Status
     status: 'Pending' | 'Accepted' | 'Declined';
     declineReason?: string;
@@ -671,7 +673,7 @@ interface ConferenceCtx {
     deleteScheduleEvent: (id: number) => void;
 
     conversations: Conversation[];
-    startConversation:  (delegateId: string, delegateName: string, delegateEmail: string, delegateCountry: string, subject: string, category: string, firstMessage: string) => void;
+    startConversation:  (delegateId: string, delegateName: string, delegateEmail: string, delegateCountry: string, subject: string, category: string, firstMessage: string) => Promise<Conversation>;
     sendChatMessage:    (conversationId: number, text: string, sender: 'delegate' | 'admin') => void;
     markRead:           (conversationId: number, role: 'admin' | 'delegate') => void;
     getConversationsForDelegate: (delegateId: string) => Conversation[];
@@ -1000,11 +1002,13 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     /* ── Conversations / Chat ── */
     const startConversation = async (
-        _delegateId: string, _delegateName: string, _delegateEmail: string,
+        delegateId: string, _delegateName: string, _delegateEmail: string,
         _delegateCountry: string, subject: string, category: string, firstMessage: string,
     ) => {
-        const row = await send('POST', '/api/conversations', { subject, category, firstMessage });
-        setConversations(prev => [mapConvo(row), ...prev]);
+        const row = await send('POST', '/api/conversations', { delegateId, subject, category, firstMessage });
+        const mapped = mapConvo(row);
+        setConversations(prev => [mapped, ...prev.filter(c => c.id !== mapped.id)]);
+        return mapped;
     };
     const sendChatMessage = async (conversationId: number, text: string, _sender: 'delegate' | 'admin') => {
         const row = await send('PATCH', `/api/conversations/${conversationId}`, { action: 'message', text });

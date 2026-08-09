@@ -134,6 +134,10 @@ model Registration {
   groupName            String?
   groupSize            Int?
   institution          String?
+  // Preferred package chosen during registration. The actual receipt/payment
+  // still records the paid package separately.
+  packageId            Int?
+  packageName          String?
   // Status
   status               String   @default("Pending") // Pending | Accepted | Declined
   declineReason        String?

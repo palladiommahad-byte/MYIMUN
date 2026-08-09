@@ -4,7 +4,7 @@ import React, { ReactNode, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
     LayoutDashboard, FileText, Users, LogOut,
-    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star, CircleUserRound, Mic
+    User, CreditCard, Calendar, MessageSquare, Menu, X, Phone, ClipboardList, Star, CircleUserRound, Mic, BookOpen
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
     { label: 'Overview',        icon: LayoutDashboard, path: '/dashboard',              color: '#3B82F6' },
+    { label: 'App Guide',       icon: BookOpen,        path: '/dashboard/app-guide',    color: '#0EA5E9' },
     { label: 'Events',          icon: Star,            path: '/dashboard/events',       color: '#F59E0B' },
     { label: 'Registration',    icon: ClipboardList,   path: '/dashboard/registration', color: '#8B5CF6' },
     { label: 'Position Papers', icon: FileText,        path: '/dashboard/papers',       color: '#06B6D4' },

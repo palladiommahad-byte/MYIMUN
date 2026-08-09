@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, MapPin, Users, Clock, Hotel, BookOpen, ChevronDown, ChevronUp, Star, ImageIcon, ClipboardList, CreditCard, Lock, ArrowRight } from 'lucide-react';
-import { useConference, ConferenceEvent, ScheduleEvent } from '@/context/ConferenceContext';
+import { Calendar, MapPin, Users, Clock, Hotel, BookOpen, ChevronDown, ChevronUp, Star, ImageIcon, ClipboardList, CreditCard, Lock, ArrowRight, CheckCircle2, Package } from 'lucide-react';
+import { useConference, ConferenceEvent, ConferencePackage, ScheduleEvent } from '@/context/ConferenceContext';
 import { useAuth } from '@/auth/AuthContext';
 import { Countdown } from '@/components/ui/Countdown';
+import { formatMoney } from '@/lib/currency';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -61,8 +62,91 @@ function InfoBadge({ icon: Icon, label, value }: { icon: React.ElementType; labe
     );
 }
 
+function isMostPopular(pkg: ConferencePackage) {
+    return pkg.badge.trim().toLowerCase() === 'most popular';
+}
+
+function visibleSortedPackages(packages: ConferencePackage[]) {
+    return packages
+        .filter(pkg => !pkg.hidden)
+        .sort((a, b) => Number(isMostPopular(b)) - Number(isMostPopular(a)));
+}
+
+function PricingTable({ packages }: { packages: ConferencePackage[] }) {
+    const visiblePackages = visibleSortedPackages(packages);
+    if (visiblePackages.length === 0) return null;
+
+    return (
+        <section style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow, overflow: 'hidden' }}>
+            <div style={{ padding: '22px 24px 16px', borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                <h3 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CreditCard size={16} style={{ color: C.accent }} />
+                    Pricing & Benefits
+                </h3>
+                <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.5 }}>Compare available packages before choosing one in your registration form.</p>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                    <thead>
+                        <tr>
+                            {['Package', 'Price', 'Benefits'].map((head, idx) => (
+                                <th key={head} style={{ width: idx === 2 ? '50%' : undefined, padding: '12px 18px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: `1px solid ${C.border}` }}>
+                                    {head}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {visiblePackages.map((pkg, idx) => {
+                            const popular = isMostPopular(pkg);
+                            return (
+                                <tr key={pkg.id} style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                                    <td style={{ padding: '16px 18px', verticalAlign: 'top' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                            <div style={{ width: 42, height: 42, borderRadius: 10, background: `${pkg.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                                                {pkg.emoji || <Package size={18} style={{ color: pkg.color }} />}
+                                            </div>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                                                    <p style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{pkg.name}</p>
+                                                    {pkg.badge && (
+                                                        <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: popular ? `${pkg.color}14` : C.bg, color: popular ? pkg.color : C.textMuted }}>
+                                                            {pkg.badge}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.55 }}>{pkg.description}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '16px 18px', verticalAlign: 'top' }}>
+                                        <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 20, fontWeight: 800, color: pkg.color }}>
+                                            {formatMoney(Number(pkg.price), pkg.currency)}
+                                        </p>
+                                        <p style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>per delegate</p>
+                                    </td>
+                                    <td style={{ padding: '16px 18px', verticalAlign: 'top' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+                                            {pkg.features.map((feature, featureIdx) => (
+                                                <div key={featureIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12.5, color: C.textSec, lineHeight: 1.45 }}>
+                                                    <CheckCircle2 size={13} style={{ color: pkg.color, flexShrink: 0, marginTop: 1 }} />
+                                                    <span>{feature}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    );
+}
+
 function EventDetail({ event }: { event: ConferenceEvent }) {
-    const { scheduleEvents } = useConference();
+    const { packages, scheduleEvents } = useConference();
     const scheduleDays = groupByDay(scheduleEvents);
     const [openDay, setOpenDay] = useState<string | null>(scheduleDays[0]?.day ?? null);
     const [lightbox, setLightbox] = useState<string | null>(null);
@@ -192,6 +276,8 @@ function EventDetail({ event }: { event: ConferenceEvent }) {
             )}
 
             {/* Agenda — sourced from Conference Schedule */}
+            <PricingTable packages={packages} />
+
             {scheduleDays.length > 0 && (
                 <section style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow, overflow: 'hidden' }}>
                     <div style={{ padding: '24px 28px 0' }}>

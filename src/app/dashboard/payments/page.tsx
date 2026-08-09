@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
+import Link from 'next/link';
 import {
     CreditCard, CheckCircle2, Clock, AlertCircle, Sparkles, Upload, FileText,
     Image as ImageIcon, X as XIcon, User, Users, ArrowRight, XCircle, Landmark,
@@ -42,14 +43,16 @@ export default function PaymentsPage() {
     const visiblePackages = packages
         .filter(p => !p.hidden)
         .sort((a, b) => Number(isMostPopular(b)) - Number(isMostPopular(a)));
+    const preferredPackage = reg?.packageId ? visiblePackages.find(pkg => pkg.id === reg.packageId) ?? null : null;
     const currencyForPayment = () =>
         packages.find(pkg => pkg.id === payment?.packageId)?.currency ?? paymentSettings.currency;
 
     // Package selection state
     const [selectedPkg, setSelectedPkg] = useState<ConferencePackage | null>(null);
     const [showForm, setShowForm] = useState(false);
+    const activePackage = selectedPkg ?? preferredPackage;
 
-    const activePrice = selectedPkg ? selectedPkg.price : 0;
+    const activePrice = activePackage ? activePackage.price : 0;
 
     // Form state
     const [senderName, setSenderName]         = useState(reg?.fullName ?? user?.name ?? '');
@@ -60,11 +63,8 @@ export default function PaymentsPage() {
     const [submitting, setSubmitting]          = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const banks = paymentSettings.banks;
-    const selectedBank = banks.find(bank => bank.id === selectedBankId) ?? null;
-
-    useEffect(() => {
-        if (!selectedBankId || !banks.some(bank => bank.id === selectedBankId)) setSelectedBankId(banks[0]?.id ?? '');
-    }, [banks, selectedBankId]);
+    const activeBankId = banks.some(bank => bank.id === selectedBankId) ? selectedBankId : banks[0]?.id ?? '';
+    const selectedBank = banks.find(bank => bank.id === activeBankId) ?? null;
 
     const pickFile = (file: File) => {
         const okType = file.type === 'application/pdf' || file.type.startsWith('image/');
@@ -90,8 +90,8 @@ export default function PaymentsPage() {
                 method,
                 bankId: method === 'Bank Transfer' ? selectedBank?.id : undefined,
                 bankName: method === 'Bank Transfer' ? selectedBank?.bankName : undefined,
-                packageId: selectedPkg?.id,
-                packageName: selectedPkg?.name,
+                packageId: activePackage?.id,
+                packageName: activePackage?.name,
                 receiptName: receipt.name,
                 receiptSize: receipt.size,
                 receiptType: receipt.type,
@@ -105,8 +105,9 @@ export default function PaymentsPage() {
         setSubmitting(false);
     };
 
-    const needsPackageSelection = accepted && !paid && (!payment || payment.status === 'Declined');
-    const showSubmitForm = needsPackageSelection && showForm && selectedPkg;
+    const canSubmitPayment = accepted && !paid && (!payment || payment.status === 'Declined');
+    const showPackageDetails = !paid && (!payment || payment.status === 'Declined') && !showForm;
+    const showSubmitForm = canSubmitPayment && showForm && activePackage;
     const showPending = accepted && !paid && payment?.status === 'Pending';
 
     return (
@@ -182,11 +183,17 @@ export default function PaymentsPage() {
             )}
 
             {/* ── Package selection ── */}
-            {needsPackageSelection && !showForm && (
+            {showPackageDetails && (
                 <>
                     <div>
-                        <h2 style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 4 }}>Choose Your Registration Package</h2>
-                        <p style={{ fontSize: 13, color: C.textSec }}>Select the plan that suits you best, then proceed to payment.</p>
+                        <h2 style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+                            {accepted ? 'Choose Your Registration Package' : 'Review Registration Packages'}
+                        </h2>
+                        <p style={{ fontSize: 13, color: C.textSec }}>
+                            {accepted
+                                ? 'Select the plan that suits you best, then proceed to payment.'
+                                : 'Compare package details before applying. Payment submission opens after your registration is approved.'}
+                        </p>
                     </div>
 
                     {visiblePackages.length === 0 ? (
@@ -197,14 +204,14 @@ export default function PaymentsPage() {
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 20 }}>
                             {visiblePackages.map(pkg => {
-                                const sel = selectedPkg?.id === pkg.id;
+                                const sel = canSubmitPayment && activePackage?.id === pkg.id;
                                 const popular = isMostPopular(pkg);
                                 return (
-                                    <div key={pkg.id} onClick={() => setSelectedPkg(pkg)}
+                                    <div key={pkg.id} onClick={() => { if (canSubmitPayment) setSelectedPkg(pkg); }}
                                         style={{
                                             borderRadius: 16,
                                             border: `${popular ? 3 : 2}px solid ${sel || popular ? pkg.color : C.border}`,
-                                            overflow: 'hidden', cursor: 'pointer', position: 'relative',
+                                            overflow: 'hidden', cursor: canSubmitPayment ? 'pointer' : 'default', position: 'relative',
                                             boxShadow: popular ? `0 12px 34px ${pkg.color}32` : sel ? `0 8px 28px ${pkg.color}28` : C.shadow,
                                             transform: popular ? 'translateY(-6px)' : 'none', transition: 'all 0.18s', background: C.surface,
                                         }}>
@@ -244,9 +251,11 @@ export default function PaymentsPage() {
                                                 ))}
                                             </ul>
                                             <button
-                                                onClick={e => { e.stopPropagation(); setSelectedPkg(pkg); }}
-                                                style={{ width: '100%', padding: '11px', borderRadius: 10, border: `2px solid ${sel || popular ? pkg.color : C.border}`, background: sel || popular ? pkg.color : 'transparent', color: sel || popular ? '#fff' : pkg.color, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: popular && !sel ? `0 4px 12px ${pkg.color}30` : 'none' }}>
-                                                {sel ? <><CheckCircle2 size={15} /> Selected</> : popular ? 'Choose Most Popular' : 'Select This Plan'}
+                                                type="button"
+                                                disabled={!canSubmitPayment}
+                                                onClick={e => { e.stopPropagation(); if (canSubmitPayment) setSelectedPkg(pkg); }}
+                                                style={{ width: '100%', padding: '11px', borderRadius: 10, border: `2px solid ${sel || popular ? pkg.color : C.border}`, background: sel || (popular && canSubmitPayment) ? pkg.color : 'transparent', color: sel || (popular && canSubmitPayment) ? '#fff' : canSubmitPayment ? pkg.color : C.textMuted, fontSize: 14, fontWeight: 700, cursor: canSubmitPayment ? 'pointer' : 'not-allowed', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: popular && !sel && canSubmitPayment ? `0 4px 12px ${pkg.color}30` : 'none', opacity: canSubmitPayment ? 1 : 0.78 }}>
+                                                {canSubmitPayment ? (sel ? <><CheckCircle2 size={15} /> Selected</> : popular ? 'Choose Most Popular' : 'Select This Plan') : 'Available After Approval'}
                                             </button>
                                         </div>
                                     </div>
@@ -256,10 +265,10 @@ export default function PaymentsPage() {
                     )}
 
                     {/* Continue button */}
-                    {selectedPkg && (
+                    {canSubmitPayment && activePackage && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowForm(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '13px 28px', borderRadius: 12, border: 'none', background: selectedPkg.color, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 16px ${selectedPkg.color}45` }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '13px 28px', borderRadius: 12, border: 'none', background: activePackage.color, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 16px ${activePackage.color}45` }}>
                                 Continue to Payment <ChevronRight size={18} />
                             </button>
                         </div>
@@ -268,21 +277,21 @@ export default function PaymentsPage() {
             )}
 
             {/* ── Payment form (after package selected) ── */}
-            {showSubmitForm && selectedPkg && (
+            {showSubmitForm && activePackage && (
                 <>
                     {/* Selected package summary */}
                     <div style={{ background: 'linear-gradient(135deg, #1A3A8F, #3B7FFF)', borderRadius: 16, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', boxShadow: `0 8px 24px ${C.accent}40` }}>
                         <div style={{ width: 54, height: 54, borderRadius: 14, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-                            {selectedPkg.emoji}
+                            {activePackage.emoji}
                         </div>
                         <div style={{ flex: 1, minWidth: 180 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                                 <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Selected Package</p>
-                                {selectedPkg.badge && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', color: '#fff' }}>{selectedPkg.badge}</span>}
+                                {activePackage.badge && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', color: '#fff' }}>{activePackage.badge}</span>}
                             </div>
-                            <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{selectedPkg.name}</p>
+                            <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{activePackage.name}</p>
                             <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                                {formatMoney(Number(selectedPkg.price), selectedPkg.currency)}
+                                {formatMoney(Number(activePackage.price), activePackage.currency)}
                             </p>
                         </div>
                         <button onClick={() => { setShowForm(false); }}
@@ -404,8 +413,8 @@ export default function PaymentsPage() {
                             <button type="submit" disabled={submitting} style={{
                                 display: 'flex', alignItems: 'center', gap: 8,
                                 padding: '12px 26px', borderRadius: 10, border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
-                                background: selectedPkg.color, color: '#fff', fontSize: 14, fontWeight: 700,
-                                boxShadow: `0 4px 14px ${selectedPkg.color}45`, opacity: submitting ? 0.6 : 1,
+                                background: activePackage.color, color: '#fff', fontSize: 14, fontWeight: 700,
+                                boxShadow: `0 4px 14px ${activePackage.color}45`, opacity: submitting ? 0.6 : 1,
                             }}>
                                 {submitting ? 'Submitting…' : 'Submit Receipt'} {!submitting && <ArrowRight size={16} />}
                             </button>
@@ -418,7 +427,10 @@ export default function PaymentsPage() {
             {!accepted && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: C.textSec, padding: '14px 18px', background: `${C.amber}0A`, borderRadius: 10, border: `1px solid ${C.amber}28` }}>
                     <AlertCircle size={16} style={{ color: C.amber, flexShrink: 0 }} />
-                    Your registration must be approved before you can select a package and submit a payment.
+                    <span>
+                        You can review packages now. To select a package and submit a receipt, first complete registration and wait for approval.{' '}
+                        <Link href="/dashboard/registration" style={{ color: C.amber, fontWeight: 700, textDecoration: 'underline' }}>Go to Registration</Link>
+                    </span>
                 </div>
             )}
 
