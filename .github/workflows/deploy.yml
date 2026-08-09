@@ -66,6 +66,54 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/myimun_deploy ~/.ssh/known_hosts
 
+      - name: Free deployment workspace
+        shell: bash
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.name }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/myimun_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            bash -s -- "$IMAGE_REPOSITORY" <<'REMOTE'
+          set -Eeuo pipefail
+          repository="$1"
+          current_container="$(docker container ls -q \
+            --filter 'label=com.docker.compose.project=myimun' \
+            --filter 'label=com.docker.compose.service=web' | head -n 1)"
+          current_image=""
+
+          if [[ -n "$current_container" ]]; then
+            current_image="$(docker inspect --format '{{.Config.Image}}' "$current_container")"
+          fi
+
+          mapfile -t stopped_containers < <(docker container ls -aq \
+            --filter 'label=com.docker.compose.project=myimun' \
+            --filter 'status=exited')
+          if ((${#stopped_containers[@]} > 0)); then
+            docker container rm "${stopped_containers[@]}" >/dev/null
+          fi
+
+          while IFS= read -r image; do
+            [[ -z "$image" || "$image" == '<none>:<none>' || "$image" == "$current_image" ]] && continue
+            docker image rm "$image" >/dev/null 2>&1 || true
+          done < <(docker image ls "$repository" --format '{{.Repository}}:{{.Tag}}')
+          docker image prune -f >/dev/null
+
+          if [[ -d /opt/myimun/backups ]]; then
+            mapfile -t backups < <(
+              find /opt/myimun/backups -maxdepth 1 -type f \
+                \( -name 'app-*.db' -o -name 'app-*.db.gz' \) \
+                -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-
+            )
+            if ((${#backups[@]} > 3)); then
+              rm -f -- "${backups[@]:3}"
+            fi
+          fi
+
+          df -h /
+          REMOTE
+
       - name: Upload deployment configuration
         shell: bash
         env:
