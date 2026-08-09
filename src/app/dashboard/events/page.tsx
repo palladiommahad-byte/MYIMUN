@@ -78,14 +78,14 @@ function PricingTable({ packages }: { packages: ConferencePackage[] }) {
 
     return (
         <section style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 20, boxShadow: C.shadow, overflow: 'hidden' }}>
-            <div style={{ padding: '22px 24px 16px', borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+            <div className="event-pricing-header" style={{ padding: '22px 24px 16px', borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
                 <h3 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <CreditCard size={16} style={{ color: C.accent }} />
                     Pricing & Benefits
                 </h3>
                 <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.5 }}>Compare available packages before choosing one in your registration form.</p>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="event-pricing-desktop" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                     <thead>
                         <tr>
@@ -140,6 +140,52 @@ function PricingTable({ packages }: { packages: ConferencePackage[] }) {
                         })}
                     </tbody>
                 </table>
+            </div>
+            <div className="event-pricing-mobile">
+                {visiblePackages.map((pkg, idx) => {
+                    const popular = isMostPopular(pkg);
+                    return (
+                        <article key={pkg.id} className="event-pricing-card" style={{ borderBottom: idx < visiblePackages.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                <div style={{ width: 42, height: 42, borderRadius: 10, background: `${pkg.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                                    {pkg.emoji || <Package size={18} style={{ color: pkg.color }} />}
+                                </div>
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
+                                        <h4 style={{ fontSize: 14, fontWeight: 800, color: C.text, overflowWrap: 'anywhere' }}>{pkg.name}</h4>
+                                        {pkg.badge && (
+                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: popular ? `${pkg.color}14` : C.bg, color: popular ? pkg.color : C.textMuted }}>
+                                                {pkg.badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.55 }}>{pkg.description}</p>
+                                </div>
+                            </div>
+
+                            <div className="event-pricing-mobile-price">
+                                <p style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 21, fontWeight: 800, color: pkg.color }}>
+                                    {formatMoney(Number(pkg.price), pkg.currency)}
+                                </p>
+                                <p style={{ fontSize: 11.5, color: C.textMuted }}>per delegate</p>
+                            </div>
+
+                            {pkg.features.length > 0 && (
+                                <div>
+                                    <p style={{ marginBottom: 9, fontSize: 10.5, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Benefits</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                                        {pkg.features.map((feature, featureIdx) => (
+                                            <div key={featureIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, fontSize: 12.5, color: C.textSec, lineHeight: 1.45 }}>
+                                                <CheckCircle2 size={14} style={{ color: pkg.color, flexShrink: 0, marginTop: 1 }} />
+                                                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{feature}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </article>
+                    );
+                })}
             </div>
         </section>
     );

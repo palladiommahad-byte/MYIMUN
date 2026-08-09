@@ -599,6 +599,38 @@ body {
   .lp-footer-grid { grid-template-columns: 1fr 1fr !important; }
 }
 
+/* Delegate event pricing: desktop comparison table, mobile readable package flow. */
+.event-pricing-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .event-pricing-header {
+    padding: 20px 18px 15px !important;
+  }
+  .event-pricing-desktop {
+    display: none;
+  }
+  .event-pricing-mobile {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .event-pricing-card {
+    width: 100%;
+    min-width: 0;
+    padding: 18px;
+    overflow: hidden;
+  }
+  .event-pricing-mobile-price {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 15px 0;
+    padding-left: 54px;
+  }
+}
+
 /* ---- Misc animations ---- */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
