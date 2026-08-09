@@ -13,6 +13,7 @@ export const ADMIN_PAGES: { path: string; label: string }[] = [
     { path: '/admin/payments',      label: 'Payments' },
     { path: '/admin/schedule',      label: 'Schedule' },
     { path: '/admin/messages',      label: 'Messages' },
+    { path: '/admin/live-users',    label: 'Live Users' },
     { path: '/admin/announcements', label: 'Broadcasts' },
     { path: '/admin/settings',      label: 'Settings' },
 ];

@@ -13,6 +13,15 @@ export async function notifyStaff(input: { type: string; title: string; message:
     return n;
 }
 
+/** Administrator-only feed for sensitive operational events such as payments. */
+export async function notifyAdmin(input: { type: string; title: string; message: string; link?: string }) {
+    const n = await prisma.notification.create({
+        data: { audience: 'admin', type: input.type, title: input.title, message: input.message, link: input.link },
+    });
+    broadcast({ audience: 'admin' });
+    return n;
+}
+
 /** Fired whenever staff act on a delegate's submission (accept/decline, approve/reject,
     assign a country, reply to a conversation). Private to that one delegate. */
 export async function notifyDelegate(recipientId: string, input: { type: string; title: string; message: string; link?: string }) {

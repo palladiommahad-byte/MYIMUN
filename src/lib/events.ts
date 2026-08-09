@@ -2,6 +2,7 @@ import 'server-only';
 
 type EventPayload =
     | { audience: 'staff' }
+    | { audience: 'admin' }
     | { audience: 'delegate'; recipientId: string }
     | { audience: 'everyone' }; // every connected client should refetch (e.g. a new broadcast)
 type Listener = (payload: EventPayload) => void;

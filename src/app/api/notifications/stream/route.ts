@@ -17,6 +17,7 @@ export async function GET() {
     }
 
     const isStaff = STAFF.includes(user.role);
+    const isAdmin = user.role === 'admin';
     const userId = user.id;
     const encoder = new TextEncoder();
 
@@ -36,6 +37,7 @@ export async function GET() {
             unsubscribe = subscribe((payload) => {
                 if (payload.audience === 'everyone') send('update');
                 else if (payload.audience === 'staff' && isStaff) send('update');
+                else if (payload.audience === 'admin' && isAdmin) send('update');
                 else if (payload.audience === 'delegate' && payload.recipientId === userId) send('update');
             });
 

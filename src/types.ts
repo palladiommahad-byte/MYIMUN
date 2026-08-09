@@ -15,6 +15,28 @@ export interface User {
     permissions?: string[] | null; // secretary/manager: allowed /admin/* page paths; admin: full access regardless
 }
 
+export interface PresenceEntry {
+    clientId: string;
+    userId: string | null;
+    name: string;
+    role: string;
+    path: string;
+    device: 'Desktop' | 'Mobile' | 'Tablet';
+    firstSeen: number;
+    lastSeen: number;
+}
+
+export interface PresenceSnapshot {
+    updatedAt: string;
+    activeWindowSeconds: number;
+    totalUsers: number;
+    totalSessions: number;
+    delegates: number;
+    staff: number;
+    visitors: number;
+    entries: PresenceEntry[];
+}
+
 export interface Committee {
     id: string;
     name: string;

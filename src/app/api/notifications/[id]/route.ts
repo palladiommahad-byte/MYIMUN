@@ -15,6 +15,8 @@ export const PATCH = route(async (_req: Request, ctx: { params: Promise<{ id: st
 
     const isStaff = STAFF.includes(user.role);
     if (n.audience === 'staff' && !isStaff) return fail('Forbidden', 403);
+    if (n.audience === 'admin' && user.role !== 'admin') return fail('Forbidden', 403);
+    if (n.audience === 'staff' && n.type.startsWith('payment') && user.role !== 'admin') return fail('Forbidden', 403);
     if (n.audience === 'delegate' && n.recipientId !== user.id) return fail('Forbidden', 403);
 
     const row = await prisma.notification.update({ where: { id }, data: { read: true } });

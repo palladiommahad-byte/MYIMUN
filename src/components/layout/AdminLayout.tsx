@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, Shield, FileText, CreditCard,
     Calendar, MessageSquare, Radio, Settings, LogOut, Menu, X,
     ClipboardList, Star, LayoutTemplate, BarChart2, Info,
-    Image as ImageIcon, Zap, Award, Lock, KeyRound
+    Image as ImageIcon, Zap, Award, Lock, KeyRound, Activity
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -40,6 +40,7 @@ const NAV_ITEMS = [
     { label: 'Payments',        icon: CreditCard,      path: '/admin/payments' },
     { label: 'Schedule',        icon: Calendar,        path: '/admin/schedule' },
     { label: 'Messages',        icon: MessageSquare,   path: '/admin/messages' },
+    { label: 'Live Users',      icon: Activity,        path: '/admin/live-users' },
     { label: 'Broadcasts',      icon: Radio,           path: '/admin/announcements' },
     { label: 'Settings',        icon: Settings,        path: '/admin/settings' },
 ];

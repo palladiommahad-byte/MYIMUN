@@ -277,12 +277,11 @@ model StoredFile {
   createdAt DateTime @default(now())
 }
 
-/// In-app notification feed. `audience: 'staff'` rows are shared across every
-/// admin/secretary/manager account (read state is collective); `audience: 'delegate'`
-/// rows always carry a `recipientId` and are private to that one delegate.
+/// In-app notification feed. `staff` rows are shared across staff, `admin` rows
+/// contain sensitive admin-only events, and `delegate` rows target recipientId.
 model Notification {
   id          Int      @id @default(autoincrement())
-  audience    String   // 'staff' | 'delegate'
+  audience    String   // 'staff' | 'admin' | 'delegate'
   recipientId String?  // set when audience = 'delegate'
   type        String   // e.g. 'registration_submitted', 'payment_approved'
   title       String
