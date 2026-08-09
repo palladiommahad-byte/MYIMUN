@@ -25,6 +25,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Validate deployment scripts
+        shell: bash
+        run: bash -n deploy/release.sh docker-entrypoint.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

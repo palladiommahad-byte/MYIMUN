@@ -33,7 +33,9 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # Prisma CLI (for `migrate deploy` at container start)
-RUN npm i -g prisma@6.19.3
+RUN npm i -g prisma@6.19.3 \
+    && npm cache clean --force \
+    && rm -rf /root/.npm /tmp/*
 
 # The application and migration process do not need root privileges.
 RUN addgroup --system --gid 1001 nodejs \

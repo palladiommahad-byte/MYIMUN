@@ -78,3 +78,7 @@ Each deployment copies the current SQLite database into `/opt/myimun/backups`
 before replacing the application container. The live database and uploaded file
 records stay in the `myimun-data` Docker volume. Never run `docker compose down -v`
 unless permanent data deletion is intentional.
+
+Successful releases keep the current and immediately previous application images,
+compress database backups, and retain the three newest backups by default. Override
+the backup count for a manual release with `BACKUP_RETENTION=<count>` if needed.
