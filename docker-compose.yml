@@ -11,6 +11,9 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       # Absolute path inside the container, unambiguous for both the app and migrations.
       DATABASE_URL: "file:/app/prisma/data/app.db"
@@ -95,5 +98,4 @@ volumes:
 
 networks:
   frontend:
-  backend:
-    internal: true
+  backend: {}
