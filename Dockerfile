@@ -54,8 +54,8 @@ COPY --chown=nextjs:nodejs --from=builder /app/node_modules/@prisma/client ./nod
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN sed -i 's/\r$//' docker-entrypoint.sh \
     && chmod +x docker-entrypoint.sh \
-    && mkdir -p prisma/data \
-    && chown -R nextjs:nodejs prisma/data
+    && mkdir -p prisma/data .next/cache \
+    && chown -R nextjs:nodejs prisma/data .next/cache
 
 EXPOSE 3000
 USER nextjs
