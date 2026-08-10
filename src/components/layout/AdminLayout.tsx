@@ -4,7 +4,7 @@ import React, { ReactNode, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
     LayoutDashboard, Users, Shield, FileText, CreditCard,
-    Calendar, MessageSquare, Radio, Settings, LogOut, Menu, X,
+    Calendar, Mail, MessageSquare, Radio, Settings, LogOut, Menu, X,
     ClipboardList, Star, LayoutTemplate, BarChart2, Info,
     Image as ImageIcon, Zap, Award, Lock, KeyRound, Activity
 } from 'lucide-react';
@@ -40,6 +40,7 @@ const NAV_ITEMS = [
     { label: 'Payments',        icon: CreditCard,      path: '/admin/payments' },
     { label: 'Schedule',        icon: Calendar,        path: '/admin/schedule' },
     { label: 'Messages',        icon: MessageSquare,   path: '/admin/messages' },
+    { label: 'Email',           icon: Mail,            path: '/admin/email' },
     { label: 'Live Users',      icon: Activity,        path: '/admin/live-users' },
     { label: 'Broadcasts',      icon: Radio,           path: '/admin/announcements' },
     { label: 'Settings',        icon: Settings,        path: '/admin/settings' },

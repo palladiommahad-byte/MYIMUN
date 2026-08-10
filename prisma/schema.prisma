@@ -195,6 +195,58 @@ model ChatMessage {
   createdAt      DateTime     @default(now())
 }
 
+/// External email threads synced from the official Namecheap mailbox.
+model EmailThread {
+  id               Int            @id @default(autoincrement())
+  subject          String
+  normalizedSubject String
+  externalName     String
+  externalEmail    String
+  linkedDelegateId String?
+  mailbox          String         @default("inbox") // inbox | sent
+  status           String         @default("open") // open | resolved
+  unread           Boolean        @default(false)
+  lastMessageAt    DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  messages         EmailMessage[]
+
+  @@index([externalEmail])
+  @@index([linkedDelegateId])
+  @@index([lastMessageAt])
+}
+
+model EmailMessage {
+  id             Int         @id @default(autoincrement())
+  thread         EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId       Int
+  messageId      String?     @unique
+  uid            Int?
+  direction      String // inbound | outbound
+  fromName       String
+  fromAddress    String
+  to             Json        @default("[]")
+  cc             Json        @default("[]")
+  bcc            Json        @default("[]")
+  subject        String
+  text           String
+  html           String?
+  snippet        String
+  attachments    Json        @default("[]")
+  sentAt         DateTime
+  createdAt      DateTime    @default(now())
+
+  @@index([threadId])
+  @@index([uid])
+}
+
+/// Per-mailbox cursor for incremental IMAP sync.
+model EmailSyncState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 /// Conference editions managed by admins.
 model ConferenceEvent {
   id                   Int      @id @default(autoincrement())
