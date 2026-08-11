@@ -807,11 +807,16 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         setIsPublicLoading(false);
     }, [applyCommittees]);
 
-    useEffect(() => { loadPublic(); }, [loadPublic]);
+    useEffect(() => {
+        const id = setTimeout(() => { void loadPublic(); }, 0);
+        return () => clearTimeout(id);
+    }, [loadPublic]);
 
     // A newly signed-in staff member needs the full committee list, including hidden drafts.
     useEffect(() => {
-        if (user) refreshCommittees();
+        if (!user?.id) return;
+        const id = setTimeout(() => { void refreshCommittees(); }, 0);
+        return () => clearTimeout(id);
     }, [user?.id, refreshCommittees]);
 
     /* ── Refetch every per-user data domain at once. Used on login and again
@@ -854,17 +859,24 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
 
     useEffect(() => {
         let alive = true;
+        let id: ReturnType<typeof setTimeout> | undefined;
         if (!user) {
-            setRegistrations([]); setPayments([]); setPapers([]); setOpeningSpeeches([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
-            setIsUserDataLoading(false);
-            return;
+            id = setTimeout(() => {
+                if (!alive) return;
+                setRegistrations([]); setPayments([]); setPapers([]); setOpeningSpeeches([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
+                setIsUserDataLoading(false);
+            }, 0);
+            return () => { alive = false; if (id) clearTimeout(id); };
         }
-        setIsUserDataLoading(true);
-        (async () => {
-            await refreshAll();
-            if (alive) setIsUserDataLoading(false);
-        })();
-        return () => { alive = false; };
+        id = setTimeout(() => {
+            if (!alive) return;
+            setIsUserDataLoading(true);
+            (async () => {
+                await refreshAll();
+                if (alive) setIsUserDataLoading(false);
+            })();
+        }, 0);
+        return () => { alive = false; if (id) clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
 

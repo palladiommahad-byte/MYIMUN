@@ -486,7 +486,7 @@ export default function AdminEventsPage() {
                                     </div>
                                     {form.agenda.length === 0 && (
                                         <div style={{ padding: 32, textAlign: 'center', background: C.bg, borderRadius: 10, border: `1px dashed ${C.border}` }}>
-                                            <p style={{ fontSize: 13, color: C.textMuted }}>No agenda days yet. Click "Add Day" to start building.</p>
+                                            <p style={{ fontSize: 13, color: C.textMuted }}>No agenda days yet. Click &quot;Add Day&quot; to start building.</p>
                                         </div>
                                     )}
                                     {form.agenda.map(day => (
@@ -584,7 +584,7 @@ export default function AdminEventsPage() {
                                             />
                                         </div>
                                         <p style={{ fontSize: 11, color: C.textMuted, textAlign: 'center', marginTop: 8 }}>
-                                            Preview uses "Sample Delegate" — actual certificates use each delegate's name.
+                                            Preview uses &quot;Sample Delegate&quot; — actual certificates use each delegate&apos;s name.
                                         </p>
                                     </div>
 
@@ -602,7 +602,7 @@ export default function AdminEventsPage() {
                                         <div style={{ marginBottom: 14 }}>
                                             <Inp label="Edition / Year" value={form.letterEditionYear ?? ''} onChange={v => set('letterEditionYear', v)} placeholder="8th Annual Edition 2026" />
                                             <p style={{ fontSize: 11, color: C.textMuted, marginTop: 5 }}>
-                                                Shown as "MYIMUN [Edition/Year]" in the letter. Start &amp; end dates come from the Basic Info tab.
+                                                Shown as &quot;MYIMUN [Edition/Year]&quot; in the letter. Start &amp; end dates come from the Basic Info tab.
                                             </p>
                                         </div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Letter Preview</label>
@@ -616,7 +616,7 @@ export default function AdminEventsPage() {
                                             />
                                         </div>
                                         <p style={{ fontSize: 11, color: C.textMuted, textAlign: 'center', marginTop: 8 }}>
-                                            Dates auto-fill from Basic Info. Preview uses "Sample Delegate".
+                                            Dates auto-fill from Basic Info. Preview uses &quot;Sample Delegate&quot;.
                                         </p>
                                     </div>
                                 </div>

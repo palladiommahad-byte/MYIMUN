@@ -71,6 +71,7 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
         path === '/admin' ? pathname === '/admin' : pathname.startsWith(path);
 
     const isLandingPage = pathname.startsWith('/admin/landing');
+    const isMessagesPage = pathname.startsWith('/admin/messages');
 
     const isAdmin = user?.role === 'admin';
     const allowed = new Set(user?.permissions ?? []);
@@ -188,6 +189,11 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ) : isLandingPage ? (
                         /* Landing page editor: no padding, fills full width */
                         children
+                    ) : isMessagesPage ? (
+                        /* Split-pane inbox: padded, but not capped to the normal content width */
+                        <div className="px-4 py-5 md:px-7 md:py-8" style={{ boxSizing: 'border-box' }}>
+                            {children}
+                        </div>
                     ) : (
                         /* All other admin pages: normal padded container */
                         <div className="px-4 py-5 md:px-7 md:py-8" style={{ boxSizing: 'border-box' }}>

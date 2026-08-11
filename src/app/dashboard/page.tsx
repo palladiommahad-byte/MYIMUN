@@ -57,12 +57,19 @@ export default function DashboardPage() {
     const certEdition   = activeEvent?.certEditionNumber;
 
     const isAccepted = registration?.status === 'Accepted';
+    const [currentTime, setCurrentTime] = React.useState<number | null>(null);
+
+    React.useEffect(() => {
+        const id = requestAnimationFrame(() => setCurrentTime(Date.now()));
+        return () => cancelAnimationFrame(id);
+    }, []);
+    const now = currentTime ?? 0;
 
     /* Certificate available from the last day of the conference at 00:00 Morocco time (UTC+1) */
     const isCertAvailable = (() => {
         if (!activeEvent?.endDate) return false;
         const available = new Date(activeEvent.endDate + 'T00:00:00+01:00');
-        return Date.now() >= available.getTime();
+        return now >= available.getTime();
     })();
     const fmtDate = (iso: string) => {
         if (!iso) return iso;
@@ -81,7 +88,7 @@ export default function DashboardPage() {
     const isPaperDeadlinePassed = (() => {
         if (!activeEvent?.startDate) return false;
         const deadline = new Date(activeEvent.startDate + 'T00:00:00+01:00'); // midnight Morocco (UTC+1)
-        return Date.now() > deadline.getTime();
+        return now > deadline.getTime();
     })();
 
     const TASKS = [
@@ -146,7 +153,7 @@ export default function DashboardPage() {
                             : application?.status === 'Approved'
                                 ? <>Your <strong style={{ color: 'white' }}>{committee}</strong> seat is confirmed — the secretariat is finalizing your country assignment. Check back soon.</>
                                 : application
-                                    ? <>Your committee application is <strong style={{ color: 'white' }}>{application.status === 'Pending' ? 'awaiting secretariat review' : application.status.toLowerCase()}</strong>. You'll see your delegation here once it's approved and a country is assigned.</>
+                                    ? <>Your committee application is <strong style={{ color: 'white' }}>{application.status === 'Pending' ? 'awaiting secretariat review' : application.status.toLowerCase()}</strong>. You&apos;ll see your delegation here once it&apos;s approved and a country is assigned.</>
                                     : <>Apply to a committee to get started — once the secretariat approves your application and assigns a country, your delegation will appear here.</>}
                     </p>
                     <Link href="/dashboard/schedule" className="flex items-center gap-2 font-semibold text-sm transition-all w-fit"

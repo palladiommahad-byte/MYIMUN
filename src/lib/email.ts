@@ -283,11 +283,14 @@ export async function sendOutboundEmail(input: {
     bcc?: EmailRecipient[];
     subject: string;
     text: string;
+    html?: string;
     threadId?: number;
     attachments?: OutboundAttachment[];
 }) {
     const config = getMailConfig();
     if (!config) throw new Error('Email credentials are not configured.');
+    const primary = input.to[0] ?? input.cc?.[0] ?? input.bcc?.[0];
+    if (!primary) throw new Error('Add at least one recipient.');
 
     const transporter = nodemailer.createTransport({
         host: config.smtp.host,
@@ -298,17 +301,15 @@ export async function sendOutboundEmail(input: {
 
     const info = await transporter.sendMail({
         from: { name: config.fromName, address: config.fromAddress },
-        to: toNodemailerAddresses(input.to),
+        to: input.to.length ? toNodemailerAddresses(input.to) : undefined,
         cc: input.cc?.length ? toNodemailerAddresses(input.cc) : undefined,
         bcc: input.bcc?.length ? toNodemailerAddresses(input.bcc) : undefined,
         subject: input.subject,
         text: plainTextWithSignature(input.text, config),
-        html: buildEmailHtml(input.text, config),
+        html: input.html || buildEmailHtml(input.text, config),
         attachments: mailAttachments(input.attachments),
     });
 
-    const primary = input.to[0];
-    if (!primary) throw new Error('Add at least one recipient.');
     const delegate = await findDelegateByEmail(primary.email);
     const sentAt = new Date();
     const thread = input.threadId
@@ -338,6 +339,7 @@ export async function sendOutboundEmail(input: {
             bcc: input.bcc ?? [],
             subject: input.subject,
             text: input.text,
+            html: input.html || buildEmailHtml(input.text, config),
             snippet: cleanSnippet(input.text),
             attachments: outboundAttachmentMeta(input.attachments),
             sentAt,

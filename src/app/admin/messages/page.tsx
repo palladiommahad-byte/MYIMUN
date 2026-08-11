@@ -44,7 +44,10 @@ export default function AdminMessagesPage() {
     const [compose, setCompose] = useState(EMPTY_COMPOSE);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const selected = conversations.find(c => c.id === selectedId) ?? null;
+    const currentSelectedId = selectedId !== null && conversations.some(c => c.id === selectedId)
+        ? selectedId
+        : conversations[0]?.id ?? null;
+    const selected = conversations.find(c => c.id === currentSelectedId) ?? null;
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -53,8 +56,8 @@ export default function AdminMessagesPage() {
 
     // Mark as read when admin opens a conversation
     useEffect(() => {
-        if (selectedId) markRead(selectedId, 'admin');
-    }, [selectedId]); // eslint-disable-line
+        if (currentSelectedId) markRead(currentSelectedId, 'admin');
+    }, [currentSelectedId]); // eslint-disable-line
 
     useEffect(() => {
         void fetch('/api/settings/delegate-support', { cache: 'no-store' })
@@ -73,8 +76,8 @@ export default function AdminMessagesPage() {
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!replyText.trim() || !selectedId) return;
-        sendChatMessage(selectedId, replyText.trim(), 'admin');
+        if (!replyText.trim() || !currentSelectedId) return;
+        sendChatMessage(currentSelectedId, replyText.trim(), 'admin');
         setReplyText('');
         showToast('Reply sent', 'success');
     };
@@ -163,7 +166,9 @@ export default function AdminMessagesPage() {
         <>
         <style jsx>{`
             .admin-messages-shell {
-                height: calc(100vh - 140px);
+                width: 100%;
+                height: calc(100dvh - 120px);
+                max-height: calc(100dvh - 120px);
                 min-height: 560px;
                 display: grid;
                 grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
@@ -172,6 +177,7 @@ export default function AdminMessagesPage() {
             .admin-messages-sidebar,
             .admin-messages-pane {
                 min-width: 0;
+                min-height: 0;
             }
             .admin-mobile-back {
                 display: none;
@@ -179,6 +185,7 @@ export default function AdminMessagesPage() {
             @media (max-width: 720px) {
                 .admin-messages-shell {
                     height: auto;
+                    max-height: none;
                     min-height: calc(100vh - 96px);
                     display: block;
                 }
@@ -217,7 +224,7 @@ export default function AdminMessagesPage() {
         <div className="admin-messages-shell" data-mobile-pane={mobilePane} style={{ fontFamily: '"Inter",system-ui,sans-serif' }}>
 
             {/* ── Sidebar ── */}
-            <div className="admin-messages-sidebar" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
+            <div className="admin-messages-sidebar" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0, minHeight: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 22, color: C.text }}>Inbox</h1>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -244,19 +251,19 @@ export default function AdminMessagesPage() {
                 </div>
 
                 {/* Message list */}
-                <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: C.shadow }}>
+                <div style={{ flex: 1, minHeight: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: C.shadow }}>
                     <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Messages</span>
                         <Filter size={13} style={{ color: C.textMuted }} />
                     </div>
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                         {filtered.length === 0 ? (
                             <div style={{ padding: '32px 16px', textAlign: 'center' }}>
                                 <Mail size={28} style={{ color: C.border, margin: '0 auto 8px' }} />
                                 <p style={{ fontSize: 13, color: C.textMuted }}>No messages yet.<br />Delegates will appear here when they contact you.</p>
                             </div>
                         ) : filtered.map(conv => {
-                            const isActive = selectedId === conv.id;
+                            const isActive = currentSelectedId === conv.id;
                             const col = avatarColor(conv.id);
                             const last = lastMsg(conv);
                             const hasUnread = conv.adminUnread > 0;
@@ -304,9 +311,9 @@ export default function AdminMessagesPage() {
             </div>
 
             {/* ── Detail pane ── */}
-            <div className="admin-messages-pane" style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
+            <div className="admin-messages-pane" style={{ flex: 1, minHeight: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
                 {composeOpen ? (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.surface }}>
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: C.surface }}>
                         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FAFBFC' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                                 <button className="admin-mobile-back" onClick={() => setMobilePane('list')} title="Back to inbox"
@@ -327,7 +334,7 @@ export default function AdminMessagesPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleStartConversation} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+                        <form onSubmit={handleStartConversation} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0, overflowY: 'auto' }}>
                             {registeredDelegates.length === 0 ? (
                                 <div style={{ flex: 1, minHeight: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: C.textMuted, gap: 8 }}>
                                     <User size={42} style={{ opacity: 0.35 }} />
@@ -441,7 +448,7 @@ export default function AdminMessagesPage() {
                         </div>
 
                         {/* Thread */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px' }}>
                             <div style={{ textAlign: 'center', marginBottom: 16 }}>
                                 <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, background: C.bg, padding: '3px 10px', borderRadius: 999 }}>
                                     {selected.createdAt}
@@ -461,7 +468,7 @@ export default function AdminMessagesPage() {
                                             borderTopRightRadius: msg.sender === 'admin' ? 2 : 14,
                                             borderTopLeftRadius:  msg.sender === 'admin' ? 14 : 2,
                                         }}>
-                                            <p style={{ fontSize: 13, lineHeight: 1.55 }}>{msg.text}</p>
+                                            <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{msg.text}</p>
                                             <p style={{ fontSize: 10, opacity: 0.65, marginTop: 4, textAlign: msg.sender === 'admin' ? 'right' : 'left' }}>{msg.time}</p>
                                         </div>
                                     </div>
@@ -471,7 +478,7 @@ export default function AdminMessagesPage() {
                         </div>
 
                         {/* Reply box */}
-                        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC', flexShrink: 0 }}>
                             <form onSubmit={handleSend} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                                 <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', background: C.surface }}>
                                     <textarea value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={handleKeyDown}

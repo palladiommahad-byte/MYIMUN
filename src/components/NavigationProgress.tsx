@@ -11,23 +11,29 @@ export function NavigationProgress() {
     const rafRef = useRef<number | undefined>(undefined);
 
     useEffect(() => {
-        // Each pathname change = navigation complete — play finish animation
-        setVisible(true);
-        setWidth(100);
-
         clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-            setVisible(false);
-            setWidth(0);
-        }, 300);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
-        return () => clearTimeout(timerRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+            setVisible(true);
+            setWidth(100);
+            timerRef.current = setTimeout(() => {
+                setVisible(false);
+                setWidth(0);
+            }, 300);
+        });
+
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+            clearTimeout(timerRef.current);
+        };
     }, [pathname]);
 
-    // Kick off the "loading" animation on mount (covers the in-progress phase)
     useEffect(() => {
-        setWidth(30);
-        rafRef.current = requestAnimationFrame(() => setWidth(80));
+        rafRef.current = requestAnimationFrame(() => {
+            setWidth(30);
+            rafRef.current = requestAnimationFrame(() => setWidth(80));
+        });
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     }, []);
 

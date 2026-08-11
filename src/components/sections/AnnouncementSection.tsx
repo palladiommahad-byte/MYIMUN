@@ -27,7 +27,7 @@ export function AnnouncementSection() {
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                             </span>
                             <span className="text-xs font-bold text-blue-300 tracking-wider uppercase">
-                                Registration Closed. We'll be back soon.
+                                Registration Closed. We&apos;ll be back soon.
                             </span>
                         </div>
 

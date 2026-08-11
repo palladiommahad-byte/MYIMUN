@@ -27,7 +27,8 @@ export default function OpeningSpeechPage() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        setSpeech(currentSpeech?.speech ?? '');
+        const id = setTimeout(() => setSpeech(currentSpeech?.speech ?? ''), 0);
+        return () => clearTimeout(id);
     }, [currentSpeech?.id, currentSpeech?.speech]);
 
     const handleSubmit = async (event: React.FormEvent) => {

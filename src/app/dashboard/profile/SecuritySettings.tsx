@@ -53,7 +53,6 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
     };
 
     const handleEmailUpdate = () => {
-        user.email = email;
         showToast('Email updated successfully', 'success');
         setIsEmailEditing(false);
     };

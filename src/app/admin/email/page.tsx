@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Archive, ArrowLeft, CheckCircle2, Circle, Inbox, LoaderCircle, Mail,
-    Paperclip, Plus, RefreshCw, Search, Send, UserPlus, X
+    Archive, ArrowLeft, CheckCircle2, Circle, Code2, Inbox, LoaderCircle, Mail,
+    Paperclip, Plus, RefreshCw, Search, Send, UserPlus, Users, X
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -14,7 +14,8 @@ const C = {
     shadow: '0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)',
 };
 
-type Recipient = { name?: string; email: string };
+type Recipient = { name?: string; email: string; delivery?: 'to' | 'bcc' };
+type ComposeMode = 'plain' | 'html';
 type DelegateContact = {
     delegateId: string;
     fullName: string;
@@ -33,6 +34,7 @@ type EmailMessage = {
     bcc: Recipient[];
     subject: string;
     text: string;
+    html?: string | null;
     snippet: string;
     attachments: Array<{ filename: string; contentType: string; size: number }>;
     sentAt: string;
@@ -55,7 +57,7 @@ type EmailThread = {
     messages: EmailMessage[];
 };
 
-const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '' };
+const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '', mode: 'plain' as ComposeMode };
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
@@ -77,6 +79,23 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 function recipientLabel(recipient: Recipient) {
     return recipient.name ? `${recipient.name} <${recipient.email}>` : recipient.email;
+}
+
+function textFromHtml(html: string) {
+    return html
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/(p|div|h[1-6]|li|tr|table|section|article|br)>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
 }
 
 function formatBytes(bytes: number) {
@@ -169,6 +188,10 @@ export default function AdminEmailPage() {
                 .some(value => value.toLowerCase().includes(q)),
         );
     }, [threads, search]);
+    const unpaidContacts = useMemo(
+        () => contacts.filter(contact => contact.paymentStatus !== 'Paid'),
+        [contacts],
+    );
 
     const addRecipient = (recipient: Recipient) => {
         const email = recipient.email.trim().toLowerCase();
@@ -220,6 +243,30 @@ export default function AdminEmailPage() {
             return;
         }
         addRecipient({ name: contact.fullName, email: contact.email });
+    };
+
+    const addUnpaidRecipients = () => {
+        if (unpaidContacts.length === 0) {
+            showToast('No unpaid delegates found.', 'error');
+            return;
+        }
+
+        const existingEmails = new Set(recipients.map(recipient => recipient.email.toLowerCase()));
+        const additions = unpaidContacts
+            .map(contact => ({ name: contact.fullName, email: contact.email.trim().toLowerCase(), delivery: 'bcc' as const }))
+            .filter(recipient => recipient.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email))
+            .filter(recipient => !existingEmails.has(recipient.email));
+
+        if (additions.length === 0) {
+            showToast('All unpaid delegates are already added.', 'success');
+            return;
+        }
+
+        setRecipients(current => [...current, ...additions]);
+        showToast(
+            `Added ${additions.length} unpaid delegate${additions.length === 1 ? '' : 's'}.`,
+            'success',
+        );
     };
 
     const refreshCurrentThread = (updated: EmailThread | null) => {
@@ -277,11 +324,31 @@ export default function AdminEmailPage() {
         event.preventDefault();
         if (recipients.length === 0) { showToast('Add at least one recipient.', 'error'); return; }
         if (!compose.subject.trim() || !compose.text.trim()) { showToast('Add a subject and message.', 'error'); return; }
+        const isHtmlMode = compose.mode === 'html';
+        const bodyText = isHtmlMode
+            ? textFromHtml(compose.text) || `${compose.subject.trim()}\n\nThis email contains HTML content.`
+            : compose.text.trim();
+        const visibleRecipients = recipients
+            .filter(recipient => recipient.delivery !== 'bcc')
+            .map(({ name, email }) => ({ name, email }));
+        const bccRecipients = recipients
+            .filter(recipient => recipient.delivery === 'bcc')
+            .map(({ name, email }) => ({ name, email }));
+        const toRecipients = visibleRecipients.length > 0
+            ? visibleRecipients
+            : [];
         setComposeSaving(true);
         try {
             const row = await api<EmailThread>('/api/email/threads', {
                 method: 'POST',
-                body: JSON.stringify({ to: recipients, subject: compose.subject.trim(), text: compose.text.trim(), attachments: composeAttachments }),
+                body: JSON.stringify({
+                    to: toRecipients,
+                    bcc: bccRecipients,
+                    subject: compose.subject.trim(),
+                    text: bodyText,
+                    html: isHtmlMode ? compose.text.trim() : undefined,
+                    attachments: composeAttachments,
+                }),
             });
             refreshCurrentThread(row);
             setRecipients([]);
@@ -334,7 +401,7 @@ export default function AdminEmailPage() {
                     .admin-email-shell[data-mobile-pane="list"] .admin-email-pane,
                     .admin-email-shell[data-mobile-pane="detail"] .admin-email-sidebar { display: none !important; }
                     .admin-email-mobile-back { display: inline-flex; }
-                    .admin-email-actions, .admin-email-compose-grid { grid-template-columns: 1fr !important; }
+                    .admin-email-actions, .admin-email-compose-grid, .admin-email-html-grid { grid-template-columns: 1fr !important; }
                     .admin-email-message { max-width: 92% !important; }
                 }
             `}</style>
@@ -458,6 +525,10 @@ export default function AdminEmailPage() {
                                             <UserPlus size={16} />
                                         </button>
                                     </div>
+                                    <button type="button" onClick={addUnpaidRecipients} title="Add all unpaid registered delegates as BCC"
+                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 36, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.accent}30`, background: `${C.accent}08`, color: C.accent, fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+                                        <Users size={15} /> Add Unpaid as BCC ({unpaidContacts.length})
+                                    </button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase' }}>Manual Recipient</span>
@@ -474,18 +545,25 @@ export default function AdminEmailPage() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 32 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 32, maxHeight: 104, overflowY: 'auto', paddingRight: 4 }}>
                                 {recipients.length === 0 ? (
                                     <span style={{ color: C.textMuted, fontSize: 12.5 }}>No recipients added yet.</span>
-                                ) : recipients.map(recipient => (
-                                    <span key={recipient.email} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 9px', borderRadius: 8, background: `${C.accent}0D`, color: C.accent, border: `1px solid ${C.accent}22`, fontSize: 12.5, fontWeight: 700 }}>
-                                        {recipientLabel(recipient)}
-                                        <button type="button" onClick={() => setRecipients(current => current.filter(item => item.email !== recipient.email))} title="Remove recipient"
-                                            style={{ border: 'none', background: 'transparent', color: C.accent, cursor: 'pointer', padding: 0, display: 'flex' }}>
-                                            <X size={13} />
-                                        </button>
-                                    </span>
-                                ))}
+                                ) : (
+                                    <>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 9px', borderRadius: 8, background: C.bg, color: C.textSec, border: `1px solid ${C.border}`, fontSize: 12.5, fontWeight: 800 }}>
+                                            {recipients.length} recipient{recipients.length === 1 ? '' : 's'}
+                                        </span>
+                                        {recipients.map(recipient => (
+                                            <span key={recipient.email} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 9px', borderRadius: 8, background: `${C.accent}0D`, color: C.accent, border: `1px solid ${C.accent}22`, fontSize: 12.5, fontWeight: 700 }}>
+                                                {recipient.delivery === 'bcc' ? `BCC: ${recipientLabel(recipient)}` : recipientLabel(recipient)}
+                                                <button type="button" onClick={() => setRecipients(current => current.filter(item => item.email !== recipient.email))} title="Remove recipient"
+                                                    style={{ border: 'none', background: 'transparent', color: C.accent, cursor: 'pointer', padding: 0, display: 'flex' }}>
+                                                    <X size={13} />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -515,11 +593,37 @@ export default function AdminEmailPage() {
                                 <input value={compose.subject} onChange={event => setCompose(current => ({ ...current, subject: event.target.value }))} placeholder="Subject"
                                     style={{ padding: '11px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13.5, outline: 'none' }} />
                             </label>
-                            <label style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
-                                <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase' }}>Message</span>
-                                <textarea value={compose.text} onChange={event => setCompose(current => ({ ...current, text: event.target.value }))} placeholder="Write your email..."
-                                    style={{ minHeight: 260, flex: 1, padding: '12px 13px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13.5, lineHeight: 1.55, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
-                            </label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase' }}>{compose.mode === 'html' ? 'HTML Code' : 'Message'}</span>
+                                    <div style={{ display: 'inline-flex', padding: 3, borderRadius: 9, border: `1px solid ${C.border}`, background: C.surface, gap: 3 }}>
+                                        {(['plain', 'html'] as ComposeMode[]).map(mode => {
+                                            const active = compose.mode === mode;
+                                            const Icon = mode === 'html' ? Code2 : Mail;
+                                            return (
+                                                <button key={mode} type="button" onClick={() => setCompose(current => ({ ...current, mode }))}
+                                                    title={mode === 'html' ? 'HTML code mode' : 'Plain message mode'}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 30, padding: '6px 10px', borderRadius: 7, border: 'none', background: active ? C.accent : 'transparent', color: active ? '#fff' : C.textSec, fontSize: 12, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
+                                                    <Icon size={13} /> {mode}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                {compose.mode === 'html' ? (
+                                    <div className="admin-email-html-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: 1, minHeight: 300 }}>
+                                        <textarea value={compose.text} onChange={event => setCompose(current => ({ ...current, text: event.target.value }))}
+                                            placeholder="<!doctype html>..."
+                                            spellCheck={false}
+                                            style={{ minHeight: 300, padding: '12px 13px', borderRadius: 8, border: `1px solid ${C.border}`, background: '#0F1629', color: '#F0F4FF', fontSize: 13, lineHeight: 1.55, outline: 'none', resize: 'vertical', fontFamily: '"JetBrains Mono", monospace' }} />
+                                        <iframe title="HTML email preview" srcDoc={compose.text} sandbox=""
+                                            style={{ width: '100%', minHeight: 300, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface }} />
+                                    </div>
+                                ) : (
+                                    <textarea value={compose.text} onChange={event => setCompose(current => ({ ...current, text: event.target.value }))} placeholder="Write your email..."
+                                        style={{ minHeight: 260, flex: 1, padding: '12px 13px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13.5, lineHeight: 1.55, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+                                )}
+                            </div>
                         </div>
 
                         <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -562,7 +666,7 @@ export default function AdminEmailPage() {
                                     <div key={message.id} style={{ display: 'flex', justifyContent: outbound ? 'flex-end' : 'flex-start' }}>
                                         <div className="admin-email-message" style={{ maxWidth: '76%', padding: '12px 14px', borderRadius: 12, borderTopRightRadius: outbound ? 3 : 12, borderTopLeftRadius: outbound ? 12 : 3, background: outbound ? C.accent : C.bg, color: outbound ? '#fff' : C.text, border: outbound ? 'none' : `1px solid ${C.border}` }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 18, marginBottom: 7, alignItems: 'center' }}>
-                                                <span style={{ fontSize: 11.5, fontWeight: 800, opacity: 0.78 }}>{outbound ? `You to ${message.to.map(recipientLabel).join(', ')}` : `${message.fromName || message.fromAddress}`}</span>
+                                                <span style={{ fontSize: 11.5, fontWeight: 800, opacity: 0.78 }}>{outbound ? `You to ${message.to.length > 0 ? message.to.map(recipientLabel).join(', ') : `BCC: ${message.bcc.map(recipientLabel).join(', ')}`}` : `${message.fromName || message.fromAddress}`}</span>
                                                 <span style={{ fontSize: 10.5, opacity: 0.65, flexShrink: 0 }}>{formatDate(message.sentAt)}</span>
                                             </div>
                                             <p style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.58 }}>{message.text || message.snippet}</p>

@@ -19,7 +19,9 @@ export default function SetupAdminPage() {
 
     useEffect(() => {
         if (!isLoading && user && !user.mustChangeCredentials) router.replace('/admin');
-        if (user?.email) setEmail(user.email);
+        if (!user?.email) return;
+        const id = setTimeout(() => setEmail(user.email), 0);
+        return () => clearTimeout(id);
     }, [isLoading, router, user]);
 
     const submit = async (event: React.FormEvent) => {

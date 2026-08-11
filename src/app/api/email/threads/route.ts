@@ -21,13 +21,21 @@ const attachmentSchema = z.object({
 });
 
 const composeSchema = z.object({
-    to: z.array(recipientSchema).min(1),
+    to: z.array(recipientSchema).default([]),
     cc: z.array(recipientSchema).default([]),
     bcc: z.array(recipientSchema).default([]),
     subject: z.string().trim().min(1),
     text: z.string().trim().min(1),
+    html: z.string().trim().min(1).optional(),
     attachments: z.array(attachmentSchema).max(5).default([]),
 }).superRefine((data, ctx) => {
+    if (data.to.length + data.cc.length + data.bcc.length === 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['to'],
+            message: 'Add at least one recipient.',
+        });
+    }
     const total = data.attachments.reduce((sum, attachment) => sum + attachment.size, 0);
     if (total > MAX_TOTAL_ATTACHMENT_BYTES) {
         ctx.addIssue({
@@ -88,6 +96,7 @@ export const POST = route(async (req: Request) => {
             bcc: uniqueRecipients(body.bcc),
             subject: body.subject,
             text: body.text,
+            html: body.html,
             attachments: body.attachments,
         });
         return ok(row, 201);
