@@ -110,16 +110,16 @@ export async function requireAdmin() {
 }
 
 /** Pure check: does this (already-loaded) user have access to one /admin/* section?
-    Admins always pass; secretary/manager need `page` in their `permissions` list. */
+    Admins and active staff roles pass; delegate accounts do not. */
 export function hasPageAccess(user: { role: string; permissions?: unknown }, page: string) {
     if (user.role === 'admin') return true;
     if (!STAFF_ROLES.includes(user.role)) return false;
+    if (user.role === 'secretary' || user.role === 'manager') return true;
     const allowed = (user.permissions as string[] | null) ?? [];
     return allowed.includes(page);
 }
 
-/** Staff access to one specific /admin/* section. Admins always pass; secretary/manager
-    must have `page` in their `permissions` list. */
+/** Staff access to one specific /admin/* section. Admins, secretaries, and managers pass. */
 export async function requirePage(page: string) {
     const user = await requireStaff();
     if (!hasPageAccess(user, page)) throw new AuthError(403, 'You do not have access to this section');

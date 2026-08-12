@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Search, Eye, Filter,
     Download, ChevronLeft, ChevronRight,
@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
+import { useAuth } from '@/auth/AuthContext';
 import { Donut, StatPanel } from '@/components/admin/StatWidgets';
 
 /* ── Style constants ── */
@@ -60,21 +61,33 @@ function Avatar({ name, size = 36, color = C.accent }: { name: string; size?: nu
 
 export default function AdminDashboardPage() {
     const { showToast } = useToast();
+    const { user } = useAuth();
     const pathname = usePathname();
     const confirmedOnly = pathname.startsWith('/admin/delegates');
-    const { registrations, papers, committees, applications, suspendDelegate } = useConference();
+    const { registrations, payments, papers, committees, applications, suspendDelegate } = useConference();
+    const isAdmin = user?.role === 'admin';
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
     const [suspending, setSuspending] = useState(false);
 
+    const visiblePaidDelegateIds = useMemo(
+        () => new Set(payments.filter(payment => payment.status === 'Approved').map(payment => payment.delegateId)),
+        [payments],
+    );
+    const paymentStatusFor = useCallback(
+        (delegateId: string, registrationStatus: 'Unpaid' | 'Paid') =>
+            isAdmin ? registrationStatus : visiblePaidDelegateIds.has(delegateId) ? 'Paid' : 'Unpaid',
+        [isAdmin, visiblePaidDelegateIds],
+    );
+
     /* ── Derived roster: one row per registered delegate, enriched with their
        committee assignment, registration status, payment status, and paper status ── */
     const scopedRegistrations = useMemo(
         () => confirmedOnly
-            ? registrations.filter(registration => registration.status === 'Accepted' && registration.paymentStatus === 'Paid')
+            ? registrations.filter(registration => registration.status === 'Accepted' && paymentStatusFor(registration.delegateId, registration.paymentStatus) === 'Paid')
             : registrations,
-        [confirmedOnly, registrations],
+        [confirmedOnly, registrations, paymentStatusFor],
     );
     const scopedDelegateIds = useMemo(
         () => new Set(scopedRegistrations.map(registration => registration.delegateId)),
@@ -103,11 +116,11 @@ export default function AdminDashboardPage() {
             country,
             committee: application?.committeeAbbr || 'Unassigned',
             regStatus: r.status,
-            paymentStatus: r.paymentStatus,
+            paymentStatus: paymentStatusFor(r.delegateId, r.paymentStatus),
             paperStatus: paper?.status || null,
             accountStatus: r.accountStatus,
         };
-    }), [scopedRegistrations, scopedApplications, scopedPapers]);
+    }), [scopedRegistrations, scopedApplications, scopedPapers, paymentStatusFor]);
 
     const confirmSuspend = async () => {
         if (!suspendTarget) return;
@@ -136,7 +149,7 @@ export default function AdminDashboardPage() {
     const pendingRegCount = scopedRegistrations.filter(r => r.status === 'Pending').length;
     const declinedRegCount = scopedRegistrations.filter(r => r.status === 'Declined').length;
 
-    const paidCount   = scopedRegistrations.filter(r => r.paymentStatus === 'Paid').length;
+    const paidCount   = scopedRegistrations.filter(r => paymentStatusFor(r.delegateId, r.paymentStatus) === 'Paid').length;
     const unpaidCount = totalRegistered - paidCount;
 
     const delegatesWithPapers = new Set(scopedPapers.map(p => p.delegateId)).size;

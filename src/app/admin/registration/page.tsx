@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Registration } from '@/context/ConferenceContext';
+import { useAuth } from '@/auth/AuthContext';
 import { fileUrl } from '@/lib/fileStore';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 import { formatMoney } from '@/lib/currency';
@@ -30,7 +31,9 @@ type FilterKey = 'All' | 'Pending' | 'Accepted' | 'Declined';
 
 export default function AdminRegistrationPage() {
     const { showToast } = useToast();
+    const { user } = useAuth();
     const { packages, registrations, updateRegistrationStatus } = useConference();
+    const canViewPaymentStatus = user?.role === 'admin';
 
     const [filter, setFilter]     = useState<FilterKey>('All');
     const [search, setSearch]     = useState('');
@@ -71,8 +74,8 @@ export default function AdminRegistrationPage() {
 
     const individualCount = registrations.filter(r => r.type === 'Individual').length;
     const groupCount      = registrations.filter(r => r.type === 'Group').length;
-    const paidCount       = registrations.filter(r => r.paymentStatus === 'Paid').length;
-    const unpaidCount     = registrations.length - paidCount;
+    const paidCount       = canViewPaymentStatus ? registrations.filter(r => r.paymentStatus === 'Paid').length : 0;
+    const unpaidCount     = canViewPaymentStatus ? registrations.length - paidCount : 0;
 
     const filtered = registrations
         .filter(r => filter === 'All' || r.status === filter)
@@ -97,7 +100,7 @@ export default function AdminRegistrationPage() {
             </div>
 
             {/* ── Breakdown ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
+            <div className={canViewPaymentStatus ? 'grid grid-cols-1 sm:grid-cols-3' : 'grid grid-cols-1 sm:grid-cols-2'} style={{ gap: 16 }}>
                 <StatPanel title="Application Status" subtitle={`${registrations.length} total applications`}>
                     <Donut centerLabel={String(registrations.length)} centerSub="total" segments={[
                         { value: counts.Accepted, color: C.green, label: 'Accepted' },
@@ -111,12 +114,14 @@ export default function AdminRegistrationPage() {
                         <BarRow label="Group" value={groupCount} max={registrations.length} color={C.purple} />
                     </div>
                 </StatPanel>
-                <StatPanel title="Payment Coverage" subtitle="Across all registered delegates">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
-                        <BarRow label="Paid" value={paidCount} max={registrations.length} color={C.green} />
-                        <BarRow label="Unpaid" value={unpaidCount} max={registrations.length} color={C.textMuted} />
-                    </div>
-                </StatPanel>
+                {canViewPaymentStatus && (
+                    <StatPanel title="Payment Coverage" subtitle="Across all registered delegates">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+                            <BarRow label="Paid" value={paidCount} max={registrations.length} color={C.green} />
+                            <BarRow label="Unpaid" value={unpaidCount} max={registrations.length} color={C.textMuted} />
+                        </div>
+                    </StatPanel>
+                )}
             </div>
 
             {/* Stat chips + search */}
@@ -152,11 +157,15 @@ export default function AdminRegistrationPage() {
             {/* Table */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: canViewPaymentStatus ? 980 : 900 }}>
                         <thead>
                             <tr style={{ background: '#FAFBFC', borderBottom: `1px solid ${C.border}` }}>
-                                {['Applicant', 'Type', 'Package', 'Contact', 'Country', 'Heard From', 'Payment', 'Status', 'Actions'].map((h, i) => (
-                                    <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 8 ? 'right' : 'left', whiteSpace: 'nowrap' }}>
+                                {[
+                                    'Applicant', 'Type', 'Package', 'Contact', 'Country', 'Heard From',
+                                    ...(canViewPaymentStatus ? ['Payment'] : []),
+                                    'Status', 'Actions',
+                                ].map(h => (
+                                    <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: h === 'Actions' ? 'right' : 'left', whiteSpace: 'nowrap' }}>
                                         {h}
                                     </th>
                                 ))}
@@ -165,7 +174,7 @@ export default function AdminRegistrationPage() {
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                                    <td colSpan={canViewPaymentStatus ? 9 : 8} style={{ padding: '56px 20px', textAlign: 'center' }}>
                                         <ClipboardList size={36} style={{ color: C.border, margin: '0 auto 12px' }} />
                                         <p style={{ fontSize: 15, fontWeight: 500, color: C.textMuted }}>
                                             {registrations.length === 0 ? 'No registrations yet.' : `No ${filter.toLowerCase()} registrations.`}
@@ -225,12 +234,13 @@ export default function AdminRegistrationPage() {
                                         <td style={{ padding: '13px 16px' }}>
                                             <span style={{ fontSize: 12.5, color: C.textSec }}>{reg.heardFrom}</span>
                                         </td>
-                                        {/* Payment */}
-                                        <td style={{ padding: '13px 16px' }}>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: reg.paymentStatus === 'Paid' ? `${C.green}14` : C.bg, color: reg.paymentStatus === 'Paid' ? C.green : C.textMuted, whiteSpace: 'nowrap' }}>
-                                                {reg.paymentStatus}
-                                            </span>
-                                        </td>
+                                        {canViewPaymentStatus && (
+                                            <td style={{ padding: '13px 16px' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: reg.paymentStatus === 'Paid' ? `${C.green}14` : C.bg, color: reg.paymentStatus === 'Paid' ? C.green : C.textMuted, whiteSpace: 'nowrap' }}>
+                                                    {reg.paymentStatus}
+                                                </span>
+                                            </td>
+                                        )}
                                         {/* Status */}
                                         <td style={{ padding: '13px 16px' }}>
                                             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: ss.bg, color: ss.color }}>{reg.status}</span>
@@ -307,7 +317,7 @@ export default function AdminRegistrationPage() {
                                     [Hash, 'Number of Delegates', String(viewReg.groupSize)],
                                 ] as [any, string, string][] : []),
                                 [CreditCard, 'Preferred Package', viewReg.packageName || (viewReg.packageId ? packages.find(p => p.id === viewReg.packageId)?.name : '')],
-                                [CreditCard, 'Payment Status', viewReg.paymentStatus],
+                                ...(canViewPaymentStatus ? [[CreditCard, 'Payment Status', viewReg.paymentStatus]] : []),
                             ].map(([Icon, label, val]: any) => (
                                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
                                     <div style={{ width: 32, height: 32, borderRadius: 8, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

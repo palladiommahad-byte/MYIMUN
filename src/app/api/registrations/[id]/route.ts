@@ -12,11 +12,15 @@ const schema = z.discriminatedUnion('action', [
 
 /** PATCH — staff accept/decline a registration or mark it paid. */
 export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requirePage('/admin/registration');
+    const user = await requirePage('/admin/registration');
     const id = Number((await ctx.params).id);
     if (!Number.isInteger(id)) return fail('Invalid id', 400);
 
     const body = schema.parse(await req.json());
+    if (body.action === 'markPaid' && user.role !== 'admin') {
+        return fail('Admin access required', 403);
+    }
+
     const data =
         body.action === 'accept' ? { status: 'Accepted', declineReason: null }
         : body.action === 'decline' ? { status: 'Declined', declineReason: body.declineReason ?? 'No reason provided.' }

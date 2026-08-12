@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, BankAccount, PaymentSubmission, PaymentSettings, ConferencePackage } from '@/context/ConferenceContext';
+import { useAuth } from '@/auth/AuthContext';
 import { fileUrl, uploadFile } from '@/lib/fileStore';
 import { currencyOptionsWithCurrent, formatMoney, normalizeCurrency } from '@/lib/currency';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
@@ -40,10 +41,12 @@ const BLANK_PKG: Omit<ConferencePackage, 'id'> = {
 
 export default function AdminPaymentsPage() {
     const { showToast } = useToast();
+    const { user } = useAuth();
     const {
-        payments, updatePaymentStatus, paymentSettings, updatePaymentSettings,
+        payments, updatePaymentStatus, updatePaymentStaffVisibility, paymentSettings, updatePaymentSettings,
         packages, addPackage, updatePackage, deletePackage,
     } = useConference();
+    const isAdmin = user?.role === 'admin';
 
     /* ── Submissions state ── */
     const [filter, setFilter]   = useState<FilterKey>('All');
@@ -143,6 +146,14 @@ export default function AdminPaymentsPage() {
         updatePaymentStatus(p.id, 'Approved');
         showToast(`Payment from ${p.senderName} verified.`, 'success');
         setViewPay(null);
+    };
+    const toggleStaffVisibility = async (p: PaymentSubmission, visible: boolean) => {
+        try {
+            await updatePaymentStaffVisibility(p.id, visible);
+            showToast(visible ? 'Payment is now visible to staff.' : 'Payment is now hidden from staff.', 'success');
+        } catch {
+            showToast('Could not update staff visibility. Please try again.', 'error');
+        }
     };
     const openDecline = (p: PaymentSubmission) => { setDeclineFor(p); setDeclineMsg(''); };
     const confirmDecline = () => {
@@ -454,18 +465,22 @@ export default function AdminPaymentsPage() {
             {/* Submissions table */}
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: C.shadow }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isAdmin ? 980 : 900 }}>
                         <thead>
                             <tr style={{ background: '#FAFBFC', borderBottom: `1px solid ${C.border}` }}>
-                                {['Sender', 'Participant', 'Package', 'Amount', 'Method', 'Bank', 'Receipt', 'Date', 'Status', 'Actions'].map((h, i) => (
-                                    <th key={h} style={{ padding: '11px 14px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 9 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                {[
+                                    'Sender', 'Participant', 'Package', 'Amount', 'Method', 'Bank', 'Receipt', 'Date', 'Status',
+                                    ...(isAdmin ? ['Staff'] : []),
+                                    'Actions',
+                                ].map(h => (
+                                    <th key={h} style={{ padding: '11px 14px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: h === 'Actions' ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                                    <td colSpan={isAdmin ? 11 : 10} style={{ padding: '56px 20px', textAlign: 'center' }}>
                                         <CreditCard size={36} style={{ color: C.border, margin: '0 auto 12px' }} />
                                         <p style={{ fontSize: 15, fontWeight: 500, color: C.textMuted }}>
                                             {payments.length === 0 ? 'No payment receipts yet.' : `No ${filter.toLowerCase()} payments.`}
@@ -516,6 +531,16 @@ export default function AdminPaymentsPage() {
                                                 {p.status}
                                             </span>
                                         </td>
+                                        {isAdmin && (
+                                            <td style={{ padding: '13px 14px' }}>
+                                                <label title={p.visibleToStaff ? 'Hide from manager and secretary accounts' : 'Show to manager and secretary accounts'}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer', color: p.visibleToStaff ? C.green : C.textMuted, fontSize: 12, fontWeight: 700 }}>
+                                                    <input type="checkbox" checked={p.visibleToStaff} onChange={e => toggleStaffVisibility(p, e.target.checked)}
+                                                        style={{ width: 16, height: 16, accentColor: C.accent, cursor: 'pointer' }} />
+                                                    {p.visibleToStaff ? 'Visible' : 'Hidden'}
+                                                </label>
+                                            </td>
+                                        )}
                                         <td style={{ padding: '13px 14px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
                                                 <button onClick={() => setViewPay(p)} title="View details"

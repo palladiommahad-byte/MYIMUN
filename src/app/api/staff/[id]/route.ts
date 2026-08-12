@@ -25,7 +25,7 @@ async function loadStaffTarget(id: string) {
     return target;
 }
 
-/** PATCH — admin edits a secretary/manager's name, email, password, status, role, or page permissions. */
+/** PATCH — admin edits a secretary/manager account. Staff access is full by role. */
 export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
     await requireAdmin();
     const { id } = await ctx.params;
@@ -46,7 +46,7 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
             fullName: body.fullName,
             email: body.email,
             status: body.status,
-            permissions: body.permissions,
+            permissions: body.permissions && body.permissions.length > 0 ? body.permissions : undefined,
             ...(body.password ? { passwordHash: await hashPassword(body.password) } : {}),
         },
     });

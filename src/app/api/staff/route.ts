@@ -16,7 +16,7 @@ const createSchema = z.object({
     email: z.string().trim().toLowerCase().email(),
     password: z.string().min(6),
     status: z.enum(['active', 'inactive']).default('active'),
-    permissions: permissionsSchema.default([]),
+    permissions: permissionsSchema.default(VALID_PAGES),
 });
 
 /** GET — admin-only list of secretary/manager accounts. */
@@ -45,7 +45,7 @@ export const POST = route(async (req: Request) => {
             email: body.email,
             passwordHash: await hashPassword(body.password),
             status: body.status,
-            permissions: body.permissions,
+            permissions: body.permissions.length > 0 ? body.permissions : VALID_PAGES,
         },
     });
     return ok(publicUser(row), 201);

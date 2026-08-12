@@ -201,6 +201,7 @@ export interface PaymentSubmission {
     receiptType: string;
     receiptKey: string;
     status: 'Pending' | 'Approved' | 'Declined';
+    visibleToStaff: boolean;
     declineReason?: string;
     submittedAt: string;
 }
@@ -697,8 +698,9 @@ interface ConferenceCtx {
     getRegistrationForDelegate: (delegateId: string) => Registration | undefined;
 
     payments: PaymentSubmission[];
-    submitPayment:        (data: Omit<PaymentSubmission, 'id' | 'status' | 'submittedAt' | 'declineReason'>) => void;
+    submitPayment:        (data: Omit<PaymentSubmission, 'id' | 'status' | 'submittedAt' | 'visibleToStaff' | 'declineReason'>) => void;
     updatePaymentStatus:  (id: number, status: 'Approved' | 'Declined', declineReason?: string) => void;
+    updatePaymentStaffVisibility: (id: number, visible: boolean) => void;
     getPaymentForDelegate: (delegateId: string) => PaymentSubmission | undefined;
 
     paymentSettings: PaymentSettings;
@@ -756,7 +758,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const mapPaper = (r: any): PositionPaper => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, status: r.status, submittedAt: fmt(r.submittedAt), fileName: r.fileName, fileUrl: r.fileKey ? `/api/files/${r.fileKey}` : '', fileSize: r.fileSize ?? 0 });
     const mapOpeningSpeech = (r: any): OpeningSpeech => ({ id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, committee: r.committee, country: r.country, speech: r.speech, submittedAt: fmt(r.submittedAt) });
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
-    const mapPay = (r: any): PaymentSubmission => ({ ...r, submittedAt: fmt(r.submittedAt) });
+    const mapPay = (r: any): PaymentSubmission => ({ ...r, visibleToStaff: r.visibleToStaff ?? false, submittedAt: fmt(r.submittedAt) });
     const mapApp = (r: any): CommitteeApplication => ({ ...r, appliedAt: fmt(r.appliedAt) });
     const mapNotification = (r: any): AppNotification => ({ ...r, createdAt: fmt(r.createdAt) });
     const mapResetReq = (r: any): PasswordResetRequest => ({ ...r, createdAt: fmt(r.createdAt), resolvedAt: r.resolvedAt ? fmt(r.resolvedAt) : null });
@@ -1056,7 +1058,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         registrations.find(r => r.delegateId === delegateId);
 
     /* ── Payments ── */
-    const submitPayment = async (data: Omit<PaymentSubmission, 'id' | 'status' | 'submittedAt' | 'declineReason'>) => {
+    const submitPayment = async (data: Omit<PaymentSubmission, 'id' | 'status' | 'submittedAt' | 'visibleToStaff' | 'declineReason'>) => {
         const { delegateId: _ignore, ...payload } = data as PaymentSubmission;
         const row = await send('POST', '/api/payments', payload);
         const mapped = mapPay(row);
@@ -1074,6 +1076,10 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
             const newStatus: 'Paid' | 'Unpaid' = status === 'Approved' ? 'Paid' : 'Unpaid';
             setRegistrations(prev => prev.map(r => r.delegateId === pay.delegateId ? { ...r, paymentStatus: newStatus } : r));
         }
+    };
+    const updatePaymentStaffVisibility = async (id: number, visible: boolean) => {
+        const row = await send('PATCH', `/api/payments/${id}`, { action: 'setStaffVisible', visible });
+        setPayments(prev => prev.map(p => p.id === id ? mapPay(row) : p));
     };
     const getPaymentForDelegate = (delegateId: string) =>
         payments.find(p => p.delegateId === delegateId);
@@ -1151,7 +1157,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         passwordResetRequests, refreshAccountsData,
         announcements, sendBroadcast, deleteAnnouncement,
         registrations, submitRegistration, updateRegistrationStatus, markRegistrationPaid, getRegistrationForDelegate,
-        payments, submitPayment, updatePaymentStatus, getPaymentForDelegate,
+        payments, submitPayment, updatePaymentStatus, updatePaymentStaffVisibility, getPaymentForDelegate,
         paymentSettings, updatePaymentSettings,
         packages, addPackage, updatePackage, deletePackage,
         events, addEvent, updateEvent, deleteEvent,

@@ -7,7 +7,10 @@ import { formatMoney } from '@/lib/currency';
 
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = hasPageAccess(user, '/admin/payments') ? {} : { delegateId: user.id };
+    const where =
+        user.role === 'admin' && hasPageAccess(user, '/admin/payments') ? {}
+        : hasPageAccess(user, '/admin/payments') ? { visibleToStaff: true }
+        : { delegateId: user.id };
     const rows = await prisma.paymentSubmission.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);
 });

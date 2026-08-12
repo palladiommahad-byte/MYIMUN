@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Check, Loader2, KeyRound } from 'lucide-react';
+import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Loader2, KeyRound } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference, ConferenceSettings } from '@/context/ConferenceContext';
@@ -93,10 +93,8 @@ function StaffTable({ members, onEdit, onDelete }: { members: StaffMember[]; onE
                                 </p>
                             </td>
                             <td style={{ padding: '12px 16px' }}>
-                                <span style={{ fontSize: 11.5, color: C.textSec }}>
-                                    {(m.permissions?.length ?? 0) === 0
-                                        ? 'No pages'
-                                        : `${m.permissions!.length} page${m.permissions!.length === 1 ? '' : 's'}`}
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: `${C.green}14`, color: C.green, whiteSpace: 'nowrap' }}>
+                                    Full access
                                 </span>
                             </td>
                             <td style={{ padding: '12px 16px' }}>
@@ -132,7 +130,7 @@ const EMPTY_FORM = {
     fullName: '', email: '', password: '',
     role: 'secretary' as 'secretary' | 'manager',
     status: 'active' as 'active' | 'inactive',
-    permissions: [] as string[],
+    permissions: ADMIN_PAGES.map(p => p.path),
 };
 
 export default function AdminSettingsPage() {
@@ -242,15 +240,9 @@ export default function AdminSettingsPage() {
     const openAdd = () => { setEditingMember(null); setFormData(EMPTY_FORM); setIsModalOpen(true); };
     const openEdit = (m: StaffMember) => {
         setEditingMember(m);
-        setFormData({ fullName: m.fullName, email: m.email, password: '', role: m.role, status: m.status, permissions: m.permissions ?? [] });
+        setFormData({ fullName: m.fullName, email: m.email, password: '', role: m.role, status: m.status, permissions: ADMIN_PAGES.map(p => p.path) });
         setIsModalOpen(true);
     };
-
-    const togglePermission = (path: string) =>
-        setFormData(f => ({
-            ...f,
-            permissions: f.permissions.includes(path) ? f.permissions.filter(p => p !== path) : [...f.permissions, path],
-        }));
 
     const handleSaveMember = async () => {
         if (!formData.fullName.trim() || !formData.email.trim()) { showToast('Please fill in name and email', 'error'); return; }
@@ -451,7 +443,7 @@ export default function AdminSettingsPage() {
                             <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 20, color: C.text, marginBottom: 4 }}>
                                 Staff Management
                             </h2>
-                            <p style={{ fontSize: 14, color: C.textSec }}>Create secretary/manager accounts and choose which pages they can access.</p>
+                            <p style={{ fontSize: 14, color: C.textSec }}>Create secretary/manager accounts. Staff accounts have full admin-page access.</p>
                         </div>
                         <button onClick={openAdd}
                             className="flex items-center gap-2 font-semibold text-sm text-white"
@@ -575,39 +567,11 @@ export default function AdminSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Page Access */}
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Page Access</label>
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        <button type="button" onClick={() => setFormData(f => ({ ...f, permissions: ADMIN_PAGES.map(p => p.path) }))}
-                                            style={{ fontSize: 11.5, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Select all</button>
-                                        <button type="button" onClick={() => setFormData(f => ({ ...f, permissions: [] }))}
-                                            style={{ fontSize: 11.5, color: C.textMuted, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear</button>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: 11.5, color: C.textMuted, marginBottom: 8 }}>Choose which admin pages this {formData.role} can view and manage.</p>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                                    {ADMIN_PAGES.map(p => {
-                                        const checked = formData.permissions.includes(p.path);
-                                        return (
-                                            <button key={p.path} type="button" onClick={() => togglePermission(p.path)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, cursor: 'pointer',
-                                                    border: `1px solid ${checked ? C.accent : C.border}`, background: checked ? `${C.accent}0F` : C.bg, textAlign: 'left',
-                                                }}
-                                            >
-                                                <div style={{
-                                                    width: 16, height: 16, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    border: `1.5px solid ${checked ? C.accent : C.border}`, background: checked ? C.accent : 'transparent',
-                                                }}>
-                                                    {checked && <Check size={11} style={{ color: '#fff' }} />}
-                                                </div>
-                                                <span style={{ fontSize: 12.5, fontWeight: 500, color: checked ? C.accent : C.textSec }}>{p.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                            <div style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.green}25`, background: `${C.green}08` }}>
+                                <p style={{ fontSize: 13, fontWeight: 700, color: C.green, marginBottom: 3 }}>Full access</p>
+                                <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.45 }}>
+                                    Secretary and manager accounts can access every admin page. Only administrators can create, edit, or remove staff accounts.
+                                </p>
                             </div>
                         </div>
 

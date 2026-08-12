@@ -75,8 +75,9 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isEmailPage = pathname.startsWith('/admin/email');
 
     const isAdmin = user?.role === 'admin';
+    const isStaff = user?.role === 'secretary' || user?.role === 'manager';
     const allowed = new Set(user?.permissions ?? []);
-    const hasAccess = (path: string) => isAdmin || allowed.has(path);
+    const hasAccess = (path: string) => isAdmin || isStaff || allowed.has(path);
     const visibleNavItems = NAV_ITEMS.filter(({ path }) => hasAccess(path));
     const currentPage = ADMIN_PAGES.find(p => p.path === '/admin' ? pathname === '/admin' : pathname.startsWith(p.path));
     const canViewCurrentPage = !currentPage || hasAccess(currentPage.path);

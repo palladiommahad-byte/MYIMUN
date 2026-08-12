@@ -7,18 +7,29 @@ import { notifyDelegate } from '@/lib/notifications';
 const schema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('approve') }),
     z.object({ action: z.literal('decline'), declineReason: z.string().optional() }),
+    z.object({ action: z.literal('setStaffVisible'), visible: z.boolean() }),
 ]);
 
 /** PATCH — staff approve/decline a payment. Approval marks the delegate's
     registration Paid; decline resets it to Unpaid (mirrors the old client logic). */
 export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-    await requirePage('/admin/payments');
+    const user = await requirePage('/admin/payments');
     const id = Number((await ctx.params).id);
     if (!Number.isInteger(id)) return fail('Invalid id', 400);
 
     const body = schema.parse(await req.json());
+    if (body.action === 'setStaffVisible') {
+        if (user.role !== 'admin') return fail('Admin access required', 403);
+        const row = await prisma.paymentSubmission.update({
+            where: { id },
+            data: { visibleToStaff: body.visible },
+        });
+        return ok(row);
+    }
+
     const pay = await prisma.paymentSubmission.findUnique({ where: { id } });
     if (!pay) return fail('Payment not found', 404);
+    if (user.role !== 'admin' && !pay.visibleToStaff) return fail('Payment not found', 404);
 
     const status = body.action === 'approve' ? 'Approved' : 'Declined';
     const declineReason = body.action === 'decline' ? (body.declineReason ?? 'No reason provided.') : null;

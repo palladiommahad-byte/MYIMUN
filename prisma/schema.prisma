@@ -164,6 +164,7 @@ model PaymentSubmission {
   receiptType     String   @default("")
   receiptKey      String   // key into the uploads store
   status          String   @default("Pending") // Pending | Approved | Declined
+  visibleToStaff  Boolean  @default(false)
   declineReason   String?
   submittedAt     DateTime @default(now())
   updatedAt       DateTime @updatedAt
