@@ -72,6 +72,7 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isLandingPage = pathname.startsWith('/admin/landing');
     const isMessagesPage = pathname.startsWith('/admin/messages');
+    const isEmailPage = pathname.startsWith('/admin/email');
 
     const isAdmin = user?.role === 'admin';
     const allowed = new Set(user?.permissions ?? []);
@@ -189,6 +190,13 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ) : isLandingPage ? (
                         /* Landing page editor: no padding, fills full width */
                         children
+                    ) : isEmailPage ? (
+                        /* Email owns the remaining desktop viewport and scrolls inside its panes. */
+                        <div className="px-4 py-5 md:h-[calc(100vh-56px)] md:px-7 md:py-5 md:overflow-hidden" style={{ boxSizing: 'border-box' }}>
+                            <div style={{ maxWidth: 1280, height: '100%', margin: '0 auto' }}>
+                                {children}
+                            </div>
+                        </div>
                     ) : isMessagesPage ? (
                         /* Split-pane inbox: padded, but not capped to the normal content width */
                         <div className="px-4 py-5 md:px-7 md:py-8" style={{ boxSizing: 'border-box' }}>

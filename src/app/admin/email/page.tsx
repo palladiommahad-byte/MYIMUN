@@ -14,7 +14,7 @@ const C = {
     shadow: '0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)',
 };
 
-type Recipient = { name?: string; email: string; delivery?: 'to' | 'bcc' };
+type Recipient = { name?: string; email: string; delivery?: 'to' | 'bcc'; delegateId?: string };
 type ComposeMode = 'plain' | 'html';
 type DelegateContact = {
     delegateId: string;
@@ -60,6 +60,7 @@ type EmailThread = {
 const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '', mode: 'plain' as ComposeMode };
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const MAX_RECIPIENTS_PER_EMAIL = 5;
 
 function formatDate(value: string) {
     const date = new Date(value);
@@ -137,6 +138,9 @@ export default function AdminEmailPage() {
     const [composeSaving, setComposeSaving] = useState(false);
     const [compose, setCompose] = useState(emptyCompose);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
+    const [unpaidPickerOpen, setUnpaidPickerOpen] = useState(false);
+    const [unpaidSearch, setUnpaidSearch] = useState('');
+    const [sentDelegateIds, setSentDelegateIds] = useState<string[]>([]);
     const [composeAttachments, setComposeAttachments] = useState<OutboundAttachment[]>([]);
     const [replyText, setReplyText] = useState('');
     const [replyAttachments, setReplyAttachments] = useState<OutboundAttachment[]>([]);
@@ -192,6 +196,21 @@ export default function AdminEmailPage() {
         () => contacts.filter(contact => contact.paymentStatus !== 'Paid'),
         [contacts],
     );
+    const filteredUnpaidContacts = useMemo(() => {
+        const query = unpaidSearch.trim().toLowerCase();
+        if (!query) return unpaidContacts;
+        return unpaidContacts.filter(contact =>
+            [contact.fullName, contact.email, contact.country]
+                .some(value => value.toLowerCase().includes(query)),
+        );
+    }, [unpaidContacts, unpaidSearch]);
+    const selectedUnpaidIds = useMemo(
+        () => new Set(recipients
+            .filter(recipient => recipient.delivery === 'bcc' && recipient.delegateId)
+            .map(recipient => recipient.delegateId as string)),
+        [recipients],
+    );
+    const sentDelegateIdSet = useMemo(() => new Set(sentDelegateIds), [sentDelegateIds]);
 
     const addRecipient = (recipient: Recipient) => {
         const email = recipient.email.trim().toLowerCase();
@@ -200,9 +219,13 @@ export default function AdminEmailPage() {
             showToast('Enter a valid email address.', 'error');
             return;
         }
+        if (recipients.length >= MAX_RECIPIENTS_PER_EMAIL) {
+            showToast(`Send no more than ${MAX_RECIPIENTS_PER_EMAIL} recipients in one email.`, 'error');
+            return;
+        }
         setRecipients(current => current.some(item => item.email === email)
             ? current
-            : [...current, { name: recipient.name?.trim() || undefined, email }]);
+            : [...current, { ...recipient, name: recipient.name?.trim() || undefined, email }]);
     };
 
     const addFiles = async (files: FileList | null, target: 'compose' | 'reply') => {
@@ -242,31 +265,50 @@ export default function AdminEmailPage() {
             showToast('Choose a delegate first.', 'error');
             return;
         }
-        addRecipient({ name: contact.fullName, email: contact.email });
+        addRecipient({ name: contact.fullName, email: contact.email, delegateId: contact.delegateId });
     };
 
-    const addUnpaidRecipients = () => {
+    const toggleUnpaidRecipient = (contact: DelegateContact) => {
+        const selected = selectedUnpaidIds.has(contact.delegateId);
+        if (selected) {
+            setRecipients(current => current.filter(recipient => recipient.delegateId !== contact.delegateId));
+            return;
+        }
+        if (sentDelegateIdSet.has(contact.delegateId)) return;
+        addRecipient({
+            name: contact.fullName,
+            email: contact.email,
+            delivery: 'bcc',
+            delegateId: contact.delegateId,
+        });
+    };
+
+    const selectNextUnpaidBatch = () => {
         if (unpaidContacts.length === 0) {
             showToast('No unpaid delegates found.', 'error');
             return;
         }
 
         const existingEmails = new Set(recipients.map(recipient => recipient.email.toLowerCase()));
+        const availableSlots = MAX_RECIPIENTS_PER_EMAIL - recipients.length;
+        if (availableSlots <= 0) {
+            showToast(`This email already has ${MAX_RECIPIENTS_PER_EMAIL} recipients.`, 'error');
+            return;
+        }
         const additions = unpaidContacts
-            .map(contact => ({ name: contact.fullName, email: contact.email.trim().toLowerCase(), delivery: 'bcc' as const }))
+            .filter(contact => !sentDelegateIdSet.has(contact.delegateId))
+            .map(contact => ({ name: contact.fullName, email: contact.email.trim().toLowerCase(), delivery: 'bcc' as const, delegateId: contact.delegateId }))
             .filter(recipient => recipient.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email))
-            .filter(recipient => !existingEmails.has(recipient.email));
+            .filter(recipient => !existingEmails.has(recipient.email))
+            .slice(0, availableSlots);
 
         if (additions.length === 0) {
-            showToast('All unpaid delegates are already added.', 'success');
+            showToast('There are no more unpaid delegates in this session.', 'success');
             return;
         }
 
         setRecipients(current => [...current, ...additions]);
-        showToast(
-            `Added ${additions.length} unpaid delegate${additions.length === 1 ? '' : 's'}.`,
-            'success',
-        );
+        setUnpaidPickerOpen(true);
     };
 
     const refreshCurrentThread = (updated: EmailThread | null) => {
@@ -334,6 +376,9 @@ export default function AdminEmailPage() {
         const bccRecipients = recipients
             .filter(recipient => recipient.delivery === 'bcc')
             .map(({ name, email }) => ({ name, email }));
+        const sentBatchDelegateIds = recipients
+            .filter(recipient => recipient.delivery === 'bcc' && recipient.delegateId)
+            .map(recipient => recipient.delegateId as string);
         const toRecipients = visibleRecipients.length > 0
             ? visibleRecipients
             : [];
@@ -352,11 +397,17 @@ export default function AdminEmailPage() {
             });
             refreshCurrentThread(row);
             setRecipients([]);
-            setComposeAttachments([]);
-            setCompose(emptyCompose);
-            setComposeOpen(false);
-            setMobilePane('detail');
-            showToast('Email sent.', 'success');
+            if (sentBatchDelegateIds.length > 0 && visibleRecipients.length === 0) {
+                setSentDelegateIds(current => Array.from(new Set([...current, ...sentBatchDelegateIds])));
+                setUnpaidPickerOpen(true);
+                showToast(`Email sent to ${sentBatchDelegateIds.length}. Select the next batch.`, 'success');
+            } else {
+                setComposeAttachments([]);
+                setCompose(emptyCompose);
+                setComposeOpen(false);
+                setMobilePane('detail');
+                showToast('Email sent.', 'success');
+            }
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Could not send email', 'error');
         } finally {
@@ -388,20 +439,24 @@ export default function AdminEmailPage() {
         <div className="admin-email-shell" data-mobile-pane={mobilePane} style={{ fontFamily: '"Inter",system-ui,sans-serif' }}>
             <style jsx>{`
                 .admin-email-shell {
-                    height: calc(100vh - 140px);
-                    min-height: 620px;
+                    height: 100%;
+                    min-height: 0;
                     display: grid;
                     grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
                     gap: 16px;
                 }
+                .admin-email-sidebar, .admin-email-pane { min-height: 0; }
                 .admin-email-mobile-back { display: none; }
-                @media (max-width: 760px) {
+                @media (max-width: 767px) {
                     .admin-email-shell { display: block; height: auto; min-height: calc(100vh - 96px); }
                     .admin-email-sidebar, .admin-email-pane { width: 100% !important; min-height: calc(100vh - 122px); }
                     .admin-email-shell[data-mobile-pane="list"] .admin-email-pane,
                     .admin-email-shell[data-mobile-pane="detail"] .admin-email-sidebar { display: none !important; }
                     .admin-email-mobile-back { display: inline-flex; }
                     .admin-email-actions, .admin-email-compose-grid, .admin-email-html-grid { grid-template-columns: 1fr !important; }
+                    .admin-email-batch-toolbar { align-items: stretch !important; flex-direction: column; }
+                    .admin-email-batch-actions { width: 100%; }
+                    .admin-email-batch-actions button { flex: 1; }
                     .admin-email-message { max-width: 92% !important; }
                 }
             `}</style>
@@ -417,7 +472,7 @@ export default function AdminEmailPage() {
                             style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: syncing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: configured === false ? 0.45 : 1 }}>
                             {syncing ? <LoaderCircle size={15} style={{ animation: 'spin 0.9s linear infinite' }} /> : <RefreshCw size={15} />}
                         </button>
-                        <button type="button" onClick={() => { setComposeOpen(true); setMobilePane('detail'); }} title="New email"
+                        <button type="button" onClick={() => { setComposeOpen(true); setMobilePane('detail'); setSentDelegateIds([]); setUnpaidSearch(''); }} title="New email"
                             style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${composeOpen ? C.accent : C.border}`, background: composeOpen ? C.accent : C.surface, color: composeOpen ? '#fff' : C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Plus size={16} />
                         </button>
@@ -487,7 +542,7 @@ export default function AdminEmailPage() {
 
             <section className="admin-email-pane" style={{ minWidth: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: C.shadow, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {composeOpen ? (
-                    <form onSubmit={sendCompose} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <form onSubmit={sendCompose} style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: '#FAFBFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                                 <button type="button" className="admin-email-mobile-back" onClick={() => setMobilePane('list')} title="Back to email"
@@ -508,7 +563,7 @@ export default function AdminEmailPage() {
                             </button>
                         </div>
 
-                        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1 }}>
+                        <div style={{ padding: 20, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1 }}>
                             <div className="admin-email-compose-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase' }}>Registered Delegate</span>
@@ -525,9 +580,9 @@ export default function AdminEmailPage() {
                                             <UserPlus size={16} />
                                         </button>
                                     </div>
-                                    <button type="button" onClick={addUnpaidRecipients} title="Add all unpaid registered delegates as BCC"
+                                    <button type="button" onClick={() => setUnpaidPickerOpen(current => !current)} title="Choose unpaid registered delegates as BCC"
                                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 36, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.accent}30`, background: `${C.accent}08`, color: C.accent, fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                                        <Users size={15} /> Add Unpaid as BCC ({unpaidContacts.length})
+                                        <Users size={15} /> Choose Unpaid BCC ({selectedUnpaidIds.size}/{MAX_RECIPIENTS_PER_EMAIL})
                                     </button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -544,6 +599,58 @@ export default function AdminEmailPage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {unpaidPickerOpen && (
+                                <section style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', background: C.surface }}>
+                                    <div className="admin-email-batch-toolbar" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                                        <div>
+                                            <p style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Unpaid delegate batch</p>
+                                            <p style={{ fontSize: 11.5, color: C.textSec, marginTop: 2 }}>
+                                                {sentDelegateIds.length} sent this session · {Math.max(0, unpaidContacts.length - sentDelegateIds.length)} remaining
+                                            </p>
+                                        </div>
+                                        <div className="admin-email-batch-actions" style={{ display: 'flex', gap: 8 }}>
+                                            <button type="button" onClick={() => setRecipients(current => current.filter(recipient => recipient.delivery !== 'bcc'))}
+                                                disabled={selectedUnpaidIds.size === 0}
+                                                style={{ minHeight: 34, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12, fontWeight: 800, cursor: selectedUnpaidIds.size === 0 ? 'default' : 'pointer', opacity: selectedUnpaidIds.size === 0 ? 0.5 : 1 }}>
+                                                Clear
+                                            </button>
+                                            <button type="button" onClick={selectNextUnpaidBatch}
+                                                style={{ minHeight: 34, padding: '7px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                                                Select Next 5
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div style={{ position: 'relative', padding: '10px 12px', borderBottom: `1px solid ${C.border}` }}>
+                                        <Search size={14} style={{ position: 'absolute', left: 23, top: 20, color: C.textMuted }} />
+                                        <input value={unpaidSearch} onChange={event => setUnpaidSearch(event.target.value)} placeholder="Search unpaid delegates..."
+                                            style={{ width: '100%', minWidth: 0, padding: '9px 11px 9px 33px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12.5, outline: 'none' }} />
+                                    </div>
+                                    <div style={{ maxHeight: 230, overflowY: 'auto' }}>
+                                        {filteredUnpaidContacts.length === 0 ? (
+                                            <p style={{ padding: 18, color: C.textMuted, fontSize: 12.5, textAlign: 'center' }}>No unpaid delegates match this search.</p>
+                                        ) : filteredUnpaidContacts.map(contact => {
+                                            const checked = selectedUnpaidIds.has(contact.delegateId);
+                                            const sent = sentDelegateIdSet.has(contact.delegateId);
+                                            const atLimit = recipients.length >= MAX_RECIPIENTS_PER_EMAIL && !checked;
+                                            const disabled = sent || atLimit;
+                                            return (
+                                                <label key={contact.delegateId} style={{ minHeight: 52, padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 11, borderBottom: `1px solid ${C.border}`, cursor: disabled ? 'default' : 'pointer', opacity: sent ? 0.55 : 1, background: checked ? `${C.accent}08` : C.surface }}>
+                                                    <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleUnpaidRecipient(contact)}
+                                                        style={{ width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }} />
+                                                    <span style={{ minWidth: 0, flex: 1 }}>
+                                                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.fullName}</span>
+                                                        <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.email}{contact.country ? ` · ${contact.country}` : ''}</span>
+                                                    </span>
+                                                    <span style={{ flexShrink: 0, padding: '4px 7px', borderRadius: 6, background: sent ? `${C.green}12` : C.bg, color: sent ? C.green : C.textMuted, fontSize: 10.5, fontWeight: 800 }}>
+                                                        {sent ? 'Sent' : checked ? 'Selected' : 'Unpaid'}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 32, maxHeight: 104, overflowY: 'auto', paddingRight: 4 }}>
                                 {recipients.length === 0 ? (
@@ -632,7 +739,7 @@ export default function AdminEmailPage() {
                             <button type="submit" disabled={composeSaving || configured === false}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 13, fontWeight: 800, cursor: composeSaving ? 'wait' : 'pointer', opacity: configured === false ? 0.5 : 1 }}>
                                 {composeSaving ? <LoaderCircle size={15} style={{ animation: 'spin 0.9s linear infinite' }} /> : <Send size={15} />}
-                                {composeSaving ? 'Sending...' : 'Send Email'}
+                                {composeSaving ? 'Sending...' : recipients.length > 0 ? `Send to ${recipients.length}` : 'Send Email'}
                             </button>
                         </div>
                     </form>

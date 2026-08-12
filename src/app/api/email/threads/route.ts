@@ -7,6 +7,7 @@ import { sendOutboundEmail, type EmailRecipient } from '@/lib/email';
 export const runtime = 'nodejs';
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const MAX_RECIPIENTS_PER_EMAIL = 5;
 
 const recipientSchema = z.object({
     name: z.string().trim().optional(),
@@ -34,6 +35,16 @@ const composeSchema = z.object({
             code: z.ZodIssueCode.custom,
             path: ['to'],
             message: 'Add at least one recipient.',
+        });
+    }
+    const uniqueAddresses = new Set(
+        [...data.to, ...data.cc, ...data.bcc].map(recipient => recipient.email.toLowerCase()),
+    );
+    if (uniqueAddresses.size > MAX_RECIPIENTS_PER_EMAIL) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['bcc'],
+            message: `Send no more than ${MAX_RECIPIENTS_PER_EMAIL} recipients in one email.`,
         });
     }
     const total = data.attachments.reduce((sum, attachment) => sum + attachment.size, 0);

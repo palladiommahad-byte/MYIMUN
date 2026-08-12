@@ -7,6 +7,7 @@ import {
     Users, Shield, FileText, CreditCard, Ban, ShieldCheck, X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
 import { Donut, StatPanel } from '@/components/admin/StatWidgets';
@@ -59,7 +60,9 @@ function Avatar({ name, size = 36, color = C.accent }: { name: string; size?: nu
 
 export default function AdminDashboardPage() {
     const { showToast } = useToast();
-    const { registrations, payments, papers, committees, applications, suspendDelegate } = useConference();
+    const pathname = usePathname();
+    const confirmedOnly = pathname.startsWith('/admin/delegates');
+    const { registrations, papers, committees, applications, suspendDelegate } = useConference();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
@@ -67,9 +70,28 @@ export default function AdminDashboardPage() {
 
     /* ── Derived roster: one row per registered delegate, enriched with their
        committee assignment, registration status, payment status, and paper status ── */
-    const roster = useMemo(() => registrations.map(r => {
-        const application = applications.find(a => a.delegateId === r.delegateId);
-        const paper = papers.find(p => p.delegateId === r.delegateId);
+    const scopedRegistrations = useMemo(
+        () => confirmedOnly
+            ? registrations.filter(registration => registration.status === 'Accepted' && registration.paymentStatus === 'Paid')
+            : registrations,
+        [confirmedOnly, registrations],
+    );
+    const scopedDelegateIds = useMemo(
+        () => new Set(scopedRegistrations.map(registration => registration.delegateId)),
+        [scopedRegistrations],
+    );
+    const scopedPapers = useMemo(
+        () => papers.filter(paper => scopedDelegateIds.has(paper.delegateId)),
+        [papers, scopedDelegateIds],
+    );
+    const scopedApplications = useMemo(
+        () => applications.filter(application => scopedDelegateIds.has(application.delegateId)),
+        [applications, scopedDelegateIds],
+    );
+
+    const roster = useMemo(() => scopedRegistrations.map(r => {
+        const application = scopedApplications.find(a => a.delegateId === r.delegateId);
+        const paper = scopedPapers.find(p => p.delegateId === r.delegateId);
         const country = (application?.status === 'Approved' && application.assignedCountry)
             ? application.assignedCountry
             : r.country;
@@ -85,7 +107,7 @@ export default function AdminDashboardPage() {
             paperStatus: paper?.status || null,
             accountStatus: r.accountStatus,
         };
-    }), [registrations, applications, papers]);
+    }), [scopedRegistrations, scopedApplications, scopedPapers]);
 
     const confirmSuspend = async () => {
         if (!suspendTarget) return;
@@ -109,25 +131,25 @@ export default function AdminDashboardPage() {
     const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     /* ── Stats ── */
-    const totalRegistered = registrations.length;
-    const acceptedCount   = registrations.filter(r => r.status === 'Accepted').length;
-    const pendingRegCount = registrations.filter(r => r.status === 'Pending').length;
-    const declinedRegCount = registrations.filter(r => r.status === 'Declined').length;
+    const totalRegistered = scopedRegistrations.length;
+    const acceptedCount   = scopedRegistrations.filter(r => r.status === 'Accepted').length;
+    const pendingRegCount = scopedRegistrations.filter(r => r.status === 'Pending').length;
+    const declinedRegCount = scopedRegistrations.filter(r => r.status === 'Declined').length;
 
-    const paidCount   = registrations.filter(r => r.paymentStatus === 'Paid').length;
+    const paidCount   = scopedRegistrations.filter(r => r.paymentStatus === 'Paid').length;
     const unpaidCount = totalRegistered - paidCount;
 
-    const delegatesWithPapers = new Set(papers.map(p => p.delegateId)).size;
-    const pendingPapers       = papers.filter(p => p.status === 'Pending').length;
-    const approvedPapers      = papers.filter(p => p.status === 'Approved').length;
-    const rejectedPapers      = papers.filter(p => p.status === 'Rejected').length;
+    const delegatesWithPapers = new Set(scopedPapers.map(p => p.delegateId)).size;
+    const pendingPapers       = scopedPapers.filter(p => p.status === 'Pending').length;
+    const approvedPapers      = scopedPapers.filter(p => p.status === 'Approved').length;
+    const rejectedPapers      = scopedPapers.filter(p => p.status === 'Rejected').length;
 
-    const approvedApplications = applications.filter(a => a.status === 'Approved').length;
+    const approvedApplications = scopedApplications.filter(a => a.status === 'Approved').length;
 
     const STATS = [
         {
-            label: 'REGISTERED DELEGATES', value: String(totalRegistered),
-            trend: `${acceptedCount} accepted · ${pendingRegCount} pending`,
+            label: confirmedOnly ? 'CONFIRMED DELEGATES' : 'REGISTERED DELEGATES', value: String(totalRegistered),
+            trend: confirmedOnly ? 'Accepted and conference fee paid' : `${acceptedCount} accepted · ${pendingRegCount} pending`,
             iconBg: `${C.accent}15`, iconColor: C.accent, Icon: Users,
         },
         {
@@ -154,9 +176,11 @@ export default function AdminDashboardPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 2 }}>
-                        Overview
+                        {confirmedOnly ? 'Confirmed Delegates' : 'Overview'}
                     </h1>
-                    <p style={{ fontSize: 14, color: C.textSec }}>Manage your conference settings and delegates.</p>
+                    <p style={{ fontSize: 14, color: C.textSec }}>
+                        {confirmedOnly ? 'Participants with an accepted registration and confirmed conference fee.' : 'Manage your conference settings and delegates.'}
+                    </p>
                 </div>
                 <div className="flex gap-2.5">
                     <button onClick={() => showToast('Exporting…', 'info')}
@@ -209,8 +233,8 @@ export default function AdminDashboardPage() {
                         { value: unpaidCount, color: C.textMuted, label: 'Unpaid' },
                     ]} />
                 </StatPanel>
-                <StatPanel title="Position Papers" subtitle={`${papers.length} submitted`}>
-                    <Donut centerLabel={String(papers.length)} centerSub="papers" segments={[
+                <StatPanel title="Position Papers" subtitle={`${scopedPapers.length} submitted`}>
+                    <Donut centerLabel={String(scopedPapers.length)} centerSub="papers" segments={[
                         { value: approvedPapers, color: C.green, label: 'Approved' },
                         { value: pendingPapers, color: C.amber, label: 'Pending' },
                         { value: rejectedPapers, color: C.red, label: 'Rejected' },
@@ -227,7 +251,7 @@ export default function AdminDashboardPage() {
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                         {committees.map(c => {
-                            const approved = applications.filter(a => a.committeeAbbr === c.abbr && a.status === 'Approved').length;
+                            const approved = scopedApplications.filter(a => a.committeeAbbr === c.abbr && a.status === 'Approved').length;
                             const pct = c.delegates > 0 ? Math.min(100, Math.round((approved / c.delegates) * 100)) : 0;
                             return (
                                 <div key={c.id} style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg }}>
@@ -252,7 +276,7 @@ export default function AdminDashboardPage() {
                 {/* Toolbar */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4"
                     style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Delegate Roster</h3>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{confirmedOnly ? 'Confirmed Participant Roster' : 'Delegate Roster'}</h3>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:w-56">
                             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
@@ -298,7 +322,9 @@ export default function AdminDashboardPage() {
                                 <tr>
                                     <td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center' }}>
                                         <p style={{ fontSize: 14, color: C.textMuted }}>
-                                            {registrations.length === 0 ? 'No delegates registered yet.' : 'No delegates match your search.'}
+                                            {scopedRegistrations.length === 0
+                                                ? confirmedOnly ? 'No delegates have completed registration and payment yet.' : 'No delegates registered yet.'
+                                                : 'No delegates match your search.'}
                                         </p>
                                     </td>
                                 </tr>
