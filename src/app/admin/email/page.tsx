@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Archive, ArrowLeft, CheckCircle2, Circle, Code2, Inbox, LoaderCircle, Mail,
     Paperclip, Plus, RefreshCw, Search, Send, UserPlus, Users, X
@@ -600,56 +601,74 @@ export default function AdminEmailPage() {
                                 </div>
                             </div>
 
-                            {unpaidPickerOpen && (
-                                <section style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', background: C.surface }}>
-                                    <div className="admin-email-batch-toolbar" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
-                                        <div>
-                                            <p style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Unpaid delegate batch</p>
-                                            <p style={{ fontSize: 11.5, color: C.textSec, marginTop: 2 }}>
-                                                {sentDelegateIds.length} sent this session · {Math.max(0, unpaidContacts.length - sentDelegateIds.length)} remaining
-                                            </p>
-                                        </div>
-                                        <div className="admin-email-batch-actions" style={{ display: 'flex', gap: 8 }}>
-                                            <button type="button" onClick={() => setRecipients(current => current.filter(recipient => recipient.delivery !== 'bcc'))}
-                                                disabled={selectedUnpaidIds.size === 0}
-                                                style={{ minHeight: 34, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12, fontWeight: 800, cursor: selectedUnpaidIds.size === 0 ? 'default' : 'pointer', opacity: selectedUnpaidIds.size === 0 ? 0.5 : 1 }}>
-                                                Clear
-                                            </button>
-                                            <button type="button" onClick={selectNextUnpaidBatch}
-                                                style={{ minHeight: 34, padding: '7px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                                                Select Next 5
+                            {unpaidPickerOpen && createPortal(
+                                <div role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setUnpaidPickerOpen(false); }}
+                                    style={{ position: 'fixed', inset: 0, zIndex: 1200, padding: 16, background: 'rgba(17,24,39,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <section role="dialog" aria-modal="true" aria-labelledby="unpaid-picker-title"
+                                        style={{ width: '100%', maxWidth: 680, maxHeight: 'min(720px, calc(100vh - 32px))', border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', background: C.surface, boxShadow: '0 24px 70px rgba(17,24,39,0.22)', display: 'flex', flexDirection: 'column' }}>
+                                        <div className="admin-email-batch-toolbar" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                                            <div>
+                                                <p id="unpaid-picker-title" style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Choose unpaid delegates</p>
+                                                <p style={{ fontSize: 11.5, color: C.textSec, marginTop: 2 }}>
+                                                    {selectedUnpaidIds.size}/{MAX_RECIPIENTS_PER_EMAIL} selected · {sentDelegateIds.length} sent this session · {Math.max(0, unpaidContacts.length - sentDelegateIds.length)} remaining
+                                                </p>
+                                            </div>
+                                            <button type="button" onClick={() => setUnpaidPickerOpen(false)} title="Close delegate selector"
+                                                style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 7, border: 'none', background: 'transparent', color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <X size={17} />
                                             </button>
                                         </div>
-                                    </div>
-                                    <div style={{ position: 'relative', padding: '10px 12px', borderBottom: `1px solid ${C.border}` }}>
-                                        <Search size={14} style={{ position: 'absolute', left: 23, top: 20, color: C.textMuted }} />
-                                        <input value={unpaidSearch} onChange={event => setUnpaidSearch(event.target.value)} placeholder="Search unpaid delegates..."
-                                            style={{ width: '100%', minWidth: 0, padding: '9px 11px 9px 33px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12.5, outline: 'none' }} />
-                                    </div>
-                                    <div style={{ maxHeight: 230, overflowY: 'auto' }}>
-                                        {filteredUnpaidContacts.length === 0 ? (
-                                            <p style={{ padding: 18, color: C.textMuted, fontSize: 12.5, textAlign: 'center' }}>No unpaid delegates match this search.</p>
-                                        ) : filteredUnpaidContacts.map(contact => {
-                                            const checked = selectedUnpaidIds.has(contact.delegateId);
-                                            const sent = sentDelegateIdSet.has(contact.delegateId);
-                                            const atLimit = recipients.length >= MAX_RECIPIENTS_PER_EMAIL && !checked;
-                                            const disabled = sent || atLimit;
-                                            return (
-                                                <label key={contact.delegateId} style={{ minHeight: 52, padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 11, borderBottom: `1px solid ${C.border}`, cursor: disabled ? 'default' : 'pointer', opacity: sent ? 0.55 : 1, background: checked ? `${C.accent}08` : C.surface }}>
-                                                    <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleUnpaidRecipient(contact)}
-                                                        style={{ width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }} />
-                                                    <span style={{ minWidth: 0, flex: 1 }}>
-                                                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.fullName}</span>
-                                                        <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.email}{contact.country ? ` · ${contact.country}` : ''}</span>
-                                                    </span>
-                                                    <span style={{ flexShrink: 0, padding: '4px 7px', borderRadius: 6, background: sent ? `${C.green}12` : C.bg, color: sent ? C.green : C.textMuted, fontSize: 10.5, fontWeight: 800 }}>
-                                                        {sent ? 'Sent' : checked ? 'Selected' : 'Unpaid'}
-                                                    </span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </section>
+                                        <div className="admin-email-batch-toolbar" style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.border}` }}>
+                                            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                                                <Search size={14} style={{ position: 'absolute', left: 11, top: 11, color: C.textMuted }} />
+                                                <input autoFocus value={unpaidSearch} onChange={event => setUnpaidSearch(event.target.value)} placeholder="Search by name, email, or country..."
+                                                    style={{ width: '100%', minWidth: 0, padding: '9px 11px 9px 33px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12.5, outline: 'none' }} />
+                                            </div>
+                                            <div className="admin-email-batch-actions" style={{ display: 'flex', gap: 8 }}>
+                                                <button type="button" onClick={() => setRecipients(current => current.filter(recipient => recipient.delivery !== 'bcc'))}
+                                                    disabled={selectedUnpaidIds.size === 0}
+                                                    style={{ minHeight: 36, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12, fontWeight: 800, cursor: selectedUnpaidIds.size === 0 ? 'default' : 'pointer', opacity: selectedUnpaidIds.size === 0 ? 0.5 : 1 }}>
+                                                    Clear
+                                                </button>
+                                                <button type="button" onClick={selectNextUnpaidBatch}
+                                                    style={{ minHeight: 36, padding: '7px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    Select Next 5
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style={{ minHeight: 180, overflowY: 'auto', flex: 1 }}>
+                                            {filteredUnpaidContacts.length === 0 ? (
+                                                <p style={{ padding: 28, color: C.textMuted, fontSize: 12.5, textAlign: 'center' }}>No unpaid delegates match this search.</p>
+                                            ) : filteredUnpaidContacts.map(contact => {
+                                                const checked = selectedUnpaidIds.has(contact.delegateId);
+                                                const sent = sentDelegateIdSet.has(contact.delegateId);
+                                                const atLimit = recipients.length >= MAX_RECIPIENTS_PER_EMAIL && !checked;
+                                                const disabled = sent || atLimit;
+                                                return (
+                                                    <label key={contact.delegateId} style={{ minHeight: 56, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 11, borderBottom: `1px solid ${C.border}`, cursor: disabled ? 'default' : 'pointer', opacity: sent ? 0.55 : 1, background: checked ? `${C.accent}08` : C.surface }}>
+                                                        <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleUnpaidRecipient(contact)}
+                                                            style={{ width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }} />
+                                                        <span style={{ minWidth: 0, flex: 1 }}>
+                                                            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.fullName}</span>
+                                                            <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.email}{contact.country ? ` · ${contact.country}` : ''}</span>
+                                                        </span>
+                                                        <span style={{ flexShrink: 0, padding: '4px 7px', borderRadius: 6, background: sent ? `${C.green}12` : C.bg, color: sent ? C.green : C.textMuted, fontSize: 10.5, fontWeight: 800 }}>
+                                                            {sent ? 'Sent' : checked ? 'Selected' : 'Unpaid'}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                            <span style={{ fontSize: 12, color: C.textSec }}>{selectedUnpaidIds.size} delegate{selectedUnpaidIds.size === 1 ? '' : 's'} ready as BCC</span>
+                                            <button type="button" onClick={() => setUnpaidPickerOpen(false)}
+                                                style={{ minHeight: 36, padding: '8px 16px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+                                                Done
+                                            </button>
+                                        </div>
+                                    </section>
+                                </div>,
+                                document.body,
                             )}
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 32, maxHeight: 104, overflowY: 'auto', paddingRight: 4 }}>
