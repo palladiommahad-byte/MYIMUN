@@ -61,7 +61,7 @@ type EmailThread = {
 const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '', mode: 'plain' as ComposeMode };
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-const MAX_RECIPIENTS_PER_EMAIL = 5;
+const MAX_RECIPIENTS_PER_EMAIL = 20;
 
 function formatDate(value: string) {
     const date = new Date(value);
@@ -632,7 +632,7 @@ export default function AdminEmailPage() {
                                                 </button>
                                                 <button type="button" onClick={selectNextUnpaidBatch}
                                                     style={{ minHeight: 36, padding: '7px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    Select Next 5
+                                                    Select Next 20
                                                 </button>
                                             </div>
                                         </div>
