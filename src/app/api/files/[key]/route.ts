@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { fail, route } from '@/lib/api';
 
 const STAFF = ['admin', 'secretary', 'manager'];
-const PUBLIC_FILE_SETTING_KEYS = ['landing', 'about', 'committees-page', 'contact-page'];
+const PUBLIC_FILE_SETTING_KEYS = ['landing', 'about', 'committees-page', 'contact-page', 'email-media'];
 
 // Only these types are rendered inline; everything else is forced to download so a
 // malicious upload (e.g. HTML/SVG) can never execute script in our origin.

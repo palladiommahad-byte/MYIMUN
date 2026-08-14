@@ -3,8 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    Archive, ArrowLeft, CheckCircle2, Circle, Code2, Inbox, LoaderCircle, Mail,
-    Paperclip, Plus, RefreshCw, Search, Send, UserPlus, Users, X
+    Archive, ArrowLeft, CheckCircle2, Circle, Code2, Copy, Image as ImageIcon,
+    Inbox, LoaderCircle, Mail, Paperclip, Plus, RefreshCw, Search, Send,
+    UserPlus, Users, X
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -56,6 +57,14 @@ type EmailThread = {
     unread: boolean;
     lastMessageAt: string;
     messages: EmailMessage[];
+};
+type EmailMediaItem = {
+    key: string;
+    name: string;
+    type: string;
+    size: number;
+    url: string;
+    createdAt: string;
 };
 
 const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '', mode: 'plain' as ComposeMode };
@@ -143,6 +152,9 @@ export default function AdminEmailPage() {
     const [unpaidSearch, setUnpaidSearch] = useState('');
     const [sentDelegateIds, setSentDelegateIds] = useState<string[]>([]);
     const [composeAttachments, setComposeAttachments] = useState<OutboundAttachment[]>([]);
+    const [emailMedia, setEmailMedia] = useState<EmailMediaItem[]>([]);
+    const [mediaLoading, setMediaLoading] = useState(false);
+    const [mediaUploading, setMediaUploading] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [replyAttachments, setReplyAttachments] = useState<OutboundAttachment[]>([]);
     const [replySaving, setReplySaving] = useState(false);
@@ -157,6 +169,18 @@ export default function AdminEmailPage() {
         const data = await api<EmailThread[]>(`/api/email/threads?${params}`);
         setThreads(data);
         setSelectedId(current => current ?? data[0]?.id ?? null);
+    };
+
+    const loadEmailMedia = async () => {
+        setMediaLoading(true);
+        try {
+            const data = await api<EmailMediaItem[]>('/api/email/media');
+            setEmailMedia(data);
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not load email media', 'error');
+        } finally {
+            setMediaLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -175,6 +199,11 @@ export default function AdminEmailPage() {
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [showToast]);
+
+    useEffect(() => {
+        Promise.resolve().then(loadEmailMedia);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -253,6 +282,49 @@ export default function AdminEmailPage() {
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Could not read attachment', 'error');
         }
+    };
+
+    const uploadEmailMedia = async (files: FileList | null) => {
+        const file = files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            showToast('Upload an image for email media.', 'error');
+            return;
+        }
+        const form = new FormData();
+        form.append('file', file);
+        setMediaUploading(true);
+        try {
+            const res = await fetch('/api/email/media', { method: 'POST', body: form });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || json?.ok === false) throw new Error(json?.error || 'Upload failed');
+            const item = json.data as EmailMediaItem;
+            setEmailMedia(current => [item, ...current.filter(media => media.key !== item.key)]);
+            showToast('Image URL ready.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not upload image', 'error');
+        } finally {
+            setMediaUploading(false);
+        }
+    };
+
+    const copyMediaUrl = async (url: string) => {
+        try {
+            await navigator.clipboard.writeText(url);
+            showToast('Image URL copied.', 'success');
+        } catch {
+            showToast('Could not copy the URL in this browser.', 'error');
+        }
+    };
+
+    const insertMediaImage = (item: EmailMediaItem) => {
+        const tag = `<img src="${item.url}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />`;
+        setCompose(current => ({
+            ...current,
+            mode: 'html',
+            text: current.text.trim() ? `${current.text.trim()}\n\n${tag}` : tag,
+        }));
+        showToast('Image tag inserted.', 'success');
     };
 
     const addManualRecipient = () => {
@@ -454,7 +526,7 @@ export default function AdminEmailPage() {
                     .admin-email-shell[data-mobile-pane="list"] .admin-email-pane,
                     .admin-email-shell[data-mobile-pane="detail"] .admin-email-sidebar { display: none !important; }
                     .admin-email-mobile-back { display: inline-flex; }
-                    .admin-email-actions, .admin-email-compose-grid, .admin-email-html-grid { grid-template-columns: 1fr !important; }
+                    .admin-email-actions, .admin-email-compose-grid, .admin-email-html-grid, .admin-email-media-grid { grid-template-columns: 1fr !important; }
                     .admin-email-batch-toolbar { align-items: stretch !important; flex-direction: column; }
                     .admin-email-batch-actions { width: 100%; }
                     .admin-email-batch-actions button { flex: 1; }
@@ -712,6 +784,51 @@ export default function AdminEmailPage() {
                                         </span>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 8, border: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: 'uppercase' }}>Email Media</span>
+                                    <label title="Upload email image"
+                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 34, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.accent}30`, background: `${C.accent}0D`, color: C.accent, fontSize: 12, fontWeight: 800, cursor: mediaUploading ? 'wait' : 'pointer', opacity: mediaUploading ? 0.65 : 1 }}>
+                                        {mediaUploading ? <LoaderCircle size={14} style={{ animation: 'spin 0.9s linear infinite' }} /> : <ImageIcon size={14} />}
+                                        {mediaUploading ? 'Uploading...' : 'Upload Image'}
+                                        <input type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" disabled={mediaUploading}
+                                            onChange={event => { void uploadEmailMedia(event.target.files); event.currentTarget.value = ''; }}
+                                            style={{ display: 'none' }} />
+                                    </label>
+                                </div>
+                                {mediaLoading ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: C.textMuted, fontSize: 12.5 }}>
+                                        <LoaderCircle size={14} style={{ animation: 'spin 0.9s linear infinite' }} /> Loading media...
+                                    </span>
+                                ) : emailMedia.length === 0 ? (
+                                    <span style={{ color: C.textMuted, fontSize: 12.5 }}>No email media uploaded yet.</span>
+                                ) : (
+                                    <div className="admin-email-media-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 170, overflowY: 'auto', paddingRight: 2 }}>
+                                        {emailMedia.map(item => (
+                                            <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '46px minmax(0, 1fr)', gap: 9, alignItems: 'center', minWidth: 0, padding: 8, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface }}>
+                                                <img src={`/api/files/${item.key}`} alt="" style={{ width: 46, height: 46, borderRadius: 7, objectFit: 'cover', border: `1px solid ${C.border}`, background: C.bg }} />
+                                                <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <p style={{ fontSize: 12.5, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
+                                                        <p style={{ marginTop: 2, fontSize: 11, color: C.textMuted }}>{formatBytes(item.size)}</p>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        <button type="button" onClick={() => copyMediaUrl(item.url)} title="Copy image URL"
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, minHeight: 28, padding: '5px 8px', borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 11.5, fontWeight: 800, cursor: 'pointer' }}>
+                                                            <Copy size={12} /> Copy URL
+                                                        </button>
+                                                        <button type="button" onClick={() => insertMediaImage(item)} title="Insert image tag"
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, minHeight: 28, padding: '5px 8px', borderRadius: 7, border: 'none', background: C.accent, color: '#fff', fontSize: 11.5, fontWeight: 800, cursor: 'pointer' }}>
+                                                            <Plus size={12} /> Insert
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
