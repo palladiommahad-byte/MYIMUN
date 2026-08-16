@@ -45,7 +45,7 @@ export const POST = route(async (req: Request) => {
             email: body.email,
             passwordHash: await hashPassword(body.password),
             status: body.status,
-            permissions: body.permissions.length > 0 ? body.permissions : VALID_PAGES,
+            permissions: body.permissions,
         },
     });
     return ok(publicUser(row), 201);

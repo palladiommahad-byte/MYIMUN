@@ -1,15 +1,16 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser, hasPageAccess } from '@/lib/auth';
+import { requireUser, hasAnyPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
 import { notifyAdmin, notifyDelegate } from '@/lib/notifications';
 import { formatMoney } from '@/lib/currency';
 
 export const GET = route(async () => {
     const user = await requireUser();
+    const canViewStaffPayments = hasAnyPageAccess(user, ['/admin', '/admin/delegates', '/admin/payments']);
     const where =
-        user.role === 'admin' && hasPageAccess(user, '/admin/payments') ? {}
-        : hasPageAccess(user, '/admin/payments') ? { visibleToStaff: true }
+        user.role === 'admin' ? {}
+        : canViewStaffPayments ? { visibleToStaff: true }
         : { delegateId: user.id };
     const rows = await prisma.paymentSubmission.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);

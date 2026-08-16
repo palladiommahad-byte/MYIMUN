@@ -12,7 +12,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { ADMIN_PAGES } from '@/lib/adminPages';
+import { ADMIN_PAGES, firstAllowedAdminPage, hasAdminPageAccess } from '@/lib/adminPages';
 
 /* ── Landing-page section sub-nav items ── */
 export const LANDING_SECTIONS = [
@@ -74,14 +74,11 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isMessagesPage = pathname.startsWith('/admin/messages');
     const isEmailPage = pathname.startsWith('/admin/email');
 
-    const isAdmin = user?.role === 'admin';
-    const isStaff = user?.role === 'secretary' || user?.role === 'manager';
-    const allowed = new Set(user?.permissions ?? []);
-    const hasAccess = (path: string) => isAdmin || isStaff || allowed.has(path);
+    const hasAccess = (path: string) => hasAdminPageAccess(user, path);
     const visibleNavItems = NAV_ITEMS.filter(({ path }) => hasAccess(path));
     const currentPage = ADMIN_PAGES.find(p => p.path === '/admin' ? pathname === '/admin' : pathname.startsWith(p.path));
     const canViewCurrentPage = !currentPage || hasAccess(currentPage.path);
-    const firstAllowedPage = ADMIN_PAGES.find(p => hasAccess(p.path));
+    const firstAllowedPage = user ? firstAllowedAdminPage(user) : undefined;
 
     return (
         <div className="light-ui min-h-screen flex" style={{ background: S.bg, fontFamily: '"Inter", system-ui, sans-serif' }}>

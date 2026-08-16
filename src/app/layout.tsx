@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Providers from './providers';
 import GlobalBackground from '@/components/layout/GlobalBackground';
+import { WhatsAppSupportButton } from '@/components/support/WhatsAppSupportButton';
 
 export const metadata: Metadata = {
     title: 'MYIMUN | Moroccan Youth International Model United Nations',
@@ -33,6 +34,7 @@ export default function RootLayout({
                     <div className="relative z-10">
                         {children}
                     </div>
+                    <WhatsAppSupportButton />
                 </Providers>
             </body>
         </html>

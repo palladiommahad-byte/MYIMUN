@@ -567,7 +567,7 @@ function LandingEditorInner() {
                             <Field label="Button Label"><Input value={landingPage.getStarted.cta} onChange={v => setGetStart({ cta: v })} placeholder="Register Now" /></Field>
                             <Grid2>
                                 <Field label="Contact Label"><Input value={landingPage.getStarted.contactLabel} onChange={v => setGetStart({ contactLabel: v })} placeholder="Message us:" /></Field>
-                                <Field label="Phone"><Input value={landingPage.getStarted.phone} onChange={v => setGetStart({ phone: v })} placeholder="+212 713 133 601" /></Field>
+                                <Field label="WhatsApp Number"><Input value={landingPage.getStarted.phone} onChange={v => setGetStart({ phone: v })} placeholder="+212 713 133 601" /></Field>
                             </Grid2>
                         </Card>
                         <Card title="Section Image" subtitle="Left-column photo (rounded bottom-right corner)" accent={S.accent}>
@@ -657,6 +657,7 @@ function LandingEditorInner() {
                         <Card title="Footer Content" subtitle="Contact details shown in the site footer" accent={S.textSec}>
                             <Grid2>
                                 <Field label="Phone Number"><Input value={landingPage.footerData.phone} onChange={v => setFooter({ phone: v })} placeholder="+212 713 133 601" /></Field>
+                                <Field label="WhatsApp Number"><Input value={landingPage.footerData.whatsappPhone} onChange={v => setFooter({ whatsappPhone: v })} placeholder="+212 713 133 601" /></Field>
                                 <Field label="Office Hours"><Input value={landingPage.footerData.hours} onChange={v => setFooter({ hours: v })} placeholder="Monday to Friday: 9 am – 6 pm" /></Field>
                             </Grid2>
                             <Field label="Copyright Line"><Input value={landingPage.footerData.copyright} onChange={v => setFooter({ copyright: v })} placeholder="© 2025 MYIMUN  |  All Rights Reserved" /></Field>

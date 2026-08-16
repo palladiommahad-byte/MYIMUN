@@ -46,7 +46,7 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
             fullName: body.fullName,
             email: body.email,
             status: body.status,
-            permissions: body.permissions && body.permissions.length > 0 ? body.permissions : undefined,
+            permissions: body.permissions,
             ...(body.password ? { passwordHash: await hashPassword(body.password) } : {}),
         },
     });

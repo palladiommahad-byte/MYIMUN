@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Link2, Loader2, Send } from 'lucide-react';
+import { CheckCircle2, Link2, Loader2, MessageCircle, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DEFAULT_CONTACT_PAGE, resolveContactPage, type ContactPageData, type ContactSocialLink } from '@/lib/contactPage';
+import { whatsappHref } from '@/lib/contactLinks';
+import { useConference } from '@/context/ConferenceContext';
 import styles from './contact.module.css';
 
 function SocialIcon({ platform }: { platform: ContactSocialLink['platform'] }) {
@@ -15,6 +17,7 @@ function SocialIcon({ platform }: { platform: ContactSocialLink['platform'] }) {
 }
 
 export default function ContactPage() {
+    const { conferenceSettings } = useConference();
     const [content, setContent] = useState<ContactPageData>(DEFAULT_CONTACT_PAGE);
     const [form, setForm] = useState({ name: '', email: '', message: '' });
     const [sending, setSending] = useState(false);
@@ -70,11 +73,19 @@ export default function ContactPage() {
                             <a className={styles.phone} href={`tel:${content.phone.replace(/\s/g, '')}`}>{content.phone}</a>
                             <p>{content.hours}</p>
                         </motion.div>
-                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                        {conferenceSettings.whatsappSupportEnabled && (
+                            <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                                <a href={whatsappHref(content.whatsappPhone || content.phone, 'Hello MYIMUN Secretariat, I would like more information.')} target="_blank" rel="noopener noreferrer">
+                                    <MessageCircle size={18} /> WhatsApp: {content.whatsappPhone || content.phone}
+                                </a>
+                                <p>{content.whatsappNote}</p>
+                            </motion.div>
+                        )}
+                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
                             <a href={`mailto:${content.primaryEmail}`}>{content.primaryEmail}</a>
                             <p>{content.primaryEmailNote}</p>
                         </motion.div>
-                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
                             <a href={`mailto:${content.supportEmail}`}>{content.supportEmail}</a>
                             <p>{content.supportEmailNote}</p>
                         </motion.div>

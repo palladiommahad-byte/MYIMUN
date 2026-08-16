@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser, hasPageAccess } from '@/lib/auth';
+import { requireUser, hasAnyPageAccess } from '@/lib/auth';
 import { fail, ok, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async (req: Request) => {
     const user = await requireUser();
     const committee = new URL(req.url).searchParams.get('committee');
-    const isStaff = hasPageAccess(user, '/admin/committees');
+    const isStaff = hasAnyPageAccess(user, ['/admin', '/admin/delegates', '/admin/committees']);
 
     if (committee && !isStaff) {
         const membership = await prisma.committeeApplication.findFirst({

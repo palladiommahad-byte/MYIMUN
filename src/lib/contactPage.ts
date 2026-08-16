@@ -11,6 +11,8 @@ export interface ContactPageData {
     introduction: string;
     phone: string;
     hours: string;
+    whatsappPhone: string;
+    whatsappNote: string;
     primaryEmail: string;
     primaryEmailNote: string;
     supportEmail: string;
@@ -35,6 +37,8 @@ export const DEFAULT_CONTACT_PAGE: ContactPageData = {
     introduction: "We'd love to hear from you! Whether you have a question about the conference, need help with registration, or want to collaborate, our team is ready to assist.",
     phone: '+212 713 133 601',
     hours: 'Call us: Mon - Fri 9:00 - 19:00',
+    whatsappPhone: '+212 713 133 601',
+    whatsappNote: 'Message us directly on WhatsApp',
     primaryEmail: 'contact@myimun.org',
     primaryEmailNote: 'Drop us a line anytime!',
     supportEmail: 'support@myimun.org',

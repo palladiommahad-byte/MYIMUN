@@ -24,6 +24,12 @@ interface StaffMember {
     permissions: string[] | null;
 }
 
+function permissionSummary(permissions: string[] | null) {
+    if (permissions === null || permissions.length === ADMIN_PAGES.length) return 'All pages';
+    if (permissions.length === 0) return 'No pages';
+    return `${permissions.length} of ${ADMIN_PAGES.length} pages`;
+}
+
 async function getData(url: string) {
     try { const res = await fetch(url); if (!res.ok) return null; const j = await res.json(); return j?.ok ? j.data : null; } catch { return null; }
 }
@@ -93,8 +99,8 @@ function StaffTable({ members, onEdit, onDelete }: { members: StaffMember[]; onE
                                 </p>
                             </td>
                             <td style={{ padding: '12px 16px' }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: `${C.green}14`, color: C.green, whiteSpace: 'nowrap' }}>
-                                    Full access
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: `${m.permissions?.length === 0 ? C.red : C.green}14`, color: m.permissions?.length === 0 ? C.red : C.green, whiteSpace: 'nowrap' }}>
+                                    {permissionSummary(m.permissions)}
                                 </span>
                             </td>
                             <td style={{ padding: '12px 16px' }}>
@@ -177,10 +183,14 @@ export default function AdminSettingsPage() {
         if (email) queueMicrotask(() => setAccountForm(f => ({ ...f, email })));
     }, [user?.email]);
 
-    const [settingsForm, setSettingsForm] = useState<ConferenceSettings>(conferenceSettings);
+    const [settingsDraft, setSettingsDraft] = useState<ConferenceSettings | null>(null);
+    const settingsForm = settingsDraft ?? conferenceSettings;
     const toggleSetting = (key: keyof ConferenceSettings) =>
-        setSettingsForm(f => ({ ...f, [key]: !f[key] }));
-    const isDirty = JSON.stringify(settingsForm) !== JSON.stringify(conferenceSettings);
+        setSettingsDraft(current => {
+            const base = current ?? conferenceSettings;
+            return { ...base, [key]: !base[key] };
+        });
+    const isDirty = settingsDraft !== null && JSON.stringify(settingsForm) !== JSON.stringify(conferenceSettings);
 
     const saveSettings = () => {
         updateConferenceSettings(settingsForm);
@@ -189,6 +199,7 @@ export default function AdminSettingsPage() {
                 ? 'Registration is now open. Delegates can submit new registrations.'
                 : 'Registration is now closed. Delegates will see a closed notice.', 'info');
         }
+        setSettingsDraft(null);
         showToast('Conference settings saved', 'success');
     };
 
@@ -240,7 +251,14 @@ export default function AdminSettingsPage() {
     const openAdd = () => { setEditingMember(null); setFormData(EMPTY_FORM); setIsModalOpen(true); };
     const openEdit = (m: StaffMember) => {
         setEditingMember(m);
-        setFormData({ fullName: m.fullName, email: m.email, password: '', role: m.role, status: m.status, permissions: ADMIN_PAGES.map(p => p.path) });
+        setFormData({
+            fullName: m.fullName,
+            email: m.email,
+            password: '',
+            role: m.role,
+            status: m.status,
+            permissions: m.permissions ?? ADMIN_PAGES.map(p => p.path),
+        });
         setIsModalOpen(true);
     };
 
@@ -390,7 +408,7 @@ export default function AdminSettingsPage() {
                             const selected = settingsForm.registrationOpen === val;
                             const col = val ? C.green : C.red;
                             return (
-                                <button type="button" key={s} onClick={() => setSettingsForm(f => ({ ...f, registrationOpen: val }))}
+                                <button type="button" key={s} onClick={() => setSettingsDraft(current => ({ ...(current ?? conferenceSettings), registrationOpen: val }))}
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'none', border: 'none', padding: 0, opacity: selected ? 1 : 0.5 }}
                                 >
                                     <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${selected ? col : C.border}`, background: selected ? col : 'transparent' }} />
@@ -413,8 +431,7 @@ export default function AdminSettingsPage() {
                     <SettingRow title="Allow Position Paper Uploads" sub="Delegates can submit their papers." on={settingsForm.allowPaperUploads} onToggle={() => toggleSetting('allowPaperUploads')} />
                     <SettingRow title="Public Schedule" sub="Visible to non-logged in users." on={settingsForm.publicSchedule} onToggle={() => toggleSetting('publicSchedule')} />
                     <SettingRow title="System Maintenance Mode" sub="Disable access for standard users." on={settingsForm.maintenanceMode} onToggle={() => toggleSetting('maintenanceMode')} />
-                    <SettingRow title="Secretary Access" sub="Allow secretaries to access the admin dashboard." on={settingsForm.secretaryAccess} onToggle={() => toggleSetting('secretaryAccess')} />
-                    <SettingRow title="Manager Access" sub="Allow managers to access the admin dashboard." on={settingsForm.managerAccess} onToggle={() => toggleSetting('managerAccess')} />
+                    <SettingRow title="WhatsApp Support" sub="Show WhatsApp support buttons and direct-contact links." on={settingsForm.whatsappSupportEnabled} onToggle={() => toggleSetting('whatsappSupportEnabled')} />
                 </div>
 
                 <div style={{ height: 1, background: C.border }} />
@@ -443,7 +460,7 @@ export default function AdminSettingsPage() {
                             <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 20, color: C.text, marginBottom: 4 }}>
                                 Staff Management
                             </h2>
-                            <p style={{ fontSize: 14, color: C.textSec }}>Create secretary/manager accounts. Staff accounts have full admin-page access.</p>
+                            <p style={{ fontSize: 14, color: C.textSec }}>Create staff accounts and choose exactly which admin pages each person can access.</p>
                         </div>
                         <button onClick={openAdd}
                             className="flex items-center gap-2 font-semibold text-sm text-white"
@@ -567,11 +584,43 @@ export default function AdminSettingsPage() {
                                 </div>
                             </div>
 
-                            <div style={{ padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.green}25`, background: `${C.green}08` }}>
-                                <p style={{ fontSize: 13, fontWeight: 700, color: C.green, marginBottom: 3 }}>Full access</p>
-                                <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.45 }}>
-                                    Secretary and manager accounts can access every admin page. Only administrators can create, edit, or remove staff accounts.
-                                </p>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                                    <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                                        Page Access ({formData.permissions.length}/{ADMIN_PAGES.length})
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button type="button" onClick={() => setFormData(current => ({ ...current, permissions: ADMIN_PAGES.map(page => page.path) }))}
+                                            style={{ border: 'none', background: 'transparent', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '3px 5px' }}>
+                                            Select all
+                                        </button>
+                                        <button type="button" onClick={() => setFormData(current => ({ ...current, permissions: [] }))}
+                                            style={{ border: 'none', background: 'transparent', color: C.textSec, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '3px 5px' }}>
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, padding: 12, border: `1px solid ${C.border}`, borderRadius: 8, background: C.bg }}>
+                                    {ADMIN_PAGES.map(page => {
+                                        const checked = formData.permissions.includes(page.path);
+                                        return (
+                                            <label key={page.path} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer', color: checked ? C.text : C.textSec, fontSize: 12.5 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => setFormData(current => ({
+                                                        ...current,
+                                                        permissions: checked
+                                                            ? current.permissions.filter(path => path !== page.path)
+                                                            : [...current.permissions, page.path],
+                                                    }))}
+                                                    style={{ width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }}
+                                                />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={page.label}>{page.label}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 

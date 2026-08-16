@@ -19,6 +19,8 @@ function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.lengt
 const SUPPORT_FIELDS: Array<{ key: keyof DelegateSupportData; label: string; placeholder: string; type?: string }> = [
     { key: 'email', label: 'Support Email', placeholder: 'secretariat@myimun.org', type: 'email' },
     { key: 'emailNote', label: 'Email Note', placeholder: 'Response time: < 24h' },
+    { key: 'whatsappPhone', label: 'WhatsApp Phone', placeholder: '+212 713 133 601', type: 'tel' },
+    { key: 'whatsappNote', label: 'WhatsApp Note', placeholder: 'Fastest way to reach the Secretariat' },
     { key: 'emergencyPhone', label: 'Emergency Phone', placeholder: '+212 555 0192', type: 'tel' },
     { key: 'emergencyNote', label: 'Emergency Note', placeholder: 'Available 24/7 during conference' },
     { key: 'office', label: 'Secretariat Office', placeholder: 'Room 102, 1st Floor' },

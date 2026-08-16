@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser, hasPageAccess } from '@/lib/auth';
+import { requireUser, hasAnyPageAccess } from '@/lib/auth';
 import { ok, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = hasPageAccess(user, '/admin/papers') ? {} : { delegateId: user.id };
+    const canViewAll = hasAnyPageAccess(user, ['/admin', '/admin/delegates', '/admin/papers']);
+    const where = canViewAll ? {} : { delegateId: user.id };
     const rows = await prisma.positionPaper.findMany({ where, orderBy: { id: 'desc' } });
     return ok(rows);
 });

@@ -1,13 +1,17 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireUser, hasPageAccess } from '@/lib/auth';
+import { requireUser, hasAnyPageAccess } from '@/lib/auth';
 import { fail, ok, route } from '@/lib/api';
 import { notifyDelegate, notifyStaff } from '@/lib/notifications';
 
 /** GET — staff with Registrations access see all; delegates see their own. */
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = hasPageAccess(user, '/admin/registration') ? {} : { delegateId: user.id };
+    const canViewRoster = hasAnyPageAccess(user, [
+        '/admin', '/admin/registration', '/admin/delegates', '/admin/certificates',
+        '/admin/papers', '/admin/messages',
+    ]);
+    const where = canViewRoster ? {} : { delegateId: user.id };
     const rows = await prisma.registration.findMany({
         where, orderBy: { id: 'desc' },
         include: { delegate: { select: { status: true } } },

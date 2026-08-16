@@ -18,3 +18,22 @@ export const ADMIN_PAGES: { path: string; label: string }[] = [
     { path: '/admin/announcements', label: 'Broadcasts' },
     { path: '/admin/settings',      label: 'Settings' },
 ];
+
+const STAFF_ROLES = new Set(['secretary', 'manager']);
+
+/** Shared client/server permission check. Null permissions preserve full access
+    for staff accounts created before page-level permissions were introduced. */
+export function hasAdminPageAccess(
+    user: { role: string; permissions?: string[] | null } | null | undefined,
+    page: string,
+) {
+    if (user?.role === 'admin') return true;
+    if (!user || !STAFF_ROLES.has(user.role)) return false;
+    return user.permissions === null || user.permissions === undefined
+        ? true
+        : user.permissions.includes(page);
+}
+
+export function firstAllowedAdminPage(user: { role: string; permissions?: string[] | null }) {
+    return ADMIN_PAGES.find(page => hasAdminPageAccess(user, page.path));
+}

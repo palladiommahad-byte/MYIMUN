@@ -252,6 +252,7 @@ export interface ConferenceSettings {
     maintenanceMode: boolean;
     secretaryAccess: boolean;
     managerAccess: boolean;
+    whatsappSupportEnabled: boolean;
 }
 
 export interface ConferencePackage {
@@ -314,7 +315,7 @@ export interface LandingFaq { tag: string; items: LandingFaqItem[]; }
 
 export interface LandingFooterData {
     tagline: string; email: string; location: string;
-    phone: string; hours: string; copyright: string;
+    phone: string; whatsappPhone: string; hours: string; copyright: string;
     facebookUrl: string; youtubeUrl: string; instagramUrl: string;
 }
 export interface LandingPageData {
@@ -441,7 +442,7 @@ export const DEFAULT_LANDING: LandingPageData = {
     footerData: {
         tagline: 'Moroccan International Youth Model United Nations — shaping the next generation of global leaders.',
         email: 'info@myimun.org', location: 'Casablanca, Morocco',
-        phone: '+212 713 133 601', hours: 'Monday to Friday: 9 am – 6 pm',
+        phone: '+212 713 133 601', whatsappPhone: '+212 713 133 601', hours: 'Monday to Friday: 9 am – 6 pm',
         copyright: '© 2025 MYIMUN  |  All Rights Reserved',
         facebookUrl: '', youtubeUrl: '', instagramUrl: '',
     },
@@ -541,6 +542,7 @@ const SEED_CONFERENCE_SETTINGS: ConferenceSettings = {
     maintenanceMode: false,
     secretaryAccess: true,
     managerAccess: true,
+    whatsappSupportEnabled: true,
 };
 
 const SEED_PAYMENT_SETTINGS: PaymentSettings = {
@@ -748,7 +750,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [packages,       setPackages]       = useState<ConferencePackage[]>([]);
     const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
     const [landingPage,    setLandingPage]    = useState<LandingPageData>(DEFAULT_LANDING);
-    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false });
+    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true });
     const [isPublicLoading, setIsPublicLoading] = useState(true);
     const [isUserDataLoading, setIsUserDataLoading] = useState(true);
 
@@ -802,7 +804,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
             getData('/api/packages').then(pk => { if (pk !== null) setPackages(pk); }),
             getData('/api/schedule').then(sc => { if (sc !== null) setScheduleEvents(sc); }),
             getData('/api/settings/conference').then(conf => {
-                if (conf !== null) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, ...conf });
+                if (conf !== null) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true, ...conf });
             }),
             getData('/api/settings/landing').then(land => { if (land !== null) setLandingPage(resolveLandingPage(land)); }),
         ]);

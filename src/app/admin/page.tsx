@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
 import { useAuth } from '@/auth/AuthContext';
 import { Donut, StatPanel } from '@/components/admin/StatWidgets';
+import { hasAdminPageAccess } from '@/lib/adminPages';
 
 /* ── Style constants ── */
 const C = {
@@ -66,6 +67,8 @@ export default function AdminDashboardPage() {
     const confirmedOnly = pathname.startsWith('/admin/delegates');
     const { registrations, payments, papers, committees, applications, suspendDelegate } = useConference();
     const isAdmin = user?.role === 'admin';
+    const canViewRegistrations = hasAdminPageAccess(user, '/admin/registration');
+    const canManageDelegates = hasAdminPageAccess(user, '/admin/delegates');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
@@ -394,15 +397,17 @@ export default function AdminDashboardPage() {
                                         {/* Actions */}
                                         <td style={{ padding: '13px 20px', textAlign: 'right' }}>
                                             <div className="flex items-center justify-end gap-1.5">
-                                                <Link href="/admin/registration" title="View registration"
-                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                    style={{ color: C.textMuted }}
-                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.accent; }}
-                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-                                                >
-                                                    <Eye size={15} />
-                                                </Link>
-                                                {d.accountStatus === 'inactive' ? (
+                                                {canViewRegistrations && (
+                                                    <Link href="/admin/registration" title="View registration"
+                                                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                        style={{ color: C.textMuted }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.accent; }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                                                    >
+                                                        <Eye size={15} />
+                                                    </Link>
+                                                )}
+                                                {canManageDelegates && (d.accountStatus === 'inactive' ? (
                                                     <button onClick={() => setSuspendTarget({ delegateId: d.delegateId, name: d.name, suspended: false })} title="Restore access"
                                                         className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
                                                         style={{ color: C.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}
@@ -420,7 +425,7 @@ export default function AdminDashboardPage() {
                                                     >
                                                         <Ban size={15} />
                                                     </button>
-                                                )}
+                                                ))}
                                             </div>
                                         </td>
                                     </tr>

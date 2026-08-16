@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { ADMIN_PAGES } from '@/lib/adminPages';
+import { firstAllowedAdminPage } from '@/lib/adminPages';
 
 const STAFF = ['admin', 'secretary', 'manager'];
 
@@ -39,7 +39,7 @@ export default function LoginPage() {
             } else if (user.role === 'admin') {
                 router.replace('/admin');
             } else {
-                const firstAllowed = ADMIN_PAGES.find(p => user.permissions?.includes(p.path));
+                const firstAllowed = firstAllowedAdminPage(user);
                 router.replace(firstAllowed?.path ?? '/admin');
             }
         } catch (err) {

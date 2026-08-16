@@ -4,6 +4,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { User } from '@prisma/client';
 import { prisma } from './prisma';
+import { hasAdminPageAccess } from './adminPages';
 
 const COOKIE = 'myimun_session';
 const configuredSessionDays = Number(process.env.SESSION_DAYS ?? 7);
@@ -69,7 +70,12 @@ export async function getSession(): Promise<{ userId: string; role: string } | n
 export function publicUser(u: User) {
     const { passwordHash, permissions, ...rest } = u;
     void passwordHash;
-    return { ...rest, permissions: (permissions as string[] | null) ?? null };
+    const publicPermissions = permissions === null
+        ? null
+        : Array.isArray(permissions)
+            ? permissions.filter((value): value is string => typeof value === 'string')
+            : [];
+    return { ...rest, permissions: publicPermissions };
 }
 
 /** The full current user record, or null. */
@@ -112,11 +118,16 @@ export async function requireAdmin() {
 /** Pure check: does this (already-loaded) user have access to one /admin/* section?
     Admins and active staff roles pass; delegate accounts do not. */
 export function hasPageAccess(user: { role: string; permissions?: unknown }, page: string) {
-    if (user.role === 'admin') return true;
-    if (!STAFF_ROLES.includes(user.role)) return false;
-    if (user.role === 'secretary' || user.role === 'manager') return true;
-    const allowed = (user.permissions as string[] | null) ?? [];
-    return allowed.includes(page);
+    const permissions = user.permissions === null || user.permissions === undefined
+        ? null
+        : Array.isArray(user.permissions)
+            ? user.permissions.filter((value): value is string => typeof value === 'string')
+            : [];
+    return hasAdminPageAccess({ role: user.role, permissions }, page);
+}
+
+export function hasAnyPageAccess(user: { role: string; permissions?: unknown }, pages: string[]) {
+    return pages.some(page => hasPageAccess(user, page));
 }
 
 /** Staff access to one specific /admin/* section. Admins, secretaries, and managers pass. */

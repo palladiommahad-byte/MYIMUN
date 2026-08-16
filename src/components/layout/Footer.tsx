@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight, MessageCircle, Search } from 'lucide-react';
 import { useConference } from '@/context/ConferenceContext';
+import { whatsappHref } from '@/lib/contactLinks';
 
 const C = {
     blue:     '#2C74FF',
@@ -44,8 +45,9 @@ function InstagramIcon({ size = 20, color = C.heading }: IconProps) {
 }
 
 export const Footer: React.FC = () => {
-    const { landingPage } = useConference();
+    const { landingPage, conferenceSettings } = useConference();
     const fd = landingPage.footerData;
+    const whatsappPhone = fd.whatsappPhone || fd.phone;
     const linkStyle: React.CSSProperties = { fontSize: 18, fontWeight: 400, color: C.body, textDecoration: 'none' };
     const socialLinks = [
         { label: 'Facebook', href: fd.facebookUrl, Icon: FacebookIcon },
@@ -61,7 +63,15 @@ export const Footer: React.FC = () => {
                     {/* Col 1 — Logo & contact */}
                     <div>
                         <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN" style={{ height: 52, width: 'auto', objectFit: 'contain', display: 'block' }} />
-                        <p style={{ fontWeight: 700, fontSize: 28, color: C.heading, marginTop: 32 }}>{fd.phone}</p>
+                        {conferenceSettings.whatsappSupportEnabled ? (
+                            <a href={whatsappHref(whatsappPhone, 'Hello MYIMUN Secretariat, I would like more information.')} target="_blank" rel="noopener noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 28, color: C.heading, marginTop: 32, textDecoration: 'none' }}>
+                                <MessageCircle size={24} color={C.blue} />
+                                {whatsappPhone}
+                            </a>
+                        ) : (
+                            <p style={{ fontWeight: 700, fontSize: 28, color: C.heading, marginTop: 32 }}>{fd.phone}</p>
+                        )}
                         <p style={{ fontWeight: 400, fontSize: 18, color: C.bodyLight, marginTop: 4 }}>{fd.hours}</p>
                         <Link href="/contact" style={{ textDecoration: 'none' }}>
                             <button style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 8, background: C.blue, color: '#fff', border: 'none', borderRadius: 9999, padding: '12px 26px', fontWeight: 600, fontSize: 18, cursor: 'pointer', fontFamily: FONT }}>

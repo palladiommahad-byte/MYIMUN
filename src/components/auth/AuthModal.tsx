@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, ArrowRight, AlertCircle, Phone, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { firstAllowedAdminPage } from '@/lib/adminPages';
 import { useAuth } from '../../auth/AuthContext';
 
 interface AuthModalProps {
@@ -74,8 +75,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             onClose();
             if (!['admin', 'secretary', 'manager'].includes(user.role)) {
                 router.push('/dashboard/events');
-            } else {
+            } else if (user.role === 'admin') {
                 router.push('/admin');
+            } else {
+                router.push(firstAllowedAdminPage(user)?.path ?? '/admin');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
