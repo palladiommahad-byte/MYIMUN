@@ -128,30 +128,44 @@ export default function AdminAccountsPage() {
     const [resetTarget, setResetTarget] = useState<ResetTarget | null>(null);
     const [newPass, setNewPass] = useState('');
     const [resetting, setResetting] = useState(false);
+    const [resetAction, setResetAction] = useState<'set' | 'email' | null>(null);
     const [resetDone, setResetDone] = useState(false);
+    const [resetEmailSent, setResetEmailSent] = useState(false);
+    const [resetEmailError, setResetEmailError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
     const openReset = (t: ResetTarget) => {
-        setResetTarget(t); setNewPass(genPassword()); setResetDone(false); setCopied(false);
+        setResetTarget(t); setNewPass(genPassword()); setResetDone(false); setResetEmailSent(false); setResetEmailError(null); setCopied(false);
     };
-    const confirmReset = async () => {
+    const confirmReset = async (emailCredentials = false) => {
         if (!resetTarget || newPass.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
         setResetting(true);
+        setResetAction(emailCredentials ? 'email' : 'set');
         try {
+            let result: { credentialEmailSent?: boolean; credentialEmailError?: string | null } | null = null;
             if (resetTarget.kind === 'account') {
-                const updated = await send('PATCH', `/api/accounts/${resetTarget.id}`, { action: 'resetPassword', newPassword: newPass });
+                const updated = await send('PATCH', `/api/accounts/${resetTarget.id}`, { action: 'resetPassword', newPassword: newPass, emailCredentials });
+                result = updated;
                 setAccounts(prev => prev.map(a => a.id === resetTarget.id ? { ...a, ...updated } : a));
             } else {
-                if (!resetTarget.userId) { showToast('No account matches this email. Dismiss the request instead.', 'error'); setResetting(false); return; }
-                await send('PATCH', `/api/password-reset/${resetTarget.id}`, { action: 'resolve', newPassword: newPass });
+                if (!resetTarget.userId) { showToast('No account matches this email. Dismiss the request instead.', 'error'); setResetting(false); setResetAction(null); return; }
+                result = await send('PATCH', `/api/password-reset/${resetTarget.id}`, { action: 'resolve', newPassword: newPass, emailCredentials });
                 refreshAccountsData();
                 setAccounts(prev => prev.map(a => a.id === resetTarget.userId ? { ...a, accessReviewRequired: false, loginLockUntil: null } : a));
             }
+            setResetEmailSent(Boolean(result?.credentialEmailSent));
+            setResetEmailError(result?.credentialEmailError ?? null);
             setResetDone(true);
+            if (emailCredentials) {
+                showToast(result?.credentialEmailError ? 'Password reset, but email could not be sent' : 'Password reset and credentials emailed', result?.credentialEmailError ? 'warning' : 'success');
+            } else {
+                showToast('Password reset', 'success');
+            }
         } catch (err) {
             showToast(err instanceof Error ? err.message : 'Could not reset password', 'error');
         } finally {
             setResetting(false);
+            setResetAction(null);
         }
     };
     const copyPass = async () => {
@@ -496,7 +510,7 @@ export default function AdminAccountsPage() {
             {resetTarget && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(17,24,39,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
                     onClick={e => { if (e.target === e.currentTarget && !resetting) setResetTarget(null); }}>
-                    <div style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: 26 }}>
+                    <div style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', padding: 26 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: 11, background: `${C.accent}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -524,29 +538,46 @@ export default function AdminAccountsPage() {
                                     </button>
                                 </div>
                                 <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
-                                    Generate or type a password, then share it with the delegate via the phone/email they provided. They can change it later from their profile.
+                                    Generate or type a password, then either copy it manually or email the full credentials to the delegate.
                                 </p>
-                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                     <button onClick={() => setResetTarget(null)} disabled={resetting}
                                         style={{ padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.textSec, cursor: 'pointer' }}>Cancel</button>
-                                    <button onClick={confirmReset} disabled={resetting}
-                                        style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'default' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
-                                        {resetting ? 'Setting…' : 'Set new password'}
+                                    <button onClick={() => confirmReset(false)} disabled={resetting}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 13, fontWeight: 600, cursor: resetting ? 'default' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                                        {resetAction === 'set' ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                                        {resetAction === 'set' ? 'Setting...' : 'Set only'}
+                                    </button>
+                                    <button onClick={() => confirmReset(true)} disabled={resetting}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: resetting ? 'default' : 'pointer', opacity: resetting ? 0.7 : 1 }}>
+                                        {resetAction === 'email' ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                        {resetAction === 'email' ? 'Sending...' : 'Set & email credentials'}
                                     </button>
                                 </div>
                             </>
                         ) : (
                             <>
                                 <div style={{ background: `${C.green}0E`, border: `1px solid ${C.green}33`, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-                                    <p style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>Share this new password with <strong style={{ color: C.text }}>{resetTarget.name}</strong>:</p>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <code style={{ flex: 1, fontSize: 16, fontWeight: 700, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', letterSpacing: '0.05em' }}>{newPass}</code>
+                                    <p style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>
+                                        {resetEmailSent ? 'These credentials were emailed to' : 'Share these login details with'} <strong style={{ color: C.text }}>{resetTarget.name}</strong>:
+                                    </p>
+                                    <div style={{ display: 'grid', gap: 8 }}>
+                                        <code style={{ fontSize: 13, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px' }}>Full name: {resetTarget.name}</code>
+                                        <code style={{ fontSize: 13, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px' }}>Email: {resetTarget.email}</code>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <code style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', letterSpacing: '0.05em', overflowWrap: 'anywhere' }}>Password: {newPass}</code>
                                         <button onClick={copyPass}
                                             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', borderRadius: 8, border: 'none', background: copied ? C.green : C.accent, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
                                             {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
                                         </button>
+                                        </div>
                                     </div>
                                 </div>
+                                {resetEmailError && (
+                                    <div style={{ background: `${C.amber}10`, border: `1px solid ${C.amber}33`, borderRadius: 10, padding: '11px 13px', marginBottom: 14, color: C.amber, fontSize: 12.5, lineHeight: 1.45 }}>
+                                        Password was reset, but the email could not be sent: {resetEmailError}
+                                    </div>
+                                )}
                                 <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
                                     For security, this password won&apos;t be shown again after you close this dialog.
                                 </p>

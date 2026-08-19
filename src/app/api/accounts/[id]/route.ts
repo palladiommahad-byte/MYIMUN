@@ -3,12 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { requirePage, publicUser, hashPassword } from '@/lib/auth';
 import { ok, fail, route } from '@/lib/api';
 import { notifyDelegate } from '@/lib/notifications';
+import { sendDelegateCredentialEmail } from '@/lib/credentialEmail';
 
 const schema = z.discriminatedUnion('action', [
-    z.object({ action: z.literal('resetPassword'), newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200) }),
+    z.object({
+        action: z.literal('resetPassword'),
+        newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200),
+        emailCredentials: z.boolean().optional().default(false),
+    }),
     z.object({ action: z.literal('updateEmail'), email: z.string().trim().toLowerCase().email() }),
     z.object({ action: z.literal('setStatus'), status: z.enum(['active', 'inactive']) }),
 ]);
+
+export const runtime = 'nodejs';
 
 /** PATCH — staff manage a delegate account: reset password, change email, or suspend/restore. */
 export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
@@ -43,6 +50,8 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
         : { status: body.status };
 
     const row = await prisma.user.update({ where: { id }, data });
+    let credentialEmailSent = false;
+    let credentialEmailError: string | null = null;
 
     if (body.action === 'setStatus') {
         await notifyDelegate(id, body.status === 'inactive' ? {
@@ -62,7 +71,20 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
             message: `An organizer updated your login email to ${body.email}.`,
             link: '/dashboard',
         });
+    } else if (body.action === 'resetPassword') {
+        if (body.emailCredentials) {
+            try {
+                await sendDelegateCredentialEmail({
+                    fullName: row.fullName,
+                    email: row.email,
+                    password: body.newPassword,
+                });
+                credentialEmailSent = true;
+            } catch (error) {
+                credentialEmailError = error instanceof Error ? error.message : 'Could not send credentials email';
+            }
+        }
     }
 
-    return ok(publicUser(row));
+    return ok({ ...publicUser(row), credentialEmailSent, credentialEmailError });
 });
