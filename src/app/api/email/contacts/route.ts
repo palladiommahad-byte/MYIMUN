@@ -7,7 +7,10 @@ export const runtime = 'nodejs';
 export const GET = route(async () => {
     await requirePage('/admin/email');
     const rows = await prisma.registration.findMany({
-        where: { delegateId: { not: '' } },
+        where: {
+            delegateId: { not: '' },
+            email: { not: '' },
+        },
         orderBy: { fullName: 'asc' },
         select: {
             delegateId: true,

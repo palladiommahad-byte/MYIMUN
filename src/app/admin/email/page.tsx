@@ -12,12 +12,13 @@ import { useToast } from '@/components/ui/Toast';
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
     text: '#111827', textSec: '#6B7280', textMuted: '#9CA3AF',
-    accent: '#3B7FFF', green: '#10B981', red: '#EF4444',
+    accent: '#3B7FFF', green: '#10B981', orange: '#F59E0B', red: '#EF4444',
     shadow: '0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)',
 };
 
 type Recipient = { name?: string; email: string; delivery?: 'to' | 'bcc'; delegateId?: string };
 type ComposeMode = 'plain' | 'html';
+type BulkAudience = 'all' | 'unpaid' | 'paid';
 type DelegateContact = {
     delegateId: string;
     fullName: string;
@@ -70,7 +71,7 @@ type EmailMediaItem = {
 const emptyCompose = { subject: '', text: '', manualName: '', manualEmail: '', delegateId: '', mode: 'plain' as ComposeMode };
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-const MAX_RECIPIENTS_PER_EMAIL = 20;
+const MAX_RECIPIENTS_PER_EMAIL = 40;
 
 function formatDate(value: string) {
     const date = new Date(value);
@@ -115,6 +116,16 @@ function formatBytes(bytes: number) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function paymentStatusTone(status: string) {
+    if (status === 'Paid') {
+        return { background: `${C.green}12`, border: `${C.green}28`, color: C.green };
+    }
+    if (status.toLowerCase().includes('reject')) {
+        return { background: `${C.red}10`, border: `${C.red}24`, color: C.red };
+    }
+    return { background: `${C.orange}12`, border: `${C.orange}28`, color: C.orange };
+}
+
 function fileToAttachment(file: File): Promise<OutboundAttachment> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -148,8 +159,9 @@ export default function AdminEmailPage() {
     const [composeSaving, setComposeSaving] = useState(false);
     const [compose, setCompose] = useState(emptyCompose);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
-    const [unpaidPickerOpen, setUnpaidPickerOpen] = useState(false);
-    const [unpaidSearch, setUnpaidSearch] = useState('');
+    const [bulkPickerOpen, setBulkPickerOpen] = useState(false);
+    const [bulkSearch, setBulkSearch] = useState('');
+    const [bulkAudience, setBulkAudience] = useState<BulkAudience>('all');
     const [sentDelegateIds, setSentDelegateIds] = useState<string[]>([]);
     const [composeAttachments, setComposeAttachments] = useState<OutboundAttachment[]>([]);
     const [emailMedia, setEmailMedia] = useState<EmailMediaItem[]>([]);
@@ -222,25 +234,43 @@ export default function AdminEmailPage() {
                 .some(value => value.toLowerCase().includes(q)),
         );
     }, [threads, search]);
-    const unpaidContacts = useMemo(
-        () => contacts.filter(contact => contact.paymentStatus !== 'Paid'),
+    const registeredContacts = useMemo(
+        () => contacts,
         [contacts],
     );
-    const filteredUnpaidContacts = useMemo(() => {
-        const query = unpaidSearch.trim().toLowerCase();
-        if (!query) return unpaidContacts;
-        return unpaidContacts.filter(contact =>
+    const paymentCounts = useMemo(() => {
+        const paid = registeredContacts.filter(contact => contact.paymentStatus === 'Paid').length;
+        return {
+            all: registeredContacts.length,
+            paid,
+            unpaid: registeredContacts.length - paid,
+        };
+    }, [registeredContacts]);
+    const bulkAudienceContacts = useMemo(() => {
+        if (bulkAudience === 'paid') return registeredContacts.filter(contact => contact.paymentStatus === 'Paid');
+        if (bulkAudience === 'unpaid') return registeredContacts.filter(contact => contact.paymentStatus !== 'Paid');
+        return registeredContacts;
+    }, [bulkAudience, registeredContacts]);
+    const bulkAudienceLabel = bulkAudience === 'all' ? 'registered' : bulkAudience;
+    const sentDelegateIdSet = useMemo(() => new Set(sentDelegateIds), [sentDelegateIds]);
+    const remainingBulkCount = useMemo(
+        () => bulkAudienceContacts.filter(contact => !sentDelegateIdSet.has(contact.delegateId)).length,
+        [bulkAudienceContacts, sentDelegateIdSet],
+    );
+    const filteredRegisteredContacts = useMemo(() => {
+        const query = bulkSearch.trim().toLowerCase();
+        if (!query) return bulkAudienceContacts;
+        return bulkAudienceContacts.filter(contact =>
             [contact.fullName, contact.email, contact.country]
                 .some(value => value.toLowerCase().includes(query)),
         );
-    }, [unpaidContacts, unpaidSearch]);
-    const selectedUnpaidIds = useMemo(
+    }, [bulkAudienceContacts, bulkSearch]);
+    const selectedBulkIds = useMemo(
         () => new Set(recipients
             .filter(recipient => recipient.delivery === 'bcc' && recipient.delegateId)
             .map(recipient => recipient.delegateId as string)),
         [recipients],
     );
-    const sentDelegateIdSet = useMemo(() => new Set(sentDelegateIds), [sentDelegateIds]);
 
     const addRecipient = (recipient: Recipient) => {
         const email = recipient.email.trim().toLowerCase();
@@ -341,8 +371,8 @@ export default function AdminEmailPage() {
         addRecipient({ name: contact.fullName, email: contact.email, delegateId: contact.delegateId });
     };
 
-    const toggleUnpaidRecipient = (contact: DelegateContact) => {
-        const selected = selectedUnpaidIds.has(contact.delegateId);
+    const toggleBulkRecipient = (contact: DelegateContact) => {
+        const selected = selectedBulkIds.has(contact.delegateId);
         if (selected) {
             setRecipients(current => current.filter(recipient => recipient.delegateId !== contact.delegateId));
             return;
@@ -356,9 +386,9 @@ export default function AdminEmailPage() {
         });
     };
 
-    const selectNextUnpaidBatch = () => {
-        if (unpaidContacts.length === 0) {
-            showToast('No unpaid delegates found.', 'error');
+    const selectNextBulkBatch = () => {
+        if (bulkAudienceContacts.length === 0) {
+            showToast(`No ${bulkAudienceLabel} delegates found.`, 'error');
             return;
         }
 
@@ -368,7 +398,7 @@ export default function AdminEmailPage() {
             showToast(`This email already has ${MAX_RECIPIENTS_PER_EMAIL} recipients.`, 'error');
             return;
         }
-        const additions = unpaidContacts
+        const additions = bulkAudienceContacts
             .filter(contact => !sentDelegateIdSet.has(contact.delegateId))
             .map(contact => ({ name: contact.fullName, email: contact.email.trim().toLowerCase(), delivery: 'bcc' as const, delegateId: contact.delegateId }))
             .filter(recipient => recipient.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email))
@@ -376,12 +406,12 @@ export default function AdminEmailPage() {
             .slice(0, availableSlots);
 
         if (additions.length === 0) {
-            showToast('There are no more unpaid delegates in this session.', 'success');
+            showToast(`There are no more ${bulkAudienceLabel} delegates in this session.`, 'success');
             return;
         }
 
         setRecipients(current => [...current, ...additions]);
-        setUnpaidPickerOpen(true);
+        setBulkPickerOpen(true);
     };
 
     const refreshCurrentThread = (updated: EmailThread | null) => {
@@ -472,7 +502,7 @@ export default function AdminEmailPage() {
             setRecipients([]);
             if (sentBatchDelegateIds.length > 0 && visibleRecipients.length === 0) {
                 setSentDelegateIds(current => Array.from(new Set([...current, ...sentBatchDelegateIds])));
-                setUnpaidPickerOpen(true);
+                setBulkPickerOpen(true);
                 showToast(`Email sent to ${sentBatchDelegateIds.length}. Select the next batch.`, 'success');
             } else {
                 setComposeAttachments([]);
@@ -545,7 +575,7 @@ export default function AdminEmailPage() {
                             style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: syncing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: configured === false ? 0.45 : 1 }}>
                             {syncing ? <LoaderCircle size={15} style={{ animation: 'spin 0.9s linear infinite' }} /> : <RefreshCw size={15} />}
                         </button>
-                        <button type="button" onClick={() => { setComposeOpen(true); setMobilePane('detail'); setSentDelegateIds([]); setUnpaidSearch(''); }} title="New email"
+                        <button type="button" onClick={() => { setComposeOpen(true); setMobilePane('detail'); setSentDelegateIds([]); setBulkSearch(''); setBulkAudience('all'); }} title="New email"
                             style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${composeOpen ? C.accent : C.border}`, background: composeOpen ? C.accent : C.surface, color: composeOpen ? '#fff' : C.textSec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Plus size={16} />
                         </button>
@@ -653,9 +683,9 @@ export default function AdminEmailPage() {
                                             <UserPlus size={16} />
                                         </button>
                                     </div>
-                                    <button type="button" onClick={() => setUnpaidPickerOpen(current => !current)} title="Choose unpaid registered delegates as BCC"
+                                    <button type="button" onClick={() => setBulkPickerOpen(current => !current)} title="Choose registered delegates as BCC"
                                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 36, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.accent}30`, background: `${C.accent}08`, color: C.accent, fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                                        <Users size={15} /> Choose Unpaid BCC ({selectedUnpaidIds.size}/{MAX_RECIPIENTS_PER_EMAIL})
+                                        <Users size={15} /> Choose Registered BCC ({selectedBulkIds.size}/{MAX_RECIPIENTS_PER_EMAIL})
                                     </button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -673,67 +703,87 @@ export default function AdminEmailPage() {
                                 </div>
                             </div>
 
-                            {unpaidPickerOpen && createPortal(
-                                <div role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setUnpaidPickerOpen(false); }}
+                            {bulkPickerOpen && createPortal(
+                                <div role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setBulkPickerOpen(false); }}
                                     style={{ position: 'fixed', inset: 0, zIndex: 1200, padding: 16, background: 'rgba(17,24,39,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <section role="dialog" aria-modal="true" aria-labelledby="unpaid-picker-title"
+                                    <section role="dialog" aria-modal="true" aria-labelledby="bulk-picker-title"
                                         style={{ width: '100%', maxWidth: 680, maxHeight: 'min(720px, calc(100vh - 32px))', border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', background: C.surface, boxShadow: '0 24px 70px rgba(17,24,39,0.22)', display: 'flex', flexDirection: 'column' }}>
                                         <div className="admin-email-batch-toolbar" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
                                             <div>
-                                                <p id="unpaid-picker-title" style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Choose unpaid delegates</p>
+                                                <p id="bulk-picker-title" style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Choose registered delegates</p>
                                                 <p style={{ fontSize: 11.5, color: C.textSec, marginTop: 2 }}>
-                                                    {selectedUnpaidIds.size}/{MAX_RECIPIENTS_PER_EMAIL} selected · {sentDelegateIds.length} sent this session · {Math.max(0, unpaidContacts.length - sentDelegateIds.length)} remaining
+                                                    {selectedBulkIds.size}/{MAX_RECIPIENTS_PER_EMAIL} selected · {sentDelegateIds.length} sent this session · {remainingBulkCount} remaining
                                                 </p>
                                             </div>
-                                            <button type="button" onClick={() => setUnpaidPickerOpen(false)} title="Close delegate selector"
+                                            <button type="button" onClick={() => setBulkPickerOpen(false)} title="Close delegate selector"
                                                 style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 7, border: 'none', background: 'transparent', color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <X size={17} />
                                             </button>
                                         </div>
+                                        <div style={{ padding: '10px 14px', display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+                                            {([
+                                                ['all', 'All', paymentCounts.all],
+                                                ['unpaid', 'Unpaid', paymentCounts.unpaid],
+                                                ['paid', 'Paid', paymentCounts.paid],
+                                            ] as const).map(([audience, label, count]) => {
+                                                const active = bulkAudience === audience;
+                                                return (
+                                                    <button key={audience} type="button" onClick={() => setBulkAudience(audience)} aria-pressed={active}
+                                                        style={{ minHeight: 32, padding: '6px 10px', borderRadius: 8, border: `1px solid ${active ? C.accent : C.border}`, background: active ? `${C.accent}0D` : C.bg, color: active ? C.accent : C.textSec, fontSize: 12, fontWeight: 800, cursor: 'pointer', boxShadow: active ? `inset 0 0 0 1px ${C.accent}12` : 'none' }}>
+                                                        {label} ({count})
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                         <div className="admin-email-batch-toolbar" style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.border}` }}>
                                             <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                                                 <Search size={14} style={{ position: 'absolute', left: 11, top: 11, color: C.textMuted }} />
-                                                <input autoFocus value={unpaidSearch} onChange={event => setUnpaidSearch(event.target.value)} placeholder="Search by name, email, or country..."
+                                                <input autoFocus value={bulkSearch} onChange={event => setBulkSearch(event.target.value)} placeholder="Search by name, email, or country..."
                                                     style={{ width: '100%', minWidth: 0, padding: '9px 11px 9px 33px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 12.5, outline: 'none' }} />
                                             </div>
                                             <div className="admin-email-batch-actions" style={{ display: 'flex', gap: 8 }}>
                                                 <button type="button" onClick={() => setRecipients(current => current.filter(recipient => recipient.delivery !== 'bcc'))}
-                                                    disabled={selectedUnpaidIds.size === 0}
-                                                    style={{ minHeight: 36, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12, fontWeight: 800, cursor: selectedUnpaidIds.size === 0 ? 'default' : 'pointer', opacity: selectedUnpaidIds.size === 0 ? 0.5 : 1 }}>
+                                                    disabled={selectedBulkIds.size === 0}
+                                                    style={{ minHeight: 36, padding: '7px 11px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 12, fontWeight: 800, cursor: selectedBulkIds.size === 0 ? 'default' : 'pointer', opacity: selectedBulkIds.size === 0 ? 0.5 : 1 }}>
                                                     Clear
                                                 </button>
-                                                <button type="button" onClick={selectNextUnpaidBatch}
+                                                <button type="button" onClick={selectNextBulkBatch}
                                                     style={{ minHeight: 36, padding: '7px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    Select Next 20
+                                                    Select Next 40
                                                 </button>
                                             </div>
                                         </div>
                                         <div style={{ minHeight: 180, overflowY: 'auto', flex: 1 }}>
-                                            {filteredUnpaidContacts.length === 0 ? (
-                                                <p style={{ padding: 28, color: C.textMuted, fontSize: 12.5, textAlign: 'center' }}>No unpaid delegates match this search.</p>
-                                            ) : filteredUnpaidContacts.map(contact => {
-                                                const checked = selectedUnpaidIds.has(contact.delegateId);
+                                            {filteredRegisteredContacts.length === 0 ? (
+                                                <p style={{ padding: 28, color: C.textMuted, fontSize: 12.5, textAlign: 'center' }}>No {bulkAudienceLabel} delegates match this search.</p>
+                                            ) : filteredRegisteredContacts.map(contact => {
+                                                const checked = selectedBulkIds.has(contact.delegateId);
                                                 const sent = sentDelegateIdSet.has(contact.delegateId);
                                                 const atLimit = recipients.length >= MAX_RECIPIENTS_PER_EMAIL && !checked;
                                                 const disabled = sent || atLimit;
+                                                const statusTone = sent
+                                                    ? { background: `${C.green}12`, border: `${C.green}28`, color: C.green }
+                                                    : checked
+                                                        ? { background: `${C.accent}12`, border: `${C.accent}28`, color: C.accent }
+                                                        : paymentStatusTone(contact.paymentStatus);
                                                 return (
                                                     <label key={contact.delegateId} style={{ minHeight: 56, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 11, borderBottom: `1px solid ${C.border}`, cursor: disabled ? 'default' : 'pointer', opacity: sent ? 0.55 : 1, background: checked ? `${C.accent}08` : C.surface }}>
-                                                        <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleUnpaidRecipient(contact)}
+                                                        <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleBulkRecipient(contact)}
                                                             style={{ width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }} />
                                                         <span style={{ minWidth: 0, flex: 1 }}>
                                                             <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.fullName}</span>
                                                             <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.email}{contact.country ? ` · ${contact.country}` : ''}</span>
                                                         </span>
-                                                        <span style={{ flexShrink: 0, padding: '4px 7px', borderRadius: 6, background: sent ? `${C.green}12` : C.bg, color: sent ? C.green : C.textMuted, fontSize: 10.5, fontWeight: 800 }}>
-                                                            {sent ? 'Sent' : checked ? 'Selected' : 'Unpaid'}
+                                                        <span style={{ flexShrink: 0, padding: '4px 7px', borderRadius: 6, border: `1px solid ${statusTone.border}`, background: statusTone.background, color: statusTone.color, fontSize: 10.5, fontWeight: 800 }}>
+                                                            {sent ? 'Sent' : checked ? 'Selected' : contact.paymentStatus || 'Unpaid'}
                                                         </span>
                                                     </label>
                                                 );
                                             })}
                                         </div>
                                         <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                            <span style={{ fontSize: 12, color: C.textSec }}>{selectedUnpaidIds.size} delegate{selectedUnpaidIds.size === 1 ? '' : 's'} ready as BCC</span>
-                                            <button type="button" onClick={() => setUnpaidPickerOpen(false)}
+                                            <span style={{ fontSize: 12, color: C.textSec }}>{selectedBulkIds.size} delegate{selectedBulkIds.size === 1 ? '' : 's'} ready as BCC</span>
+                                            <button type="button" onClick={() => setBulkPickerOpen(false)}
                                                 style={{ minHeight: 36, padding: '8px 16px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
                                                 Done
                                             </button>
