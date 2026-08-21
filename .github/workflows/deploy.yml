@@ -67,6 +67,7 @@ jobs:
           chmod 600 ~/.ssh/myimun_deploy ~/.ssh/known_hosts
 
       - name: Free deployment workspace
+        continue-on-error: true
         shell: bash
         env:
           IMAGE_REPOSITORY: ${{ steps.image.outputs.name }}
