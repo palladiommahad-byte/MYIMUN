@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Link2, Loader2, MessageCircle, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DEFAULT_CONTACT_PAGE, resolveContactPage, type ContactPageData, type ContactSocialLink } from '@/lib/contactPage';
-import { whatsappHref } from '@/lib/contactLinks';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 import { useConference } from '@/context/ConferenceContext';
 import styles from './contact.module.css';
 
@@ -19,6 +19,7 @@ function SocialIcon({ platform }: { platform: ContactSocialLink['platform'] }) {
 export default function ContactPage() {
     const { conferenceSettings } = useConference();
     const [content, setContent] = useState<ContactPageData>(DEFAULT_CONTACT_PAGE);
+    const whatsappPhone = conferenceSettings.whatsappSupportPhone;
     const [form, setForm] = useState({ name: '', email: '', message: '' });
     const [sending, setSending] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -73,10 +74,10 @@ export default function ContactPage() {
                             <a className={styles.phone} href={`tel:${content.phone.replace(/\s/g, '')}`}>{content.phone}</a>
                             <p>{content.hours}</p>
                         </motion.div>
-                        {conferenceSettings.whatsappSupportEnabled && (
+                        {conferenceSettings.whatsappSupportEnabled && phoneDigits(whatsappPhone) && (
                             <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                                <a href={whatsappHref(content.whatsappPhone || content.phone, 'Hello MYIMUN Secretariat, I would like more information.')} target="_blank" rel="noopener noreferrer">
-                                    <MessageCircle size={18} /> WhatsApp: {content.whatsappPhone || content.phone}
+                                <a href={whatsappHref(whatsappPhone, 'Hello MYIMUN Secretariat, I would like more information.')} target="_blank" rel="noopener noreferrer">
+                                    <MessageCircle size={18} /> WhatsApp: {whatsappPhone}
                                 </a>
                                 <p>{content.whatsappNote}</p>
                             </motion.div>

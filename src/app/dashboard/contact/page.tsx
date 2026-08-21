@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Mail, MessageCircle, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { DEFAULT_DELEGATE_SUPPORT, resolveDelegateSupport } from '@/lib/delegateSupport';
-import { whatsappHref } from '@/lib/contactLinks';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 import { useConference } from '@/context/ConferenceContext';
 
 const C = {
@@ -23,6 +23,7 @@ const inputStyle: React.CSSProperties = {
 export default function ContactPage() {
     const { showToast } = useToast();
     const { conferenceSettings } = useConference();
+    const whatsappPhone = conferenceSettings.whatsappSupportPhone;
     const [formData, setFormData] = useState({ subject: '', category: 'General Inquiry', message: '' });
     const [support, setSupport] = useState(DEFAULT_DELEGATE_SUPPORT);
     const [sending, setSending] = useState(false);
@@ -123,7 +124,7 @@ export default function ContactPage() {
                     <p style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Direct Contact</p>
                     {[
                         { Icon: Mail,   color: C.accent,  label: 'Email Us',            detail: support.email,          sub: support.emailNote,     href: `mailto:${support.email}` },
-                        ...(conferenceSettings.whatsappSupportEnabled ? [{ Icon: MessageCircle, color: C.green, label: 'WhatsApp', detail: support.whatsappPhone, sub: support.whatsappNote, href: whatsappHref(support.whatsappPhone, 'Hello MYIMUN Secretariat, I need support.'), external: true }] : []),
+                        ...(conferenceSettings.whatsappSupportEnabled && phoneDigits(whatsappPhone) ? [{ Icon: MessageCircle, color: C.green, label: 'WhatsApp', detail: whatsappPhone, sub: support.whatsappNote, href: whatsappHref(whatsappPhone, 'Hello MYIMUN Secretariat, I need support.'), external: true }] : []),
                         { Icon: Phone,  color: C.green,   label: 'Emergency Line',      detail: support.emergencyPhone, sub: support.emergencyNote, href: `tel:${support.emergencyPhone.replace(/\s/g, '')}` },
                         { Icon: MapPin, color: C.purple,  label: 'Secretariat Office',  detail: support.office,         sub: support.officeNote,    href: undefined },
                     ].map(({ Icon, color, label, detail, sub, href, external }) => (

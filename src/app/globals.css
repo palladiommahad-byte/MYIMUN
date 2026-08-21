@@ -369,6 +369,40 @@ body {
   overscroll-behavior: contain;
 }
 
+/* Global WhatsApp support button: fixed on public/landing and delegate pages. */
+.myimun-whatsapp-sticky {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 1200;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: #16a34a;
+  text-decoration: none;
+  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.34);
+  transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.myimun-whatsapp-sticky:hover {
+  background: #15803d;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(22, 163, 74, 0.38);
+}
+
+@media (max-width: 767px) {
+  .myimun-whatsapp-sticky {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: 52px;
+    height: 52px;
+  }
+}
+
 @media (max-width: 767px), (prefers-reduced-motion: reduce) {
   .auth-modal-backdrop,
   .auth-modal-card,

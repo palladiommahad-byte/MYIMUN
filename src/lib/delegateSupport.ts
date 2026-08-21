@@ -12,7 +12,7 @@ export interface DelegateSupportData {
 export const DEFAULT_DELEGATE_SUPPORT: DelegateSupportData = {
     email: 'secretariat@myimun.org',
     emailNote: 'Response time: < 24h',
-    whatsappPhone: '+212 713 133 601',
+    whatsappPhone: '+212 681 537 480',
     whatsappNote: 'Fastest way to reach the Secretariat',
     emergencyPhone: '+212 555 0192',
     emergencyNote: 'Available 24/7 during conference',

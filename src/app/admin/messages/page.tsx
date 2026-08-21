@@ -19,8 +19,6 @@ function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.lengt
 const SUPPORT_FIELDS: Array<{ key: keyof DelegateSupportData; label: string; placeholder: string; type?: string }> = [
     { key: 'email', label: 'Support Email', placeholder: 'secretariat@myimun.org', type: 'email' },
     { key: 'emailNote', label: 'Email Note', placeholder: 'Response time: < 24h' },
-    { key: 'whatsappPhone', label: 'WhatsApp Phone', placeholder: '+212 713 133 601', type: 'tel' },
-    { key: 'whatsappNote', label: 'WhatsApp Note', placeholder: 'Fastest way to reach the Secretariat' },
     { key: 'emergencyPhone', label: 'Emergency Phone', placeholder: '+212 555 0192', type: 'tel' },
     { key: 'emergencyNote', label: 'Emergency Note', placeholder: 'Available 24/7 during conference' },
     { key: 'office', label: 'Secretariat Office', placeholder: 'Room 102, 1st Floor' },
@@ -516,7 +514,7 @@ export default function AdminMessagesPage() {
                 <div role="dialog" aria-modal="true" aria-label="Delegate support contact details" style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(17,24,39,0.42)' }}>
                     <div style={{ width: '100%', maxWidth: 620, background: C.surface, borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.22)', overflow: 'hidden' }}>
                         <div style={{ padding: '18px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-                            <div><p style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Delegate Support Contact Details</p><p style={{ fontSize: 12.5, color: C.textSec, marginTop: 3 }}>Shown on the delegate Contact Support page.</p></div>
+                            <div><p style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Delegate Support Contact Details</p><p style={{ fontSize: 12.5, color: C.textSec, marginTop: 3 }}>Shown on the delegate Contact Support page. WhatsApp is managed in Settings.</p></div>
                             <button type="button" onClick={() => setSupportOpen(false)} title="Close" style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: 'transparent', color: C.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
                         </div>
                         <div className="admin-support-grid" style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

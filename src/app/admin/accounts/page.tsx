@@ -4,9 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     KeyRound, Mail, Ban, ShieldCheck, Search, X, Copy, Check, RefreshCw,
     Loader2, Clock, UserX, AlertTriangle, Phone, UserPlus, UserRound, Globe2,
+    MessageCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference } from '@/context/ConferenceContext';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -58,8 +60,8 @@ function Avatar({ name, suspended }: { name: string; suspended?: boolean }) {
 
 /* ── Reset-password target: either a delegate account directly, or a pending reset request ── */
 type ResetTarget =
-    | { kind: 'account'; id: string; name: string; email: string }
-    | { kind: 'request'; id: number; userId: string | null; name: string; email: string };
+    | { kind: 'account'; id: string; name: string; email: string; phone?: string }
+    | { kind: 'request'; id: number; userId: string | null; name: string; email: string; phone: string };
 
 export default function AdminAccountsPage() {
     const { showToast } = useToast();
@@ -170,6 +172,22 @@ export default function AdminAccountsPage() {
     };
     const copyPass = async () => {
         try { await navigator.clipboard.writeText(newPass); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+    };
+    const resetWhatsappMessage = () => {
+        if (!resetTarget) return '';
+        return [
+            `Hello ${resetTarget.name},`,
+            '',
+            'Your MYIMUN delegate login credentials have been reset.',
+            '',
+            `Full name: ${resetTarget.name}`,
+            `Email: ${resetTarget.email}`,
+            `Password: ${newPass}`,
+            '',
+            'Login: https://moroccanmun.org/login',
+            '',
+            'Please keep this password private. You can change it from your profile after logging in.',
+        ].join('\n');
     };
 
     /* ── Edit-email modal ── */
@@ -285,7 +303,7 @@ export default function AdminAccountsPage() {
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                    <button onClick={() => openReset({ kind: 'request', id: r.id, userId: r.userId, name: r.delegateName || r.email, email: r.email })}
+                                    <button onClick={() => openReset({ kind: 'request', id: r.id, userId: r.userId, name: r.delegateName || r.email, email: r.email, phone: r.phone })}
                                         disabled={!r.userId}
                                         title={r.userId ? 'Generate a new password' : 'No matching account — dismiss instead'}
                                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: r.userId ? C.accent : C.bg, color: r.userId ? '#fff' : C.textMuted, fontSize: 12.5, fontWeight: 600, cursor: r.userId ? 'pointer' : 'not-allowed' }}>
@@ -581,7 +599,25 @@ export default function AdminAccountsPage() {
                                 <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
                                     For security, this password won&apos;t be shown again after you close this dialog.
                                 </p>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                {resetTarget.phone && phoneDigits(resetTarget.phone) && (
+                                    <div style={{ background: `${C.green}0B`, border: `1px solid ${C.green}22`, borderRadius: 10, padding: '11px 13px', marginBottom: 16 }}>
+                                        <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.45 }}>
+                                            WhatsApp will open with the credentials ready to send to {resetTarget.phone}.
+                                        </p>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+                                    {resetTarget.phone && phoneDigits(resetTarget.phone) && (
+                                        <a
+                                            href={whatsappHref(resetTarget.phone, resetWhatsappMessage())}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={() => showToast('WhatsApp opened. Press Send to deliver the credentials.', 'info')}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}
+                                        >
+                                            <MessageCircle size={14} /> Send by WhatsApp
+                                        </a>
+                                    )}
                                     <button onClick={() => setResetTarget(null)}
                                         style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Done</button>
                                 </div>

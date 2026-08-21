@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, MessageCircle, Search } from 'lucide-react';
 import { useConference } from '@/context/ConferenceContext';
-import { whatsappHref } from '@/lib/contactLinks';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 
 const C = {
     blue:     '#2C74FF',
@@ -47,7 +47,7 @@ function InstagramIcon({ size = 20, color = C.heading }: IconProps) {
 export const Footer: React.FC = () => {
     const { landingPage, conferenceSettings } = useConference();
     const fd = landingPage.footerData;
-    const whatsappPhone = fd.whatsappPhone || fd.phone;
+    const whatsappPhone = conferenceSettings.whatsappSupportPhone;
     const linkStyle: React.CSSProperties = { fontSize: 18, fontWeight: 400, color: C.body, textDecoration: 'none' };
     const socialLinks = [
         { label: 'Facebook', href: fd.facebookUrl, Icon: FacebookIcon },
@@ -63,7 +63,7 @@ export const Footer: React.FC = () => {
                     {/* Col 1 — Logo & contact */}
                     <div>
                         <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN" style={{ height: 52, width: 'auto', objectFit: 'contain', display: 'block' }} />
-                        {conferenceSettings.whatsappSupportEnabled ? (
+                        {conferenceSettings.whatsappSupportEnabled && phoneDigits(whatsappPhone) ? (
                             <a href={whatsappHref(whatsappPhone, 'Hello MYIMUN Secretariat, I would like more information.')} target="_blank" rel="noopener noreferrer"
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 28, color: C.heading, marginTop: 32, textDecoration: 'none' }}>
                                 <MessageCircle size={24} color={C.blue} />

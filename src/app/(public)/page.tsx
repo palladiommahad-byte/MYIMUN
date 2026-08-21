@@ -5,7 +5,7 @@ import { ChevronRight, ChevronUp, Plus, Search, ArrowLeft, ArrowRight } from 'lu
 import Link from 'next/link';
 import { useConference } from '@/context/ConferenceContext';
 import { Countdown } from '@/components/ui/Countdown';
-import { whatsappHref } from '@/lib/contactLinks';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 
 /* ════════════════════════════════════════════════════════════
    MYIMUN Landing Page — fully admin-controllable.
@@ -307,7 +307,8 @@ function EventAnnouncement() {
 function GetStarted() {
     const { landingPage, isPublicLoading, conferenceSettings } = useConference();
     const g = landingPage.getStarted;
-    const waLink = whatsappHref(g.phone, 'Hello MYIMUN Secretariat, I would like more information about registration.');
+    const whatsappPhone = conferenceSettings.whatsappSupportPhone;
+    const waLink = whatsappHref(whatsappPhone, 'Hello MYIMUN Secretariat, I would like more information about registration.');
     return (
         <section style={{ background: C.white, padding: '96px 64px' }} className="lp-section">
             <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', gap: 64, alignItems: 'center' }} className="lp-2col">
@@ -319,10 +320,10 @@ function GetStarted() {
                     <h2 className="lp-section-title" style={{ marginTop: 20, marginBottom: 28, fontWeight: 700, fontSize: 35, lineHeight: 1.4, color: C.heading }}>{g.heading}</h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                         <button className="lp-btn-primary" onClick={triggerRegister}>{g.cta}</button>
-                        {conferenceSettings.whatsappSupportEnabled && (
+                        {conferenceSettings.whatsappSupportEnabled && phoneDigits(whatsappPhone) && (
                             <a href={waLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
                                 <span style={{ fontWeight: 600, fontSize: 19, color: C.blue }}>{g.contactLabel}</span>
-                                <span style={{ fontWeight: 600, fontSize: 19, color: C.heading }}>{g.phone}</span>
+                                <span style={{ fontWeight: 600, fontSize: 19, color: C.heading }}>{whatsappPhone}</span>
                             </a>
                         )}
                     </div>

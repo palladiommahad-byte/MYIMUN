@@ -119,8 +119,6 @@ export function ContactPageEditor({ onBack }: { onBack: () => void }) {
             <div style={twoColumns}>
                 <Field label="Phone Number" value={draft.phone} onChange={phone => patch({ phone })} />
                 <Field label="Opening Hours" value={draft.hours} onChange={hours => patch({ hours })} />
-                <Field label="WhatsApp Number" value={draft.whatsappPhone} onChange={whatsappPhone => patch({ whatsappPhone })} />
-                <Field label="WhatsApp Note" value={draft.whatsappNote} onChange={whatsappNote => patch({ whatsappNote })} />
                 <Field label="Primary Email" type="email" value={draft.primaryEmail} onChange={primaryEmail => patch({ primaryEmail })} />
                 <Field label="Primary Email Note" value={draft.primaryEmailNote} onChange={primaryEmailNote => patch({ primaryEmailNote })} />
                 <Field label="Support Email" type="email" value={draft.supportEmail} onChange={supportEmail => patch({ supportEmail })} />

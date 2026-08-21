@@ -253,6 +253,7 @@ export interface ConferenceSettings {
     secretaryAccess: boolean;
     managerAccess: boolean;
     whatsappSupportEnabled: boolean;
+    whatsappSupportPhone: string;
 }
 
 export interface ConferencePackage {
@@ -389,7 +390,7 @@ export const DEFAULT_LANDING: LandingPageData = {
     getStarted: {
         tag: 'GET STARTED TODAY',
         heading: 'Join us in Marrakech where youth lead, voices matter, and the world listens.',
-        cta: 'Register Now', contactLabel: 'Message us:', phone: '+212 713 133 601', image: '',
+        cta: 'Register Now', contactLabel: 'Message us:', phone: '+212 681 537 480', image: '',
     },
     faq: {
         tag: 'FREQUENTLY ASKED QUESTIONS',
@@ -442,7 +443,7 @@ export const DEFAULT_LANDING: LandingPageData = {
     footerData: {
         tagline: 'Moroccan International Youth Model United Nations — shaping the next generation of global leaders.',
         email: 'info@myimun.org', location: 'Casablanca, Morocco',
-        phone: '+212 713 133 601', whatsappPhone: '+212 713 133 601', hours: 'Monday to Friday: 9 am – 6 pm',
+        phone: '+212 681 537 480', whatsappPhone: '+212 681 537 480', hours: 'Monday to Friday: 9 am – 6 pm',
         copyright: '© 2025 MYIMUN  |  All Rights Reserved',
         facebookUrl: '', youtubeUrl: '', instagramUrl: '',
     },
@@ -543,6 +544,7 @@ const SEED_CONFERENCE_SETTINGS: ConferenceSettings = {
     secretaryAccess: true,
     managerAccess: true,
     whatsappSupportEnabled: true,
+    whatsappSupportPhone: '+212 681 537 480',
 };
 
 const SEED_PAYMENT_SETTINGS: PaymentSettings = {
@@ -750,7 +752,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [packages,       setPackages]       = useState<ConferencePackage[]>([]);
     const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
     const [landingPage,    setLandingPage]    = useState<LandingPageData>(DEFAULT_LANDING);
-    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true });
+    const [conferenceSettings, setConferenceSettings] = useState<ConferenceSettings>({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true, whatsappSupportPhone: '+212 681 537 480' });
     const [isPublicLoading, setIsPublicLoading] = useState(true);
     const [isUserDataLoading, setIsUserDataLoading] = useState(true);
 
@@ -804,7 +806,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
             getData('/api/packages').then(pk => { if (pk !== null) setPackages(pk); }),
             getData('/api/schedule').then(sc => { if (sc !== null) setScheduleEvents(sc); }),
             getData('/api/settings/conference').then(conf => {
-                if (conf !== null) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true, ...conf });
+                if (conf !== null) setConferenceSettings({ registrationOpen: false, allowPaperUploads: false, publicSchedule: false, maintenanceMode: false, secretaryAccess: false, managerAccess: false, whatsappSupportEnabled: true, whatsappSupportPhone: '+212 681 537 480', ...conf });
             }),
             getData('/api/settings/landing').then(land => { if (land !== null) setLandingPage(resolveLandingPage(land)); }),
         ]);

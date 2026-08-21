@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Loader2, KeyRound } from 'lucide-react';
+import { Save, Plus, Trash2, Mail, User, Shield, Edit2, Loader2, KeyRound, MessageCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference, ConferenceSettings } from '@/context/ConferenceContext';
 import { ADMIN_PAGES } from '@/lib/adminPages';
+import { phoneDigits } from '@/lib/contactLinks';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -185,7 +186,12 @@ export default function AdminSettingsPage() {
 
     const [settingsDraft, setSettingsDraft] = useState<ConferenceSettings | null>(null);
     const settingsForm = settingsDraft ?? conferenceSettings;
-    const toggleSetting = (key: keyof ConferenceSettings) =>
+    type BooleanSettingKey = {
+        [K in keyof ConferenceSettings]: ConferenceSettings[K] extends boolean ? K : never
+    }[keyof ConferenceSettings];
+    const setSetting = <K extends keyof ConferenceSettings>(key: K, value: ConferenceSettings[K]) =>
+        setSettingsDraft(current => ({ ...(current ?? conferenceSettings), [key]: value }));
+    const toggleSetting = (key: BooleanSettingKey) =>
         setSettingsDraft(current => {
             const base = current ?? conferenceSettings;
             return { ...base, [key]: !base[key] };
@@ -193,6 +199,10 @@ export default function AdminSettingsPage() {
     const isDirty = settingsDraft !== null && JSON.stringify(settingsForm) !== JSON.stringify(conferenceSettings);
 
     const saveSettings = () => {
+        if (settingsForm.whatsappSupportEnabled && !phoneDigits(settingsForm.whatsappSupportPhone)) {
+            showToast('Enter a valid WhatsApp number or disable WhatsApp support.', 'error');
+            return;
+        }
         updateConferenceSettings(settingsForm);
         if (settingsForm.registrationOpen !== conferenceSettings.registrationOpen) {
             showToast(settingsForm.registrationOpen
@@ -431,7 +441,6 @@ export default function AdminSettingsPage() {
                     <SettingRow title="Allow Position Paper Uploads" sub="Delegates can submit their papers." on={settingsForm.allowPaperUploads} onToggle={() => toggleSetting('allowPaperUploads')} />
                     <SettingRow title="Public Schedule" sub="Visible to non-logged in users." on={settingsForm.publicSchedule} onToggle={() => toggleSetting('publicSchedule')} />
                     <SettingRow title="System Maintenance Mode" sub="Disable access for standard users." on={settingsForm.maintenanceMode} onToggle={() => toggleSetting('maintenanceMode')} />
-                    <SettingRow title="WhatsApp Support" sub="Show WhatsApp support buttons and direct-contact links." on={settingsForm.whatsappSupportEnabled} onToggle={() => toggleSetting('whatsappSupportEnabled')} />
                 </div>
 
                 <div style={{ height: 1, background: C.border }} />
@@ -449,6 +458,52 @@ export default function AdminSettingsPage() {
                     onMouseLeave={e => { if (isDirty) (e.currentTarget as HTMLElement).style.background = C.accent; }}
                 >
                     <Save size={15} /> Save Configuration
+                </button>
+            </div>
+
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, boxShadow: C.shadow, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${C.green}12`, color: C.green }}>
+                        <MessageCircle size={18} />
+                    </div>
+                    <div>
+                        <h2 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>WhatsApp Support</h2>
+                        <p style={{ fontSize: 12.5, color: C.textSec, marginTop: 2 }}>Control the public WhatsApp button and direct-contact links.</p>
+                    </div>
+                </div>
+
+                <div style={{ padding: 14, background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <SettingRow title="Enable WhatsApp" sub="Show WhatsApp contact buttons across the site and delegate dashboard." on={settingsForm.whatsappSupportEnabled} onToggle={() => toggleSetting('whatsappSupportEnabled')} />
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>WhatsApp Number</span>
+                        <input
+                            type="tel"
+                            value={settingsForm.whatsappSupportPhone}
+                            onChange={e => setSetting('whatsappSupportPhone', e.target.value)}
+                            placeholder="+212 681 537 480"
+                            style={{ width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.surface, outline: 'none', boxSizing: 'border-box' }}
+                            onFocus={e => e.target.style.borderColor = C.accent}
+                            onBlur={e => e.target.style.borderColor = C.border}
+                        />
+                        <span style={{ fontSize: 11.5, color: C.textMuted }}>
+                            Current link: {phoneDigits(settingsForm.whatsappSupportPhone) ? `https://wa.me/${phoneDigits(settingsForm.whatsappSupportPhone)}` : 'Add a number to generate the link'}
+                        </span>
+                    </label>
+                </div>
+
+                <button
+                    onClick={saveSettings}
+                    disabled={!isDirty}
+                    style={{
+                        width: '100%', padding: '11px 0', borderRadius: 8, border: 'none', cursor: isDirty ? 'pointer' : 'default',
+                        background: C.green, color: 'white', fontSize: 14, fontWeight: 600,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        boxShadow: `0 2px 8px ${C.green}40`, opacity: isDirty ? 1 : 0.5,
+                    }}
+                    onMouseEnter={e => { if (isDirty) (e.currentTarget as HTMLElement).style.background = '#0DA271'; }}
+                    onMouseLeave={e => { if (isDirty) (e.currentTarget as HTMLElement).style.background = C.green; }}
+                >
+                    <Save size={15} /> Save WhatsApp Settings
                 </button>
             </div>
 

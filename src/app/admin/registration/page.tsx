@@ -5,6 +5,7 @@ import {
     ClipboardList, CheckCircle2, XCircle, Clock, Search, Eye, X, Check,
     User, Mail, Phone, MapPin, Globe, Megaphone, Building2, Users, Hash, CreditCard,
     Award, Repeat, MessageSquareText, FileText, Image as ImageIcon, ExternalLink, Download,
+    MessageCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Registration } from '@/context/ConferenceContext';
@@ -12,6 +13,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { fileUrl } from '@/lib/fileStore';
 import { Donut, BarRow, StatPanel } from '@/components/admin/StatWidgets';
 import { formatMoney } from '@/lib/currency';
+import { phoneDigits, whatsappHref } from '@/lib/contactLinks';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -64,6 +66,16 @@ export default function AdminRegistrationPage() {
         setDeclineFor(null);
         setViewReg(null);
     };
+    const registrationWhatsappMessage = (reg: Registration) => [
+        `Hello ${reg.fullName},`,
+        '',
+        'This is the MYIMUN Secretariat contacting you about your registration.',
+        '',
+        `Registration status: ${reg.status}`,
+        `Payment status: ${reg.paymentStatus}`,
+        '',
+        'Please reply here if you need any help.',
+    ].join('\n');
 
     const counts = {
         All: registrations.length,
@@ -248,6 +260,18 @@ export default function AdminRegistrationPage() {
                                         {/* Actions */}
                                         <td style={{ padding: '13px 16px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                                                {phoneDigits(reg.phone) && (
+                                                    <a
+                                                        href={whatsappHref(reg.phone, registrationWhatsappMessage(reg))}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title="Message on WhatsApp"
+                                                        onClick={() => showToast(`WhatsApp opened for ${reg.fullName}.`, 'info')}
+                                                        style={{ padding: 6, borderRadius: 6, color: C.green, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.green}12`; }}
+                                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                                                    ><MessageCircle size={15} /></a>
+                                                )}
                                                 <button onClick={() => setViewReg(reg)} title="View details"
                                                     style={{ padding: 6, borderRadius: 6, color: C.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}
                                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.accent; }}
@@ -372,6 +396,17 @@ export default function AdminRegistrationPage() {
                         </div>
                         {/* Footer actions */}
                         <div style={{ padding: '16px 24px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#FAFBFC' }}>
+                            {phoneDigits(viewReg.phone) && (
+                                <a
+                                    href={whatsappHref(viewReg.phone, registrationWhatsappMessage(viewReg))}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => showToast(`WhatsApp opened for ${viewReg.fullName}.`, 'info')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.green}40`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.green, cursor: 'pointer', textDecoration: 'none' }}
+                                >
+                                    <MessageCircle size={15} /> WhatsApp
+                                </a>
+                            )}
                             {viewReg.status !== 'Declined' && (
                                 <button onClick={() => openDecline(viewReg)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: `1px solid ${C.red}40`, background: C.surface, fontSize: 13, fontWeight: 600, color: C.red, cursor: 'pointer' }}>
                                     <XCircle size={15} /> Decline
