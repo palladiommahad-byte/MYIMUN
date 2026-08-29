@@ -34,6 +34,12 @@ Create `/opt/myimun/.env` using `deploy/create-production-env.sh`. It generates
 independent 48-byte JWT and initial-admin secrets and sets mode `600`. Never copy
 the local development `.env` to the VPS.
 
+To enable AI-assisted replies in the admin Messages inbox, add a protected
+`OPENAI_API_KEY` secret to the GitHub `production` environment. The deployment
+workflow securely syncs it into `/opt/myimun/.env`; it is never stored in Git.
+`OPENAI_MODEL` defaults to `gpt-5.4-mini`. Keep the key server-side and never
+place it in a `NEXT_PUBLIC_*` variable.
+
 ## GitHub Production Secrets
 
 Create a GitHub environment named `production`, then add:
@@ -44,6 +50,7 @@ VPS_PORT=22
 VPS_USER=deploy
 VPS_SSH_PRIVATE_KEY=<the complete dedicated private key>
 VPS_KNOWN_HOSTS=<the verified ssh-keyscan line for the VPS>
+OPENAI_API_KEY=<the OpenAI project API key>
 ```
 
 The workflow in `.github/workflows/deploy.yml` builds an immutable image tagged

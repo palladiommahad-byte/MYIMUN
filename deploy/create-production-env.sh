@@ -29,6 +29,8 @@ DATABASE_URL=file:/app/prisma/data/app.db
 JWT_SECRET=$jwt_secret
 INITIAL_ADMIN_TOKEN=$admin_token
 SESSION_DAYS=7
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.4-mini
 EOF
 chmod 600 .env
 
@@ -37,3 +39,4 @@ chmod 600 .initial-admin-token
 
 echo "Production environment created at /opt/myimun/.env with mode 600."
 echo "The initial admin token is stored in /opt/myimun/.initial-admin-token with mode 600."
+echo "Add OPENAI_API_KEY to /opt/myimun/.env to enable AI-assisted delegate reply drafts."

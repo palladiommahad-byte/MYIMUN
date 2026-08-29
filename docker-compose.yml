@@ -20,6 +20,8 @@ services:
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in your .env file}"
       INITIAL_ADMIN_TOKEN: "${INITIAL_ADMIN_TOKEN:?Set INITIAL_ADMIN_TOKEN in your .env file}"
       SESSION_DAYS: "${SESSION_DAYS:-7}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-5.4-mini}"
       MAIL_FROM_NAME: "${MAIL_FROM_NAME:-Moroccan MUN}"
       MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-contact@moroccanmun.org}"
       SMTP_HOST: "${SMTP_HOST:-mail.privateemail.com}"

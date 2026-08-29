@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, Send, MoreVertical, User, Mail, Paperclip, CheckCheck, Clock, Settings2, Save, X, ArrowLeft, Plus } from 'lucide-react';
+import { Search, Filter, Send, MoreVertical, User, Mail, Paperclip, CheckCheck, Clock, Settings2, Save, X, ArrowLeft, Plus, Sparkles, LoaderCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConference, Conversation } from '@/context/ConferenceContext';
 import { DEFAULT_DELEGATE_SUPPORT, DelegateSupportData, resolveDelegateSupport } from '@/lib/delegateSupport';
@@ -42,12 +42,19 @@ export default function AdminMessagesPage() {
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeSaving, setComposeSaving] = useState(false);
     const [compose, setCompose] = useState(EMPTY_COMPOSE);
+    const [aiDraftingId, setAiDraftingId] = useState<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const currentSelectedId = selectedId !== null && conversations.some(c => c.id === selectedId)
         ? selectedId
         : conversations[0]?.id ?? null;
     const selected = conversations.find(c => c.id === currentSelectedId) ?? null;
+    const selectedIdRef = useRef<number | null>(currentSelectedId);
+    const aiDrafting = currentSelectedId !== null && aiDraftingId === currentSelectedId;
+
+    useEffect(() => {
+        selectedIdRef.current = currentSelectedId;
+    }, [currentSelectedId]);
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -84,6 +91,25 @@ export default function AdminMessagesPage() {
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }
+    };
+
+    const generateAiDraft = async () => {
+        if (!currentSelectedId || aiDrafting) return;
+        const conversationId = currentSelectedId;
+        setAiDraftingId(conversationId);
+        try {
+            const response = await fetch(`/api/conversations/${conversationId}/ai-draft`, { method: 'POST' });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok || json?.ok === false) throw new Error(json?.error || 'Could not generate an AI draft.');
+            if (typeof json?.data?.draft !== 'string' || !json.data.draft.trim()) throw new Error('OpenAI returned an empty draft.');
+            if (selectedIdRef.current !== conversationId) return;
+            setReplyText(json.data.draft.trim());
+            showToast('AI draft ready — review it before sending.', 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Could not generate an AI draft.', 'error');
+        } finally {
+            setAiDraftingId(current => current === conversationId ? null : current);
+        }
     };
 
     const saveSupport = async () => {
@@ -182,6 +208,12 @@ export default function AdminMessagesPage() {
             .admin-mobile-back {
                 display: none;
             }
+            @keyframes admin-ai-spin {
+                to { transform: rotate(360deg); }
+            }
+            .admin-ai-spinner {
+                animation: admin-ai-spin 0.9s linear infinite;
+            }
             @media (max-width: 720px) {
                 .admin-messages-shell {
                     height: auto;
@@ -212,6 +244,9 @@ export default function AdminMessagesPage() {
                 }
                 .admin-message-bubble {
                     max-width: 88% !important;
+                }
+                .admin-reply-hint {
+                    display: none;
                 }
                 .admin-support-grid {
                     grid-template-columns: 1fr !important;
@@ -486,8 +521,16 @@ export default function AdminMessagesPage() {
                                         style={{ width: '100%', padding: '10px 12px', minHeight: 60, maxHeight: 120, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: C.text, resize: 'none', fontFamily: 'inherit' }}
                                     />
                                     <div style={{ padding: '6px 12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <button type="button" style={{ color: C.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Paperclip size={16} /></button>
-                                        <span style={{ fontSize: 11, color: C.textMuted }}>Enter to send</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <button type="button" title="Attach a file" style={{ color: C.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'inline-flex' }}><Paperclip size={16} /></button>
+                                            <button type="button" onClick={generateAiDraft} disabled={aiDrafting}
+                                                title="Generate a reply from the delegate's message and platform status"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 7, border: `1px solid ${C.accent}35`, background: `${C.accent}0D`, color: C.accent, fontSize: 11.5, fontWeight: 700, cursor: aiDrafting ? 'wait' : 'pointer', opacity: aiDrafting ? 0.7 : 1 }}>
+                                                {aiDrafting ? <LoaderCircle className="admin-ai-spinner" size={13} /> : <Sparkles size={13} />}
+                                                {aiDrafting ? 'Drafting…' : replyText.trim() ? 'Regenerate' : 'Draft with AI'}
+                                            </button>
+                                        </div>
+                                        <span className="admin-reply-hint" style={{ fontSize: 11, color: C.textMuted }}>{replyText.trim() ? 'Review before sending · Enter to send' : 'Enter to send'}</span>
                                     </div>
                                 </div>
                                 <button type="submit" disabled={!replyText.trim()}
