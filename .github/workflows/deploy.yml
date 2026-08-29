@@ -66,43 +66,6 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/myimun_deploy ~/.ssh/known_hosts
 
-      - name: Configure OpenAI production environment
-        shell: bash
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-5.4-mini
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          if [[ -z "$OPENAI_API_KEY" || "$OPENAI_API_KEY" == "your-project-api-key" ]]; then
-            echo "::error::Add a real OPENAI_API_KEY to the GitHub production environment secrets."
-            exit 1
-          fi
-
-          secret_file="$(mktemp)"
-          trap 'rm -f "$secret_file"' EXIT
-          chmod 600 "$secret_file"
-          printf 'OPENAI_API_KEY=%s\nOPENAI_MODEL=%s\n' "$OPENAI_API_KEY" "$OPENAI_MODEL" > "$secret_file"
-
-          scp -q -i ~/.ssh/myimun_deploy -P "$VPS_PORT" \
-            "$secret_file" "$VPS_USER@$VPS_HOST:/opt/myimun/.env.openai"
-          ssh -i ~/.ssh/myimun_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" <<'REMOTE'
-          set -Eeuo pipefail
-          cd /opt/myimun
-          test -f .env
-          test -f .env.openai
-          umask 077
-          next_env=".env.next.$$"
-          trap 'rm -f "$next_env" .env.openai' EXIT
-          awk '!/^OPENAI_API_KEY=|^OPENAI_MODEL=/' .env > "$next_env"
-          cat .env.openai >> "$next_env"
-          chmod 600 "$next_env"
-          mv "$next_env" .env
-          rm -f .env.openai
-          trap - EXIT
-          REMOTE
-
       - name: Free deployment workspace
         continue-on-error: true
         shell: bash
