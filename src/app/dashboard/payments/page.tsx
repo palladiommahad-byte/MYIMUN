@@ -61,6 +61,7 @@ export default function PaymentsPage() {
     const [selectedBankId, setSelectedBankId]  = useState('');
     const [receipt, setReceipt]               = useState<File | null>(null);
     const [submitting, setSubmitting]          = useState(false);
+    const [agreedToTerms, setAgreedToTerms]    = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const banks = paymentSettings.banks;
     const activeBankId = banks.some(bank => bank.id === selectedBankId) ? selectedBankId : banks[0]?.id ?? '';
@@ -78,6 +79,7 @@ export default function PaymentsPage() {
         if (!senderName.trim() || !participantName.trim()) { showToast('Please enter both sender and participant names.', 'error'); return; }
         if (method === 'Bank Transfer' && banks.length > 0 && !selectedBank) { showToast('Please choose the bank account you used.', 'error'); return; }
         if (!receipt) { showToast('Please upload your payment receipt.', 'error'); return; }
+        if (!agreedToTerms) { showToast('Please agree to the Terms & Conditions to continue.', 'error'); return; }
 
         setSubmitting(true);
         try {
@@ -408,6 +410,16 @@ export default function PaymentsPage() {
                             <input ref={fileRef} type="file" accept=".pdf,application/pdf,image/*" style={{ display: 'none' }}
                                 onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f); e.target.value = ''; }} />
                         </div>
+
+                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
+                                style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, accentColor: C.accent, cursor: 'pointer' }} />
+                            <span style={{ fontSize: 13, color: C.textSec, lineHeight: 1.55 }}>
+                                I have read and agree to MYIMUN&apos;s{' '}
+                                <Link href="/dashboard/terms" target="_blank" style={{ color: C.accent, fontWeight: 600 }}>Terms &amp; Conditions</Link>.
+                                <span style={{ color: C.red }}> *</span>
+                            </span>
+                        </label>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <button type="submit" disabled={submitting} style={{

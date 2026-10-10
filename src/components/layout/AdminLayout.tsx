@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
     LayoutDashboard, Users, Shield, FileText, CreditCard,
@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { ADMIN_PAGES, firstAllowedAdminPage, hasAdminPageAccess } from '@/lib/adminPages';
+import { EMAIL_UPDATED_EVENT, useConference } from '@/context/ConferenceContext';
 
 /* ── Landing-page section sub-nav items ── */
 export const LANDING_SECTIONS = [
@@ -65,6 +66,28 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
     const router = useRouter();
     const pathname = usePathname();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { conversations } = useConference();
+    const [emailUnread, setEmailUnread] = useState(0);
+    const canEmail = hasAdminPageAccess(user, '/admin/email');
+
+    // Unread email badge: refreshed live on inbox changes, with a slow safety-net poll.
+    useEffect(() => {
+        if (!canEmail) return;
+        let alive = true;
+        const load = () => {
+            void fetch('/api/email/unread', { cache: 'no-store' })
+                .then(res => res.ok ? res.json() : null)
+                .then(json => { if (alive && json?.ok) setEmailUnread(json.data.count); })
+                .catch(() => {});
+        };
+        load();
+        window.addEventListener(EMAIL_UPDATED_EVENT, load);
+        const id = setInterval(load, 120000);
+        return () => { alive = false; window.removeEventListener(EMAIL_UPDATED_EVENT, load); clearInterval(id); };
+    }, [canEmail]);
+
+    const messagesUnread = conversations.reduce((sum, c) => sum + c.adminUnread, 0);
+    const badges: Record<string, number> = { '/admin/messages': messagesUnread, '/admin/email': emailUnread };
 
     const handleLogout = () => { logout(); router.push('/'); };
     const isActive = (path: string) =>
@@ -76,6 +99,7 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const hasAccess = (path: string) => hasAdminPageAccess(user, path);
     const visibleNavItems = NAV_ITEMS.filter(({ path }) => hasAccess(path));
+    const hasUnread = visibleNavItems.some(({ path }) => (badges[path] ?? 0) > 0);
     const currentPage = ADMIN_PAGES.find(p => p.path === '/admin' ? pathname === '/admin' : pathname.startsWith(p.path));
     const canViewCurrentPage = !currentPage || hasAccess(currentPage.path);
     const firstAllowedPage = user ? firstAllowedAdminPage(user) : undefined;
@@ -90,8 +114,12 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                 <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN Logo" style={{ height: 30, width: 'auto', maxWidth: 160, objectFit: 'contain' }} />
                 <div className="flex items-center gap-1">
                     <NotificationBell />
-                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec }}>
+                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ color: S.textSec, position: 'relative' }}
+                        aria-label={hasUnread ? 'Menu (new messages)' : 'Menu'}>
                         {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+                        {hasUnread && !sidebarOpen && (
+                            <span style={{ position: 'absolute', top: -2, right: -3, width: 9, height: 9, borderRadius: '50%', background: '#EF4444', border: '2px solid #FFFFFF' }} />
+                        )}
                     </button>
                 </div>
             </div>
@@ -117,6 +145,7 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '12px 10px', flex: 1, overflowY: 'auto' }}>
                     {visibleNavItems.map(({ label, icon: Icon, path }) => {
                         const active = isActive(path);
+                        const badge = badges[path] ?? 0;
 
                         return (
                             <Link key={path} href={path} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none' }}>
@@ -131,6 +160,12 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 >
                                     <Icon size={15} style={{ flexShrink: 0, color: active ? S.accent : S.textMuted }} />
                                     <span style={{ flex: 1 }}>{label}</span>
+                                    {badge > 0 && (
+                                        <span aria-label={`${badge} unread`}
+                                            style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#EF4444', color: '#FFFFFF', fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                            {badge > 99 ? '99+' : badge}
+                                        </span>
+                                    )}
                                 </div>
                             </Link>
                         );

@@ -90,15 +90,31 @@ export interface ScheduleEvent {
     description: string;
 }
 
+/** Window event fired when the staff email inbox changed (new mail, or read state). */
+export const EMAIL_UPDATED_EVENT = 'myimun:email-updated';
+
 export interface ChatMessage {
     id: number;
     text: string;
     sender: 'delegate' | 'admin';
+    senderId: string | null;
+    senderName: string;
     time: string;
+}
+
+export interface ChatMember {
+    delegateId: string;
+    name: string;
+    email: string;
+    country: string;
 }
 
 export interface Conversation {
     id: number;
+    type: 'direct' | 'group';
+    /** Group chat name (empty for direct chats). */
+    title: string;
+    members: ChatMember[];
     delegateId: string;
     delegateName: string;
     delegateEmail: string;
@@ -107,6 +123,8 @@ export interface Conversation {
     category: string;
     createdAt: string;
     lastMessageAt: string;
+    /** lastMessageAt as epoch ms, for sorting chats by recent activity. */
+    lastActivity: number;
     messages: ChatMessage[];
     adminUnread: number;
     delegateUnread: number;
@@ -678,10 +696,18 @@ interface ConferenceCtx {
     deleteScheduleEvent: (id: number) => void;
 
     conversations: Conversation[];
-    startConversation:  (delegateId: string, delegateName: string, delegateEmail: string, delegateCountry: string, subject: string, category: string, firstMessage: string) => Promise<Conversation>;
-    sendChatMessage:    (conversationId: number, text: string, sender: 'delegate' | 'admin') => void;
-    markRead:           (conversationId: number, role: 'admin' | 'delegate') => void;
-    getConversationsForDelegate: (delegateId: string) => Conversation[];
+    /** Staff: open (or create) the one direct chat with a delegate, optionally sending a message. */
+    openDirectChat:     (delegateId: string, text?: string) => Promise<Conversation>;
+    /** Staff: create a group chat with the given delegates. */
+    createGroupChat:    (title: string, memberIds: string[], text?: string) => Promise<Conversation>;
+    /** Delegate: message the secretariat in their direct chat. */
+    messageSecretariat: (text: string) => Promise<Conversation>;
+    sendChatMessage:    (conversationId: number, text: string) => Promise<void>;
+    markRead:           (conversationId: number) => void;
+    renameGroupChat:    (conversationId: number, title: string) => Promise<void>;
+    addGroupMembers:    (conversationId: number, memberIds: string[]) => Promise<void>;
+    removeGroupMember:  (conversationId: number, delegateId: string) => Promise<void>;
+    deleteConversation: (conversationId: number) => Promise<void>;
 
     notifications: AppNotification[];
     markNotificationRead:     (id: number) => void;
@@ -768,11 +794,12 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const mapResetReq = (r: any): PasswordResetRequest => ({ ...r, createdAt: fmt(r.createdAt), resolvedAt: r.resolvedAt ? fmt(r.resolvedAt) : null });
     const mapAnnouncement = (r: any): Announcement => ({ id: r.id, message: r.message, audience: r.audience, level: r.level, createdAt: fmt(r.createdAt) });
     const mapConvo = (r: any): Conversation => ({
-        id: r.id, delegateId: r.delegateId, delegateName: r.delegateName, delegateEmail: r.delegateEmail,
+        id: r.id, type: r.type === 'group' ? 'group' : 'direct', title: r.title ?? '', members: r.members ?? [],
+        delegateId: r.delegateId, delegateName: r.delegateName, delegateEmail: r.delegateEmail,
         delegateCountry: r.delegateCountry, subject: r.subject, category: r.category,
-        createdAt: fmt(r.createdAt), lastMessageAt: fmt(r.lastMessageAt),
+        createdAt: fmt(r.createdAt), lastMessageAt: fmt(r.lastMessageAt), lastActivity: new Date(r.lastMessageAt).getTime() || 0,
         adminUnread: r.adminUnread, delegateUnread: r.delegateUnread,
-        messages: (r.messages ?? []).map((m: any) => ({ id: m.id, text: m.text, sender: m.sender, time: fmt(m.createdAt) })),
+        messages: (r.messages ?? []).map((m: any) => ({ id: m.id, text: m.text, sender: m.sender, senderId: m.senderId ?? null, senderName: m.senderName ?? '', time: fmt(m.createdAt) })),
     });
 
     const applyCommittees = useCallback((rows: any[]) => {
@@ -899,7 +926,14 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     useEffect(() => {
         if (!user) return;
         const es = new EventSource('/api/notifications/stream');
-        es.onmessage = (e) => { if (e.data === 'update') { refreshAll(); refreshCommittees(); } };
+        es.onmessage = (e) => {
+            if (e.data === 'update') { refreshAll(); refreshCommittees(); }
+            else if (e.data === 'messages') {
+                void getData('/api/conversations').then(cv => { if (cv !== null) setConversations(cv.map(mapConvo)); });
+            }
+            // Email lives outside this context; the sidebar badge and Email page listen for this.
+            else if (e.data === 'email') window.dispatchEvent(new Event(EMAIL_UPDATED_EVENT));
+        };
         return () => es.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
@@ -1019,25 +1053,39 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     /* ── Conversations / Chat ── */
-    const startConversation = async (
-        delegateId: string, _delegateName: string, _delegateEmail: string,
-        _delegateCountry: string, subject: string, category: string, firstMessage: string,
-    ) => {
-        const row = await send('POST', '/api/conversations', { delegateId, subject, category, firstMessage });
+    const upsertConversation = (row: any) => {
         const mapped = mapConvo(row);
         setConversations(prev => [mapped, ...prev.filter(c => c.id !== mapped.id)]);
         return mapped;
     };
-    const sendChatMessage = async (conversationId: number, text: string, _sender: 'delegate' | 'admin') => {
-        const row = await send('PATCH', `/api/conversations/${conversationId}`, { action: 'message', text });
-        setConversations(prev => prev.map(c => c.id === conversationId ? mapConvo(row) : c));
+    const replaceConversation = (row: any) => {
+        setConversations(prev => prev.map(c => c.id === row.id ? mapConvo(row) : c));
     };
-    const markRead = async (conversationId: number, _role: 'admin' | 'delegate') => {
-        const row = await send('PATCH', `/api/conversations/${conversationId}`, { action: 'markRead' });
-        setConversations(prev => prev.map(c => c.id === conversationId ? mapConvo(row) : c));
+    const openDirectChat = async (delegateId: string, text?: string) =>
+        upsertConversation(await send('POST', '/api/conversations', { type: 'direct', delegateId, text }));
+    const createGroupChat = async (title: string, memberIds: string[], text?: string) =>
+        upsertConversation(await send('POST', '/api/conversations', { type: 'group', title, memberIds, text }));
+    const messageSecretariat = async (text: string) =>
+        upsertConversation(await send('POST', '/api/conversations', { text }));
+    const sendChatMessage = async (conversationId: number, text: string) => {
+        replaceConversation(await send('PATCH', `/api/conversations/${conversationId}`, { action: 'message', text }));
     };
-    const getConversationsForDelegate = (delegateId: string) =>
-        conversations.filter(c => c.delegateId === delegateId);
+    const markRead = async (conversationId: number) => {
+        replaceConversation(await send('PATCH', `/api/conversations/${conversationId}`, { action: 'markRead' }));
+    };
+    const renameGroupChat = async (conversationId: number, title: string) => {
+        replaceConversation(await send('PATCH', `/api/conversations/${conversationId}`, { action: 'rename', title }));
+    };
+    const addGroupMembers = async (conversationId: number, memberIds: string[]) => {
+        replaceConversation(await send('PATCH', `/api/conversations/${conversationId}`, { action: 'addMembers', memberIds }));
+    };
+    const removeGroupMember = async (conversationId: number, delegateId: string) => {
+        replaceConversation(await send('PATCH', `/api/conversations/${conversationId}`, { action: 'removeMember', delegateId }));
+    };
+    const deleteConversation = async (conversationId: number) => {
+        await send('DELETE', `/api/conversations/${conversationId}`);
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+    };
 
     /* ── Registrations ── */
     const submitRegistration = async (data: Omit<Registration, 'id' | 'status' | 'submittedAt' | 'paymentStatus' | 'declineReason'>) => {
@@ -1156,7 +1204,8 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         getApplicationForDelegate, getApplicationsForCommittee,
         waitingCounts,
         scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
-        conversations, startConversation, sendChatMessage, markRead, getConversationsForDelegate,
+        conversations, openDirectChat, createGroupChat, messageSecretariat, sendChatMessage, markRead,
+        renameGroupChat, addGroupMembers, removeGroupMember, deleteConversation,
         notifications, markNotificationRead, markAllNotificationsRead, refreshNotifications,
         passwordResetRequests, refreshAccountsData,
         announcements, sendBroadcast, deleteAnnouncement,

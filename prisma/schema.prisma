@@ -38,6 +38,7 @@ model User {
     openingSpeeches OpeningSpeech[]
     applications  CommitteeApplication[]
   conversations Conversation[]
+  conversationMemberships ConversationMember[] @relation("ConversationMemberships")
 }
 
 /// Committees delegates can apply to.
@@ -170,21 +171,40 @@ model PaymentSubmission {
   updatedAt       DateTime @updatedAt
 }
 
-/// Support conversations between a delegate and the admin team.
+/// Chats with the admin team: one continuous "direct" chat per delegate (kept unique
+/// by directKey = delegateId), or a staff-created "group" chat whose delegates are
+/// ConversationMember rows.
 model Conversation {
   id              Int           @id @default(autoincrement())
+  type            String        @default("direct") // direct | group
+  title           String        @default("") // group chats only
+  directKey       String?       @unique // delegateId for direct chats, null for groups
   delegate        User?         @relation(fields: [delegateId], references: [id], onDelete: SetNull)
   delegateId      String?
   delegateName    String
   delegateEmail   String
   delegateCountry String
-  subject         String
-  category        String
+  subject         String // legacy email-style threads; empty for chats
+  category        String // legacy email-style threads; empty for chats
   adminUnread     Int           @default(0)
-  delegateUnread  Int           @default(0)
+  delegateUnread  Int           @default(0) // direct chats; group chats track unread per member
   createdAt       DateTime      @default(now())
   lastMessageAt   DateTime      @default(now())
   messages        ChatMessage[]
+  members         ConversationMember[]
+}
+
+model ConversationMember {
+  id             Int          @id @default(autoincrement())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int
+  delegate       User         @relation("ConversationMemberships", fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId     String
+  unread         Int          @default(0)
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, delegateId])
+  @@index([delegateId])
 }
 
 model ChatMessage {
@@ -193,6 +213,8 @@ model ChatMessage {
   conversationId Int
   text           String
   sender         String // delegate | admin
+  senderId       String?
+  senderName     String       @default("")
   createdAt      DateTime     @default(now())
 }
 

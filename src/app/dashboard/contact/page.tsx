@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Mail, MessageCircle, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { DEFAULT_DELEGATE_SUPPORT, resolveDelegateSupport } from '@/lib/delegateSupport';
@@ -22,9 +23,10 @@ const inputStyle: React.CSSProperties = {
 
 export default function ContactPage() {
     const { showToast } = useToast();
-    const { conferenceSettings } = useConference();
+    const router = useRouter();
+    const { conferenceSettings, messageSecretariat } = useConference();
     const whatsappPhone = conferenceSettings.whatsappSupportPhone;
-    const [formData, setFormData] = useState({ subject: '', category: 'General Inquiry', message: '' });
+    const [message, setMessage] = useState('');
     const [support, setSupport] = useState(DEFAULT_DELEGATE_SUPPORT);
     const [sending, setSending] = useState(false);
 
@@ -37,17 +39,13 @@ export default function ContactPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.subject.trim() || !formData.message.trim()) { showToast('Please fill in all fields', 'warning'); return; }
+        if (!message.trim()) { showToast('Please write a message', 'warning'); return; }
         setSending(true);
         try {
-            const response = await fetch('/api/conversations', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subject: formData.subject.trim(), category: formData.category, firstMessage: formData.message.trim() }),
-            });
-            const json = await response.json().catch(() => ({}));
-            if (!response.ok || json?.ok === false) throw new Error(json?.error || 'Could not send your message');
+            await messageSecretariat(message.trim());
             showToast('Message sent to Secretariat', 'success');
-            setFormData({ subject: '', category: 'General Inquiry', message: '' });
+            setMessage('');
+            router.push('/dashboard/messages');
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Could not send your message', 'error');
         } finally {
@@ -65,7 +63,7 @@ export default function ContactPage() {
                 <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 26, color: C.text, marginBottom: 4 }}>
                     Contact Secretariat
                 </h1>
-                <p style={{ fontSize: 14, color: C.textSec }}>Need assistance? Reach out to the organizing team.</p>
+                <p style={{ fontSize: 14, color: C.textSec }}>Need assistance? Reach out to the organizing team. Replies arrive in your Messages chat.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px]" style={{ gap: 20 }}>
@@ -77,32 +75,10 @@ export default function ContactPage() {
                         <span style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Send a Message</span>
                     </div>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.textSec, marginBottom: 6 }}>Category</label>
-                                <select value={formData.category}
-                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                    style={{ ...inputStyle, appearance: 'none' } as React.CSSProperties}
-                                    onFocus={focusBorder} onBlur={blurBorder}
-                                >
-                                    <option>General Inquiry</option>
-                                    <option>Logistics & Venue</option>
-                                    <option>Committee Issue</option>
-                                    <option>Emergency</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.textSec, marginBottom: 6 }}>Subject</label>
-                                <input type="text" value={formData.subject} placeholder="Brief topic…"
-                                    onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                                    style={inputStyle} onFocus={focusBorder} onBlur={blurBorder}
-                                />
-                            </div>
-                        </div>
                         <div>
                             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.textSec, marginBottom: 6 }}>Message</label>
-                            <textarea value={formData.message} placeholder="Describe your issue or question in detail…"
-                                onChange={e => setFormData({ ...formData, message: e.target.value })}
+                            <textarea value={message} placeholder="Describe your issue or question in detail…"
+                                onChange={e => setMessage(e.target.value)}
                                 style={{ ...inputStyle, minHeight: 140, resize: 'vertical' } as React.CSSProperties}
                                 onFocus={focusBorder} onBlur={blurBorder}
                             />

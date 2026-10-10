@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requirePage } from '@/lib/auth';
 import { fail, ok, route } from '@/lib/api';
+import { broadcast } from '@/lib/events';
 
 export const runtime = 'nodejs';
 
@@ -45,5 +46,6 @@ export const PATCH = route(async (req: Request, ctx: { params: Promise<{ id: str
         data,
         include: { messages: { orderBy: { sentAt: 'asc' } } },
     });
+    broadcast({ audience: 'staff', kind: 'email' });
     return ok(row);
 });

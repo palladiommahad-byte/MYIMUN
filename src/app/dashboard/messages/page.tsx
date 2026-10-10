@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, Send, MoreVertical, Mail, Shield, Paperclip, Plus, X, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Search, Send, Shield, Users, ArrowLeft, MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/auth/AuthContext';
 import { useConference, Conversation } from '@/context/ConferenceContext';
@@ -14,70 +14,112 @@ const C = {
 };
 
 const AVATAR_COLORS = [C.accent, C.purple, '#10B981', '#EC4899', '#F59E0B'];
-const CATEGORIES = ['General', 'Logistics', 'Committee', 'Payments', 'Technical'];
-
 function avatarColor(id: number) { return AVATAR_COLORS[id % AVATAR_COLORS.length]; }
+
+/** 'direct' is the delegate's chat with the secretariat (it may not exist until the first message). */
+type ChatKey = 'direct' | number;
 
 export default function DelegateMessagesPage() {
     const { showToast } = useToast();
     const { user } = useAuth();
-    const { getConversationsForDelegate, startConversation, sendChatMessage, markRead } = useConference();
+    const { conversations, messageSecretariat, sendChatMessage, markRead } = useConference();
 
-    const delegateId      = user?.id ?? 'unknown';
-    const delegateName    = user?.name ?? 'Delegate';
-    const delegateEmail   = user?.email ?? '';
-    const delegateCountry = user?.country ?? '';
+    const directChat = conversations.find(c => c.type === 'direct' && c.delegateId === user?.id) ?? null;
+    const groups = conversations.filter(c => c.type === 'group').sort((a, b) => b.lastActivity - a.lastActivity);
 
-    const myConversations = getConversationsForDelegate(delegateId);
-
-    const [selectedId, setSelectedId] = useState<number | null>(myConversations[0]?.id ?? null);
+    const [selectedKey, setSelectedKey] = useState<ChatKey>('direct');
     const [replyText,  setReplyText]  = useState('');
+    const [sending,    setSending]    = useState(false);
     const [search,     setSearch]     = useState('');
-    const [newOpen,    setNewOpen]    = useState(false);
-    const [newForm,    setNewForm]    = useState({ subject: '', category: 'General', message: '' });
     const [mobilePane, setMobilePane] = useState<'list' | 'detail'>('list');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const selected = myConversations.find(c => c.id === selectedId) ?? null;
+    const selectedGroup = typeof selectedKey === 'number' ? groups.find(g => g.id === selectedKey) ?? null : null;
+    const activeKey: ChatKey = selectedGroup ? selectedGroup.id : 'direct';
+    const selected: Conversation | null = selectedGroup ?? directChat;
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [selected?.messages.length]);
+    }, [activeKey, selected?.messages.length]);
 
-    // Mark as read when opened
+    // Mark as read while the chat is open
     useEffect(() => {
-        if (selectedId) markRead(selectedId, 'delegate');
-    }, [selectedId]); // eslint-disable-line
+        if (selected && selected.delegateUnread > 0) markRead(selected.id);
+    }, [selected?.id, selected?.delegateUnread]); // eslint-disable-line
 
-    const filtered = myConversations.filter(c =>
-        c.subject.toLowerCase().includes(search.toLowerCase()) ||
-        c.category.toLowerCase().includes(search.toLowerCase())
-    ).sort((a, b) => b.id - a.id);
+    const q = search.trim().toLowerCase();
+    const visibleGroups = groups.filter(g => !q || g.title.toLowerCase().includes(q) || g.messages.some(m => m.text.toLowerCase().includes(q)));
+    const showDirect = !q || 'secretariat'.includes(q) || (directChat?.messages.some(m => m.text.toLowerCase().includes(q)) ?? false);
 
-    const handleSend = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!replyText.trim() || !selectedId) return;
-        sendChatMessage(selectedId, replyText.trim(), 'delegate');
+    const handleSend = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        const text = replyText.trim();
+        if (!text || sending) return;
+        setSending(true);
         setReplyText('');
-        showToast('Message sent', 'success');
+        try {
+            if (selectedGroup) await sendChatMessage(selectedGroup.id, text);
+            else await messageSecretariat(text);
+        } catch (error) {
+            setReplyText(text);
+            showToast(error instanceof Error ? error.message : 'Could not send message', 'error');
+        } finally {
+            setSending(false);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
     };
 
-    const handleStartNew = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newForm.subject.trim() || !newForm.message.trim()) { showToast('Please fill in all fields.', 'error'); return; }
-        startConversation(delegateId, delegateName, delegateEmail, delegateCountry, newForm.subject.trim(), newForm.category, newForm.message.trim());
-        setNewForm({ subject: '', category: 'General', message: '' });
-        setNewOpen(false);
-        setMobilePane('detail');
-        showToast('Message sent to admin team.', 'success');
+    const selectChat = (key: ChatKey) => { setSelectedKey(key); setReplyText(''); setMobilePane('detail'); };
+    const totalUnread = conversations.reduce((s, c) => s + c.delegateUnread, 0);
+
+    const preview = (conv: Conversation | null, empty: string) => {
+        const last = conv?.messages[conv.messages.length - 1];
+        if (!last) return empty;
+        const who = last.senderId === user?.id ? 'You: ' : conv?.type === 'group' ? `${last.sender === 'admin' ? 'Secretariat' : last.senderName.split(' ')[0] || 'Delegate'}: ` : '';
+        return who + last.text.replace(/\s+/g, ' ');
     };
 
-    const totalUnread = myConversations.reduce((s, c) => s + c.delegateUnread, 0);
+    const listItem = (key: ChatKey, conv: Conversation | null, name: string, icon: React.ReactNode, color: string, empty: string) => {
+        const isActive = activeKey === key;
+        const unread = conv?.delegateUnread ?? 0;
+        const last = conv?.messages[conv.messages.length - 1];
+        return (
+            <button key={String(key)} type="button" onClick={() => selectChat(key)}
+                style={{
+                    width: '100%', textAlign: 'left', padding: '12px 14px', cursor: 'pointer',
+                    border: 'none', borderLeft: `3px solid ${isActive ? C.accent : 'transparent'}`,
+                    borderBottom: `1px solid ${C.border}`,
+                    background: isActive ? `${C.accent}08` : 'transparent',
+                    display: 'flex', gap: 10, alignItems: 'center',
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = C.bg; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+                <div style={{ width: 38, height: 38, borderRadius: key === 'direct' ? '50%' : 11, flexShrink: 0, background: `${color}20`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 13, fontWeight: unread > 0 ? 700 : 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                        {last && <span style={{ fontSize: 10, color: C.textMuted, flexShrink: 0 }}>{last.time}</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <p style={{ flex: 1, fontSize: 12, color: unread > 0 ? C.text : C.textSec, fontWeight: unread > 0 ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview(conv, empty)}</p>
+                        {unread > 0 && (
+                            <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: C.accent, color: '#fff', fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{unread}</span>
+                        )}
+                    </div>
+                </div>
+            </button>
+        );
+    };
+
+    const messages = selected?.messages ?? [];
+    const isGroup = selected?.type === 'group';
 
     return (
         <div className="delegate-messages-shell" data-mobile-pane={mobilePane} style={{ fontFamily: '"Inter",system-ui,sans-serif' }}>
@@ -92,6 +134,7 @@ export default function DelegateMessagesPage() {
                 .delegate-messages-sidebar,
                 .delegate-messages-pane {
                     min-width: 0;
+                    min-height: 0;
                 }
                 .delegate-mobile-back {
                     display: none;
@@ -114,31 +157,19 @@ export default function DelegateMessagesPage() {
                     .delegate-mobile-back {
                         display: inline-flex;
                     }
-                    .delegate-new-row {
-                        flex-direction: column;
-                    }
-                    .delegate-new-row > *,
-                    .delegate-new-row select {
-                        width: 100%;
+                    .delegate-message-bubble {
+                        max-width: 88% !important;
                     }
                 }
             `}</style>
 
             {/* ── Sidebar ── */}
             <div className="delegate-messages-sidebar" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 22, color: C.text }}>Messages</h1>
-                        {totalUnread > 0 && (
-                            <span style={{ background: C.accent, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>{totalUnread}</span>
-                        )}
-                    </div>
-                    <button onClick={() => { setNewOpen(o => !o); setMobilePane('detail'); }}
-                        title="New message"
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${C.accent}`, background: newOpen ? C.accent : 'transparent', color: newOpen ? '#fff' : C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                        <Plus size={13} /> New
-                    </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h1 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontWeight: 700, fontSize: 22, color: C.text }}>Messages</h1>
+                    {totalUnread > 0 && (
+                        <span style={{ background: C.accent, color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>{totalUnread}</span>
+                    )}
                 </div>
 
                 {/* Search */}
@@ -151,185 +182,107 @@ export default function DelegateMessagesPage() {
                     />
                 </div>
 
-                {/* Conversation list */}
-                <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: C.shadow }}>
-                    <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Recent</span>
-                        <Filter size={13} style={{ color: C.textMuted }} />
-                    </div>
+                {/* Chat list */}
+                <div style={{ flex: 1, minHeight: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: C.shadow }}>
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {filtered.length === 0 ? (
-                            <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                                <Mail size={28} style={{ color: C.border, margin: '0 auto 8px' }} />
-                                <p style={{ fontSize: 13, color: C.textMuted }}>No conversations yet.<br />Click &quot;New&quot; to message the admin team.</p>
-                            </div>
-                        ) : filtered.map(conv => {
-                            const isActive = selectedId === conv.id;
-                            const col = avatarColor(conv.id);
-                            const lastMsg = conv.messages[conv.messages.length - 1];
-                            return (
-                                <div key={conv.id} onClick={() => { setSelectedId(conv.id); setMobilePane('detail'); }}
-                                    style={{
-                                        padding: '12px 14px', cursor: 'pointer',
-                                        borderLeft: `3px solid ${isActive ? C.accent : 'transparent'}`,
-                                        borderBottom: `1px solid ${C.border}`,
-                                        background: isActive ? `${C.accent}08` : 'transparent',
-                                        display: 'flex', gap: 10,
-                                    }}
-                                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = C.bg; }}
-                                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                                >
-                                    <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: `${col}20`, color: col, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>
-                                        S
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                                            <span style={{ fontSize: 13, fontWeight: conv.delegateUnread > 0 ? 700 : 500, color: C.text }}>Secretariat</span>
-                                            <span style={{ fontSize: 10, color: C.textMuted, flexShrink: 0, marginLeft: 4 }}>{conv.lastMessageAt}</span>
-                                        </div>
-                                        <p style={{ fontSize: 12, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{conv.subject}</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '1px 6px', borderRadius: 4, background: C.bg, color: C.textSec }}>{conv.category}</span>
-                                            {conv.delegateUnread > 0 && (
-                                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.accent, display: 'inline-block' }} />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {showDirect && listItem('direct', directChat, 'Secretariat', <Shield size={17} />, C.accent, 'Message the organizing team')}
+                        {visibleGroups.length > 0 && (
+                            <div style={{ padding: '10px 14px 6px', fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Groups</div>
+                        )}
+                        {visibleGroups.map(g => listItem(g.id, g, g.title, <Users size={17} />, avatarColor(g.id), `${g.members.length} members`))}
                     </div>
                 </div>
             </div>
 
-            {/* ── Detail / New Message pane ── */}
-            <div className="delegate-messages-pane" style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
+            {/* ── Chat pane ── */}
+            <div className="delegate-messages-pane" style={{ flex: 1, minHeight: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: C.shadow }}>
+                {/* Header */}
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, background: '#FAFBFC' }}>
+                    <button className="delegate-mobile-back" onClick={() => setMobilePane('list')} title="Back to messages"
+                        style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', flexShrink: 0 }}>
+                        <ArrowLeft size={16} />
+                    </button>
+                    {selectedGroup ? (
+                        <>
+                            <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: `${avatarColor(selectedGroup.id)}20`, color: avatarColor(selectedGroup.id), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Users size={19} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                                <p style={{ fontSize: 15, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedGroup.title}</p>
+                                <p style={{ fontSize: 12, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    Secretariat, {selectedGroup.members.map(m => m.delegateId === user?.id ? 'You' : m.name.split(' ')[0]).join(', ')}
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: `${C.accent}20`, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Shield size={19} />
+                            </div>
+                            <div>
+                                <p style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Secretariat</p>
+                                <p style={{ fontSize: 12, color: C.textSec }}>MYIMUN organizing team</p>
+                            </div>
+                        </>
+                    )}
+                </div>
 
-                {/* New Message form */}
-                {newOpen && (
-                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: `${C.accent}04` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                            <p style={{ fontSize: 14, fontWeight: 700, color: C.text }}>New Message to Secretariat</p>
-                            <button onClick={() => setNewOpen(false)} style={{ padding: 4, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', color: C.textMuted }}><X size={16} /></button>
+                {/* Thread */}
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20 }}>
+                    {messages.length === 0 ? (
+                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.textMuted, gap: 6, textAlign: 'center', padding: '0 18px' }}>
+                            <MessageSquare size={40} style={{ opacity: 0.3 }} />
+                            <p style={{ fontSize: 15, fontWeight: 600 }}>{isGroup ? 'No messages yet' : 'Need help?'}</p>
+                            <p style={{ fontSize: 13 }}>{isGroup ? 'Messages in this group will appear here.' : 'Write your message below and the secretariat will reply here.'}</p>
                         </div>
-                        <form onSubmit={handleStartNew} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <div className="delegate-new-row" style={{ display: 'flex', gap: 10 }}>
-                                <input value={newForm.subject} onChange={e => setNewForm(f => ({ ...f, subject: e.target.value }))}
-                                    placeholder="Subject *"
-                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', fontFamily: 'inherit' }}
-                                    onFocus={e => e.target.style.borderColor = C.accent}
-                                    onBlur={e => e.target.style.borderColor = C.border}
-                                />
-                                <div style={{ position: 'relative' }}>
-                                    <select value={newForm.category} onChange={e => setNewForm(f => ({ ...f, category: e.target.value }))}
-                                        style={{ padding: '8px 30px 8px 12px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', cursor: 'pointer', appearance: 'none', fontFamily: 'inherit' }}
-                                    >
-                                        {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                    <ChevronDown size={12} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: C.textMuted, pointerEvents: 'none' }} />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                                <textarea value={newForm.message} onChange={e => setNewForm(f => ({ ...f, message: e.target.value }))}
-                                    placeholder="Type your message… *"
-                                    rows={2}
-                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 13, color: C.text, background: C.bg, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
-                                    onFocus={e => e.target.style.borderColor = C.accent}
-                                    onBlur={e => e.target.style.borderColor = C.border}
-                                />
-                                <button type="submit" style={{ padding: '10px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer', boxShadow: `0 2px 8px ${C.accent}40` }}>
-                                    <Send size={16} />
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {selected ? (
-                    <>
-                        {/* Header */}
-                        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FAFBFC' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <button className="delegate-mobile-back" onClick={() => setMobilePane('list')} title="Back to messages"
-                                    style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', flexShrink: 0 }}>
-                                    <ArrowLeft size={16} />
-                                </button>
-                                <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: `${C.accent}20`, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
-                                    S
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: 15, fontWeight: 600, color: C.text }}>Secretariat</p>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.textSec }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={11} />secretariat@myimun.org</span>
-                                        <span style={{ width: 3, height: 3, borderRadius: '50%', background: C.border, display: 'inline-block' }} />
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Shield size={11} />Admin</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button style={{ padding: 7, borderRadius: 7, color: C.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.bg; (e.currentTarget as HTMLElement).style.color = C.text; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-                            ><MoreVertical size={18} /></button>
-                        </div>
-
-                        {/* Messages thread */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-                            <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, background: C.bg, padding: '3px 10px', borderRadius: 999 }}>{selected.createdAt}</span>
-                            </div>
-                            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, textAlign: 'center' }}>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Topic: </span>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{selected.subject}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {selected.messages.map(msg => (
-                                    <div key={msg.id} style={{ display: 'flex', justifyContent: msg.sender === 'delegate' ? 'flex-end' : 'flex-start' }}>
-                                        <div style={{
-                                            maxWidth: '75%', borderRadius: 14, padding: '10px 14px',
-                                            background: msg.sender === 'delegate' ? C.accent : C.bg,
-                                            color: msg.sender === 'delegate' ? 'white' : C.text,
-                                            borderTopRightRadius: msg.sender === 'delegate' ? 2 : 14,
-                                            borderTopLeftRadius:  msg.sender === 'delegate' ? 14 : 2,
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {messages.map((msg, i) => {
+                                const mine = msg.sender === 'delegate' && msg.senderId === user?.id;
+                                const prev = messages[i - 1];
+                                const showName = isGroup && !mine && (!prev || prev.sender !== msg.sender || prev.senderId !== msg.senderId);
+                                return (
+                                    <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+                                        {showName && (
+                                            <span style={{ fontSize: 11, fontWeight: 600, color: msg.sender === 'admin' ? C.accent : C.textMuted, margin: '4px 4px 3px' }}>
+                                                {msg.sender === 'admin' ? 'Secretariat' : msg.senderName || 'Delegate'}
+                                            </span>
+                                        )}
+                                        <div className="delegate-message-bubble" style={{
+                                            maxWidth: '75%', borderRadius: 14, padding: '9px 13px',
+                                            background: mine ? C.accent : C.bg,
+                                            color: mine ? 'white' : C.text,
+                                            borderTopRightRadius: mine ? 3 : 14,
+                                            borderTopLeftRadius:  mine ? 14 : 3,
                                         }}>
-                                            <p style={{ fontSize: 13, lineHeight: 1.55 }}>{msg.text}</p>
-                                            <p style={{ fontSize: 10, opacity: 0.65, marginTop: 4, textAlign: msg.sender === 'delegate' ? 'right' : 'left' }}>{msg.time}</p>
+                                            <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{msg.text}</p>
+                                            <p style={{ fontSize: 10, opacity: 0.65, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>{msg.time}</p>
                                         </div>
                                     </div>
-                                ))}
-                                <div ref={messagesEndRef} />
+                                );
+                            })}
+                            <div ref={messagesEndRef} />
+                        </div>
+                    )}
+                </div>
+
+                {/* Composer */}
+                <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC' }}>
+                    <form onSubmit={handleSend} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                        <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', background: C.surface }}>
+                            <textarea value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={handleKeyDown}
+                                placeholder={selectedGroup ? `Message ${selectedGroup.title}…` : 'Message the secretariat…'}
+                                style={{ width: '100%', padding: '10px 12px', minHeight: 52, maxHeight: 120, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: C.text, resize: 'none', fontFamily: 'inherit', display: 'block' }}
+                            />
+                            <div style={{ padding: '4px 12px 6px', display: 'flex', justifyContent: 'flex-end' }}>
+                                <span style={{ fontSize: 11, color: C.textMuted }}>Enter to send</span>
                             </div>
                         </div>
-
-                        {/* Reply box */}
-                        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, background: '#FAFBFC' }}>
-                            <form onSubmit={handleSend} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                                <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', background: C.surface }}>
-                                    <textarea value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={handleKeyDown}
-                                        placeholder="Type your message…"
-                                        style={{ width: '100%', padding: '10px 12px', minHeight: 60, maxHeight: 120, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: C.text, resize: 'none', fontFamily: 'inherit' }}
-                                    />
-                                    <div style={{ padding: '6px 12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <button type="button" style={{ color: C.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Paperclip size={16} /></button>
-                                        <span style={{ fontSize: 11, color: C.textMuted }}>Enter to send</span>
-                                    </div>
-                                </div>
-                                <button type="submit" disabled={!replyText.trim()}
-                                    style={{ padding: '13px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', background: C.accent, color: 'white', opacity: replyText.trim() ? 1 : 0.45, boxShadow: `0 2px 8px ${C.accent}40` }}
-                                ><Send size={18} /></button>
-                            </form>
-                        </div>
-                    </>
-                ) : (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.textMuted, gap: 8 }}>
-                        <button className="delegate-mobile-back" onClick={() => setMobilePane('list')} title="Back to messages"
-                            style={{ marginBottom: 8, alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                            <ArrowLeft size={15} /> Back
-                        </button>
-                        <Mail size={44} style={{ opacity: 0.3 }} />
-                        <p style={{ fontSize: 15, fontWeight: 500 }}>No conversation selected</p>
-                        <p style={{ fontSize: 13, textAlign: 'center', padding: '0 18px' }}>Choose a recent message or click &quot;New&quot; to contact the admin team.</p>
-                    </div>
-                )}
+                        <button type="submit" disabled={!replyText.trim() || sending}
+                            style={{ padding: '13px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', background: C.accent, color: 'white', opacity: replyText.trim() && !sending ? 1 : 0.45, boxShadow: `0 2px 8px ${C.accent}40` }}
+                        ><Send size={18} /></button>
+                    </form>
+                </div>
             </div>
         </div>
     );

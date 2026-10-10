@@ -2,93 +2,67 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, hasPageAccess } from '@/lib/auth';
 import { fail, ok, route } from '@/lib/api';
-import { notifyDelegate, notifyStaff } from '@/lib/notifications';
+import { appendMessage, broadcastChatChange, conversationInclude, getOrCreateDirectChat, loadConversation, serializeConversation } from '@/lib/chat';
 
-/** GET — staff with Messages access see all conversations; delegates see their own (with messages). */
+/** GET — staff with Messages access see every chat; delegates see their direct chat
+    with the secretariat plus the group chats they were added to. */
 export const GET = route(async () => {
     const user = await requireUser();
-    const where = hasPageAccess(user, '/admin/messages') ? {} : { delegateId: user.id };
+    const isStaff = hasPageAccess(user, '/admin/messages');
+    const where = isStaff
+        ? {}
+        : { OR: [{ type: 'direct', delegateId: user.id }, { type: 'group', members: { some: { delegateId: user.id } } }] };
     const rows = await prisma.conversation.findMany({
         where,
         orderBy: { lastMessageAt: 'desc' },
-        include: { messages: { orderBy: { id: 'asc' } } },
+        include: conversationInclude,
     });
-    return ok(rows);
+    return ok(rows.map(row => serializeConversation(row, user, isStaff)));
 });
 
-const schema = z.object({
-    delegateId: z.string().optional(),
-    subject: z.string().trim().min(1),
-    category: z.string().trim().min(1),
-    firstMessage: z.string().trim().min(1),
-});
+const text = z.string().trim().min(1).max(5000);
+const delegateSchema = z.object({ text });
+const staffSchema = z.discriminatedUnion('type', [
+    z.object({ type: z.literal('direct'), delegateId: z.string().min(1), text: text.optional() }),
+    z.object({ type: z.literal('group'), title: z.string().trim().min(1).max(120), memberIds: z.array(z.string().min(1)).min(1), text: text.optional() }),
+]);
 
-/** POST — delegates open support conversations; staff can start direct delegate threads. */
+/** POST — delegates message the secretariat (always into their one direct chat).
+    Staff open a direct chat with a delegate, or create a group chat. */
 export const POST = route(async (req: Request) => {
     const user = await requireUser();
-    const body = schema.parse(await req.json());
     const isStaff = hasPageAccess(user, '/admin/messages');
-    const registration = isStaff
-        ? body.delegateId
-            ? await prisma.registration.findUnique({ where: { delegateId: body.delegateId } })
-            : null
-        : null;
+    const raw = await req.json();
 
-    if (isStaff && !registration) {
-        return fail('Please choose a registered delegate.', 400);
+    if (!isStaff) {
+        const body = delegateSchema.parse(raw);
+        const chat = await getOrCreateDirectChat({ id: user.id, name: user.fullName, email: user.email, country: user.country ?? '' });
+        await appendMessage(chat.id, body.text, user, false);
+        return ok(serializeConversation((await loadConversation(chat.id))!, user, false), 201);
     }
 
-    const delegate = isStaff
-        ? {
-            id: registration!.delegateId,
-            name: registration!.fullName,
-            email: registration!.email,
-            country: registration!.country,
-        }
-        : {
-            id: user.id,
-            name: user.fullName,
-            email: user.email,
-            country: user.country ?? '',
-        };
-    const sender = isStaff ? 'admin' : 'delegate';
+    const body = staffSchema.parse(raw);
 
-    const row = await prisma.conversation.create({
+    if (body.type === 'direct') {
+        const delegate = await prisma.user.findFirst({ where: { id: body.delegateId, role: 'delegate' } });
+        if (!delegate) return fail('Please choose a delegate.', 400);
+        const chat = await getOrCreateDirectChat({ id: delegate.id, name: delegate.fullName, email: delegate.email, country: delegate.country ?? '' });
+        if (body.text) await appendMessage(chat.id, body.text, user, true);
+        return ok(serializeConversation((await loadConversation(chat.id))!, user, true), 201);
+    }
+
+    const delegates = await prisma.user.findMany({ where: { id: { in: body.memberIds }, role: 'delegate' }, select: { id: true } });
+    if (delegates.length === 0) return fail('Add at least one delegate to the group.', 400);
+
+    const chat = await prisma.conversation.create({
         data: {
-            delegateId: delegate.id,
-            delegateName: delegate.name,
-            delegateEmail: delegate.email,
-            delegateCountry: delegate.country,
-            subject: body.subject,
-            category: body.category,
-            adminUnread: isStaff ? 0 : 1,
-            delegateUnread: isStaff ? 1 : 0,
-            messages: { create: { text: body.firstMessage, sender } },
+            type: 'group', title: body.title,
+            delegateName: '', delegateEmail: '', delegateCountry: '', subject: '', category: '',
+            members: { create: delegates.map(d => ({ delegateId: d.id })) },
         },
-        include: { messages: { orderBy: { id: 'asc' } } },
     });
+    if (body.text) await appendMessage(chat.id, body.text, user, true);
+    else broadcastChatChange(delegates.map(d => d.id));
 
-    if (isStaff) {
-        await notifyDelegate(delegate.id, {
-            type: 'message_received',
-            title: 'New message from the secretariat',
-            message: `${body.subject}: ${body.firstMessage.slice(0, 80)}${body.firstMessage.length > 80 ? '...' : ''}`,
-            link: '/dashboard/messages',
-        });
-    } else {
-        await notifyStaff({
-            type: 'message_received',
-            title: 'New support message',
-            message: `${user.fullName} sent a message: "${body.subject}"`,
-            link: '/admin/messages',
-        });
-        await notifyDelegate(user.id, {
-            type: 'message_sent',
-            title: 'Message sent',
-            message: `Your message about "${body.subject}" was sent to the secretariat.`,
-            link: '/dashboard/messages',
-        });
-    }
-
-    return ok(row, 201);
+    return ok(serializeConversation((await loadConversation(chat.id))!, user, true), 201);
 });

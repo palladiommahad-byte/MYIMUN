@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject, type ParsedMail } from 'mailparser';
 import { prisma } from '@/lib/prisma';
+import { broadcast } from '@/lib/events';
 
 export type EmailRecipient = { name?: string; email: string };
 export type OutboundAttachment = {
@@ -352,7 +353,24 @@ export async function sendOutboundEmail(input: {
     });
 }
 
-export async function syncInboxFromImap() {
+let syncInFlight: Promise<{ imported: number; highestUid: number }> | null = null;
+
+/** Import new inbox mail over IMAP. Concurrent callers (manual sync button and the
+    background poller) share one run so the same message is never imported twice.
+    Staff clients are told to refresh whenever something new arrives. */
+export function syncInboxFromImap() {
+    if (!syncInFlight) {
+        syncInFlight = importNewInboxMail()
+            .then(result => {
+                if (result.imported > 0) broadcast({ audience: 'staff', kind: 'email' });
+                return result;
+            })
+            .finally(() => { syncInFlight = null; });
+    }
+    return syncInFlight;
+}
+
+async function importNewInboxMail() {
     const config = getMailConfig();
     if (!config) throw new Error('Email credentials are not configured.');
 

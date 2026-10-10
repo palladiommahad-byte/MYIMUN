@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, Mail, ScrollText, Eye } from 'lucide-react';
 import { User } from '../../../types';
 import { useToast } from '@/components/ui/Toast';
+import { useConference } from '@/context/ConferenceContext';
+import { TermsContract } from '@/components/legal/TermsContract';
+import { TERMS_LAST_UPDATED } from '@/components/legal/termsContent';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -31,6 +34,9 @@ interface SecuritySettingsProps {
 
 export function SecuritySettings({ user }: SecuritySettingsProps) {
     const { showToast } = useToast();
+    const { getRegistrationForDelegate } = useConference();
+    const registration = getRegistrationForDelegate(user.id);
+    const [contractOpen, setContractOpen] = useState(false);
 
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
     const [focusedPw, setFocusedPw]   = useState<string | null>(null);
@@ -61,7 +67,7 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
         background: C.surface,
         border: `1px solid ${C.border}`,
         borderRadius: 12,
-        padding: '24px 28px',
+        padding: '24px clamp(16px, 4vw, 28px)',
         boxShadow: C.shadow,
     };
 
@@ -129,7 +135,7 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
             {/* Password Section */}
             <div style={sectionStyle}>
                 {sectionTitle(<Lock size={18} />, 'Change Password')}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: 14 }}>
                     {([
                         { key: 'current', label: 'Current Password' },
                         { key: 'new',     label: 'New Password' },
@@ -158,6 +164,34 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
                     >Update Password</button>
                 </div>
             </div>
+
+            {/* Terms & Conditions agreement */}
+            <div style={sectionStyle}>
+                {sectionTitle(<ScrollText size={18} />, 'Terms & Conditions Agreement')}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6, maxWidth: 560, margin: 0 }}>
+                        Your participation agreement with MYIMUN, signed in your name and stamped with the official MYIMUN seal. Last updated {TERMS_LAST_UPDATED}.
+                    </p>
+                    <button
+                        onClick={() => setContractOpen(true)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 8, border: `1px solid ${C.accent}`, cursor: 'pointer', background: 'transparent', color: C.accent, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.accent; (e.currentTarget as HTMLElement).style.color = 'white'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = C.accent; }}
+                    ><Eye size={15} /> View Contract</button>
+                </div>
+            </div>
+
+            {contractOpen && (
+                <TermsContract
+                    delegate={{
+                        name: registration?.fullName || user.name,
+                        email: registration?.email || user.email,
+                        country: registration?.country || user.country,
+                        signedOn: registration?.submittedAt || user.joined,
+                    }}
+                    onClose={() => setContractOpen(false)}
+                />
+            )}
         </div>
     );
 }

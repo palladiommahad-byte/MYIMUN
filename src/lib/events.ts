@@ -1,10 +1,12 @@
 import 'server-only';
 
-type EventPayload =
+type EventAudience =
     | { audience: 'staff' }
     | { audience: 'admin' }
     | { audience: 'delegate'; recipientId: string }
     | { audience: 'everyone' }; // every connected client should refetch (e.g. a new broadcast)
+/** `kind` narrows what changed so clients refetch only that: chat conversations, or the email inbox. */
+type EventPayload = EventAudience & { kind?: 'messages' | 'email' };
 type Listener = (payload: EventPayload) => void;
 
 // Reuse a single listener set across hot-reloads in dev, same reasoning as prisma.ts.

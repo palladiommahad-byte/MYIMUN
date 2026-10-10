@@ -8,6 +8,7 @@ import {
     UserPlus, Users, X
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { EMAIL_UPDATED_EVENT } from '@/context/ConferenceContext';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -225,6 +226,14 @@ export default function AdminEmailPage() {
         return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mailbox]);
+
+    // Refresh the list live when new mail arrives or another staff member reads a thread.
+    useEffect(() => {
+        const onUpdate = () => { void loadThreads().catch(() => {}); };
+        window.addEventListener(EMAIL_UPDATED_EVENT, onUpdate);
+        return () => window.removeEventListener(EMAIL_UPDATED_EVENT, onUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mailbox, search]);
 
     const filteredThreads = useMemo(() => {
         const q = search.trim().toLowerCase();

@@ -1,5 +1,6 @@
-import { requireUser } from '@/lib/auth';
+import { hasPageAccess, requireUser } from '@/lib/auth';
 import { subscribe } from '@/lib/events';
+import { retainEmailPoller } from '@/lib/emailPoller';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +19,14 @@ export async function GET() {
 
     const isStaff = STAFF.includes(user.role);
     const isAdmin = user.role === 'admin';
+    const canEmail = isStaff && hasPageAccess(user, '/admin/email');
     const userId = user.id;
     const encoder = new TextEncoder();
 
     let unsubscribe: () => void = () => {};
     let heartbeat: ReturnType<typeof setInterval>;
+    // While an Email-page user is connected, new mail is pulled in the background.
+    const releasePoller = canEmail ? retainEmailPoller() : () => {};
 
     const stream = new ReadableStream({
         start(controller) {
@@ -35,10 +39,12 @@ export async function GET() {
             };
 
             unsubscribe = subscribe((payload) => {
-                if (payload.audience === 'everyone') send('update');
-                else if (payload.audience === 'staff' && isStaff) send('update');
-                else if (payload.audience === 'admin' && isAdmin) send('update');
-                else if (payload.audience === 'delegate' && payload.recipientId === userId) send('update');
+                const event = payload.kind ?? 'update';
+                if (event === 'email' && !canEmail) return;
+                if (payload.audience === 'everyone') send(event);
+                else if (payload.audience === 'staff' && isStaff) send(event);
+                else if (payload.audience === 'admin' && isAdmin) send(event);
+                else if (payload.audience === 'delegate' && payload.recipientId === userId) send(event);
             });
 
             heartbeat = setInterval(() => send('ping'), 25000);
@@ -47,6 +53,7 @@ export async function GET() {
         cancel() {
             unsubscribe();
             clearInterval(heartbeat);
+            releasePoller();
         },
     });
 
