@@ -37,11 +37,15 @@ export const TERMS_SECTIONS: { title: string; body: React.ReactNode }[] = [
                 <br />
                 Participation fees will not be refunded, in whole or in part, if a delegate cancels their participation, is unable to attend, has their visa application rejected, or is removed from the conference for violating the applicable rules and regulations, subject to applicable laws.
                 <br /><br />
-                <strong style={{ color: '#111827' }}>4. Conference Cancellation or Postponement by the Organization</strong>
+                <strong style={{ color: '#111827' }}>4. Conference Cancellation, Postponement, and Refund Policy</strong>
                 <br />
-                If MYIMUN cancels the conference entirely, participants will be informed of the procedures for refunding participation fees, in accordance with applicable laws and the organization&apos;s legal obligations.
+                In the event that MYIMUN permanently cancels the conference, participants will be informed of the available options, which may include receiving a credit that can be used to participate in any future MYIMUN conference or requesting a partial refund.
                 <br /><br />
-                If the conference is postponed or rescheduled, participants will be informed of the relevant details and the available arrangements concerning their registrations.
+                Participants who do not wish to accept the credit may request a partial refund. The refund amount, payment method, and refund schedule must be agreed upon by both parties. Participants must follow the organization&apos;s guidelines and procedures for processing partial refunds.
+                <br /><br />
+                This refund policy applies exclusively when MYIMUN permanently cancels the conference. All refund arrangements will be handled in accordance with applicable laws and the organization&apos;s legal obligations.
+                <br /><br />
+                If the conference is postponed or rescheduled, participation fees will remain non-refundable, and participants will not be entitled to request a partial or full refund solely on the basis of the postponement or rescheduling, subject to applicable laws.
                 <br /><br />
                 <strong style={{ color: '#111827' }}>5. Force Majeure and Exceptional Circumstances</strong>
                 <br />
