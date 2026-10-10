@@ -13,6 +13,7 @@ import { useConference } from '@/context/ConferenceContext';
 import { useAuth } from '@/auth/AuthContext';
 import { Donut, StatPanel } from '@/components/admin/StatWidgets';
 import { hasAdminPageAccess } from '@/lib/adminPages';
+import { TermsContract, type ContractParty } from '@/components/legal/TermsContract';
 
 /* ── Style constants ── */
 const C = {
@@ -32,7 +33,7 @@ const C = {
     shadowHov:'0 4px 16px rgba(0,0,0,0.08)',
 };
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 50;
 
 const REG_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
     Accepted: { bg: `${C.green}14`, color: C.green },
@@ -71,6 +72,8 @@ export default function AdminDashboardPage() {
     const canManageDelegates = hasAdminPageAccess(user, '/admin/delegates');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [paymentFilter, setPaymentFilter] = useState<'all' | 'Paid' | 'Unpaid'>('all');
+    const [contractTarget, setContractTarget] = useState<{ party: ContractParty; autoDownload: boolean } | null>(null);
     const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
     const [suspending, setSuspending] = useState(false);
 
@@ -122,6 +125,7 @@ export default function AdminDashboardPage() {
             paymentStatus: paymentStatusFor(r.delegateId, r.paymentStatus),
             paperStatus: paper?.status || null,
             accountStatus: r.accountStatus,
+            contract: { name: r.fullName, email: r.email, country: r.country, signedOn: r.submittedAt } as ContractParty,
         };
     }), [scopedRegistrations, scopedApplications, scopedPapers, paymentStatusFor]);
 
@@ -140,6 +144,7 @@ export default function AdminDashboardPage() {
     };
 
     const filtered = roster.filter(d =>
+        (paymentFilter === 'all' || d.paymentStatus === paymentFilter) &&
         [d.name, d.email, d.country, d.committee].some(v => v.toLowerCase().includes(search.toLowerCase()))
     );
 
@@ -307,27 +312,34 @@ export default function AdminDashboardPage() {
                                 onBlur={e  => e.target.style.borderColor = C.border}
                             />
                         </div>
-                        <button className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors"
-                            style={{ border: `1px solid ${C.border}`, color: C.textMuted, background: C.surface }}
-                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.bg}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.surface}
-                        >
-                            <Filter size={13} />
-                        </button>
+                        <div className="relative flex-shrink-0">
+                            <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: paymentFilter === 'all' ? C.textMuted : C.accent }} />
+                            <select value={paymentFilter} aria-label="Filter by payment"
+                                onChange={e => { setPaymentFilter(e.target.value as typeof paymentFilter); setPage(1); }}
+                                style={{
+                                    height: 36, paddingLeft: 30, paddingRight: 10, borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+                                    border: `1px solid ${paymentFilter === 'all' ? C.border : C.accent}`,
+                                    color: paymentFilter === 'all' ? C.textSec : C.accent, background: C.surface, outline: 'none', cursor: 'pointer',
+                                }}>
+                                <option value="all">All payments</option>
+                                <option value="Paid">Paid only</option>
+                                <option value="Unpaid">Unpaid only</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 {/* Table */}
                 <div className="overflow-x-auto">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 920 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1040 }}>
                         <thead>
                             <tr style={{ borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
-                                {['USER', 'COUNTRY', 'COMMITTEE', 'REGISTRATION', 'PAYMENT', 'PAPER', 'ACTIONS'].map((h, i) => (
+                                {['USER', 'COUNTRY', 'COMMITTEE', 'REGISTRATION', 'PAYMENT', 'PAPER', 'CONTRACT', 'ACTIONS'].map((h, i) => (
                                     <th key={h} style={{
                                         padding: '10px 20px',
                                         fontSize: 11, fontWeight: 600, color: C.textMuted,
                                         textTransform: 'uppercase', letterSpacing: '0.07em',
-                                        textAlign: i === 6 ? 'right' : 'left',
+                                        textAlign: i === 7 ? 'right' : 'left',
                                         whiteSpace: 'nowrap',
                                     }}>{h}</th>
                                 ))}
@@ -336,11 +348,11 @@ export default function AdminDashboardPage() {
                         <tbody>
                             {pageRows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center' }}>
+                                    <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center' }}>
                                         <p style={{ fontSize: 14, color: C.textMuted }}>
                                             {scopedRegistrations.length === 0
                                                 ? confirmedOnly ? 'No delegates have completed registration and payment yet.' : 'No delegates registered yet.'
-                                                : 'No delegates match your search.'}
+                                                : 'No delegates match your search or filter.'}
                                         </p>
                                     </td>
                                 </tr>
@@ -393,6 +405,24 @@ export default function AdminDashboardPage() {
                                             ) : (
                                                 <span style={{ fontSize: 12, color: C.textMuted }}>Not submitted</span>
                                             )}
+                                        </td>
+                                        {/* Contract */}
+                                        <td style={{ padding: '13px 20px' }}>
+                                            <div className="flex items-center gap-1.5">
+                                                <button onClick={() => setContractTarget({ party: d.contract, autoDownload: false })} title="View contract"
+                                                    className="flex items-center gap-1 h-7 px-2 rounded-lg transition-colors"
+                                                    style={{ fontSize: 12, fontWeight: 600, color: C.accent, background: `${C.accent}10`, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    <FileText size={13} /> View
+                                                </button>
+                                                <button onClick={() => setContractTarget({ party: d.contract, autoDownload: true })} title="Download contract PDF"
+                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                    style={{ color: C.textMuted, background: 'transparent', border: `1px solid ${C.border}`, cursor: 'pointer' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.accent; (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.textMuted; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
+                                                >
+                                                    <Download size={13} />
+                                                </button>
+                                            </div>
                                         </td>
                                         {/* Actions */}
                                         <td style={{ padding: '13px 20px', textAlign: 'right' }}>
@@ -467,6 +497,16 @@ export default function AdminDashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Contract view / download ── */}
+            {contractTarget && (
+                <TermsContract
+                    delegate={contractTarget.party}
+                    allowDownload
+                    autoDownload={contractTarget.autoDownload}
+                    onClose={() => setContractTarget(null)}
+                />
+            )}
 
             {/* ── Suspend / restore confirmation ── */}
             {suspendTarget && (

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrollText, X } from 'lucide-react';
+import { Download, LoaderCircle, ScrollText, X } from 'lucide-react';
 import { TERMS_LAST_UPDATED, TERMS_SECTIONS } from './termsContent';
+import { downloadContractPdf } from '@/lib/generateContractPdf';
 
 const C = {
     text: '#111827', textSec: '#4B5563', textMuted: '#9CA3AF',
@@ -18,9 +19,37 @@ export interface ContractParty {
     signedOn?: string;
 }
 
-/** View-only popup of the Terms & Conditions laid out as a signed agreement between
-    the delegate and MYIMUN. Rendered in a portal so it sits above the dashboard layout. */
-export function TermsContract({ delegate, onClose }: { delegate: ContractParty; onClose: () => void }) {
+export function contractFileName(name: string) {
+    return `MYIMUN-Contract-${name.trim().replace(/[^p{L}p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'Delegate'}.pdf`;
+}
+
+/** Popup of the Terms & Conditions laid out as a signed agreement between the delegate
+    and MYIMUN. View-only for delegates; staff can pass `allowDownload` for a PDF button,
+    and `autoDownload` to save the PDF immediately and close. */
+export function TermsContract({ delegate, onClose, allowDownload = false, autoDownload = false }: {
+    delegate: ContractParty; onClose: () => void; allowDownload?: boolean; autoDownload?: boolean;
+}) {
+    const articleRef = useRef<HTMLElement>(null);
+    const [downloading, setDownloading] = useState(false);
+
+    const download = useCallback(async () => {
+        if (!articleRef.current) return;
+        setDownloading(true);
+        try {
+            await downloadContractPdf(articleRef.current, contractFileName(delegate.name));
+        } finally {
+            setDownloading(false);
+        }
+    }, [delegate.name]);
+
+    useEffect(() => {
+        if (!autoDownload) return;
+        let cancelled = false;
+        void download().finally(() => { if (!cancelled) onClose(); });
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoDownload]);
+
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
         const prevOverflow = document.body.style.overflow;
@@ -40,11 +69,11 @@ export function TermsContract({ delegate, onClose }: { delegate: ContractParty; 
                 @media (max-width: 640px) {
                     .terms-contract-overlay { padding: 0 !important; align-items: stretch !important; }
                     .terms-contract-modal { max-height: none !important; height: 100% !important; border-radius: 0 !important; }
-                    .terms-contract-paper { padding: 24px 18px 32px !important; }
-                    .terms-contract-sign-grid, .terms-contract-parties { grid-template-columns: 1fr !important; }
-                    .terms-contract-sign-grid { gap: 28px !important; }
-                    .terms-contract-title { font-size: 18px !important; }
-                    .terms-contract-logo { height: 42px !important; }
+                    .terms-contract-modal .terms-contract-paper { padding: 24px 18px 32px !important; }
+                    .terms-contract-modal .terms-contract-sign-grid, .terms-contract-modal .terms-contract-parties { grid-template-columns: 1fr !important; }
+                    .terms-contract-modal .terms-contract-sign-grid { gap: 28px !important; }
+                    .terms-contract-modal .terms-contract-title { font-size: 18px !important; }
+                    .terms-contract-modal .terms-contract-logo { height: 42px !important; }
                 }
             `}</style>
 
@@ -56,17 +85,26 @@ export function TermsContract({ delegate, onClose }: { delegate: ContractParty; 
                         <ScrollText size={17} style={{ color: C.accent, flexShrink: 0 }} />
                         <span style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Terms &amp; Conditions Agreement</span>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {allowDownload && (
+                        <button type="button" onClick={() => void download()} disabled={downloading}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: 'none', background: C.accent, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.75 : 1, whiteSpace: 'nowrap' }}>
+                            {downloading ? <LoaderCircle size={14} className="animate-spin" /> : <Download size={14} />}
+                            {downloading ? 'Preparing…' : 'Download PDF'}
+                        </button>
+                    )}
                     <button type="button" onClick={onClose} title="Close" aria-label="Close"
                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 8, border: 'none', background: 'transparent', color: C.textSec, cursor: 'pointer', flexShrink: 0 }}>
                         <X size={19} />
                     </button>
+                    </div>
                 </div>
 
                 {/* Scrollable contract */}
                 <div className="terms-contract-body" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                    <article className="terms-contract-paper"
+                    <article ref={articleRef} className="terms-contract-paper"
                         style={{ padding: '40px 52px 48px', color: C.text }}>
-                        <header style={{ textAlign: 'center', borderBottom: `2px solid ${C.navy}`, paddingBottom: 20, marginBottom: 24 }}>
+                        <header data-pdf-block style={{ textAlign: 'center', borderBottom: `2px solid ${C.navy}`, paddingBottom: 20, marginBottom: 24 }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src="/assets/MYIMUN-BLUE-LOGO.png" alt="MYIMUN" className="terms-contract-logo" style={{ height: 54, width: 'auto', maxWidth: '100%', margin: '0 auto 14px', display: 'block' }} />
                             <h1 className="terms-contract-title" style={{ fontFamily: '"Cinzel",serif', fontSize: 22, fontWeight: 700, color: C.navy, letterSpacing: '0.04em', margin: 0 }}>
@@ -75,7 +113,7 @@ export function TermsContract({ delegate, onClose }: { delegate: ContractParty; 
                             <p style={{ fontSize: 13, color: C.textSec, marginTop: 6 }}>Terms &amp; Conditions · Last updated {TERMS_LAST_UPDATED}</p>
                         </header>
 
-                        <div className="terms-contract-parties" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, fontSize: 13 }}>
+                        <div data-pdf-block className="terms-contract-parties" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, fontSize: 13 }}>
                             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 14px' }}>
                                 <p style={{ fontSize: 10.5, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>The Organizer</p>
                                 <p style={{ fontWeight: 700 }}>MYIMUN</p>
@@ -88,13 +126,13 @@ export function TermsContract({ delegate, onClose }: { delegate: ContractParty; 
                             </div>
                         </div>
 
-                        <p style={{ fontSize: 13.5, color: C.textSec, lineHeight: 1.7, marginBottom: 22 }}>
+                        <p data-pdf-block style={{ fontSize: 13.5, color: C.textSec, lineHeight: 1.7, marginBottom: 22 }}>
                             This agreement sets out the terms under which the Delegate named above participates in MYIMUN events and uses the MYIMUN platform. Both parties agree to the following:
                         </p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                             {TERMS_SECTIONS.map(s => (
-                                <section key={s.title}>
+                                <section key={s.title} data-pdf-block>
                                     <h2 style={{ fontFamily: '"Plus Jakarta Sans",Inter,sans-serif', fontSize: 14.5, fontWeight: 700, color: C.text, marginBottom: 5 }}>{s.title}</h2>
                                     <p style={{ fontSize: 13, color: C.textSec, lineHeight: 1.7 }}>{s.body}</p>
                                 </section>
@@ -102,7 +140,7 @@ export function TermsContract({ delegate, onClose }: { delegate: ContractParty; 
                         </div>
 
                         {/* Signatures */}
-                        <div className="terms-contract-signatures" style={{ marginTop: 40, paddingTop: 24, borderTop: `1px solid ${C.border}` }}>
+                        <div data-pdf-block className="terms-contract-signatures" style={{ marginTop: 40, paddingTop: 24, borderTop: `1px solid ${C.border}` }}>
                             <p style={{ fontSize: 12.5, color: C.textSec, marginBottom: 24 }}>
                                 In witness whereof, the parties have accepted this agreement as of the dates indicated below.
                             </p>
