@@ -75,8 +75,8 @@ jobs:
           fi
 
           # Prove the file decrypts to a real SQLite database (nothing is written to disk).
-          magic="$(openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$out" \
-            | gunzip -c | head -c 15 || true)"
+          magic="$(openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$out" 2>/dev/null \
+            | gunzip -c 2>/dev/null | head -c 15 || true)"
           if [[ "$magic" != "SQLite format 3" ]]; then
             echo "Backup failed the decryption check" >&2
             exit 1
