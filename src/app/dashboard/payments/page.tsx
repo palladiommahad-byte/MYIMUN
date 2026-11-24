@@ -12,6 +12,7 @@ import { useConference, ConferencePackage } from '@/context/ConferenceContext';
 import { useToast } from '@/components/ui/Toast';
 import { uploadFile, fileUrl } from '@/lib/fileStore';
 import { formatMoney } from '@/lib/currency';
+import { RefundSection } from './RefundSection';
 
 const C = {
     bg: '#F4F5F7', surface: '#FFFFFF', border: '#E4E8EF',
@@ -29,12 +30,13 @@ function openStoredDoc(key: string) {
 
 export default function PaymentsPage() {
     const { user } = useAuth();
-    const { getRegistrationForDelegate, getPaymentForDelegate, submitPayment, paymentSettings, packages } = useConference();
+    const { getRegistrationForDelegate, getPaymentForDelegate, getRefundForDelegate, submitPayment, paymentSettings, packages } = useConference();
     const { showToast } = useToast();
 
     const delegateId = user?.id ?? 'unknown';
     const reg = getRegistrationForDelegate(delegateId);
     const payment = getPaymentForDelegate(delegateId);
+    const refund = getRefundForDelegate(delegateId);
 
     const accepted = reg?.status === 'Accepted';
     const paid = reg?.paymentStatus === 'Paid' && payment?.status !== 'Declined';
@@ -133,6 +135,9 @@ export default function PaymentsPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Refund request / status ── */}
+            {(paid || refund) && <RefundSection refund={refund} currency={currencyForPayment()} />}
 
             {/* ── Payment pending ── */}
             {showPending && payment && (

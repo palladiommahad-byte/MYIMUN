@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
     Search, Eye, Filter,
     Download, ChevronLeft, ChevronRight,
-    Users, Shield, FileText, CreditCard, Ban, ShieldCheck, X,
+    Users, Shield, FileText, CreditCard, Ban, ShieldCheck, X, RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -14,6 +14,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { Donut, StatPanel } from '@/components/admin/StatWidgets';
 import { hasAdminPageAccess } from '@/lib/adminPages';
 import { TermsContract, type ContractParty } from '@/components/legal/TermsContract';
+import { RefundReviewModal, REFUND_STATUS_STYLE } from '@/components/admin/RefundReviewModal';
 
 /* ── Style constants ── */
 const C = {
@@ -66,13 +67,16 @@ export default function AdminDashboardPage() {
     const { user } = useAuth();
     const pathname = usePathname();
     const confirmedOnly = pathname.startsWith('/admin/delegates');
-    const { registrations, payments, papers, committees, applications, suspendDelegate } = useConference();
+    const { registrations, payments, refunds, papers, committees, applications, suspendDelegate } = useConference();
     const isAdmin = user?.role === 'admin';
     const canViewRegistrations = hasAdminPageAccess(user, '/admin/registration');
     const canManageDelegates = hasAdminPageAccess(user, '/admin/delegates');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
-    const [paymentFilter, setPaymentFilter] = useState<'all' | 'Paid' | 'Unpaid'>('all');
+    const [paymentFilter, setPaymentFilter] = useState<'all' | 'Paid' | 'Unpaid' | 'Refunds'>('all');
+    const [refundTargetId, setRefundTargetId] = useState<number | null>(null);
+    // Looked up from live context data so the open window reflects every update.
+    const refundTarget = refundTargetId === null ? null : refunds.find(r => r.id === refundTargetId) ?? null;
     const [contractTarget, setContractTarget] = useState<{ party: ContractParty; autoDownload: boolean } | null>(null);
     const [suspendTarget, setSuspendTarget] = useState<{ delegateId: string; name: string; suspended: boolean } | null>(null);
     const [suspending, setSuspending] = useState(false);
@@ -108,6 +112,16 @@ export default function AdminDashboardPage() {
         [applications, scopedDelegateIds],
     );
 
+    /* Latest refund request per delegate (ids grow over time). */
+    const latestRefundByDelegate = useMemo(() => {
+        const map = new Map<string, (typeof refunds)[number]>();
+        for (const refund of refunds) {
+            const current = map.get(refund.delegateId);
+            if (!current || refund.id > current.id) map.set(refund.delegateId, refund);
+        }
+        return map;
+    }, [refunds]);
+
     const roster = useMemo(() => scopedRegistrations.map(r => {
         const application = scopedApplications.find(a => a.delegateId === r.delegateId);
         const paper = scopedPapers.find(p => p.delegateId === r.delegateId);
@@ -125,9 +139,12 @@ export default function AdminDashboardPage() {
             paymentStatus: paymentStatusFor(r.delegateId, r.paymentStatus),
             paperStatus: paper?.status || null,
             accountStatus: r.accountStatus,
+            refund: latestRefundByDelegate.get(r.delegateId) ?? null,
             contract: { name: r.fullName, email: r.email, country: r.country, signedOn: r.submittedAt } as ContractParty,
         };
-    }), [scopedRegistrations, scopedApplications, scopedPapers, paymentStatusFor]);
+    }), [scopedRegistrations, scopedApplications, scopedPapers, paymentStatusFor, latestRefundByDelegate]);
+
+    const pendingRefundCount = roster.filter(d => d.refund?.status === 'Pending').length;
 
     const confirmSuspend = async () => {
         if (!suspendTarget) return;
@@ -144,7 +161,8 @@ export default function AdminDashboardPage() {
     };
 
     const filtered = roster.filter(d =>
-        (paymentFilter === 'all' || d.paymentStatus === paymentFilter) &&
+        (paymentFilter === 'all'
+            || (paymentFilter === 'Refunds' ? d.refund !== null : d.paymentStatus === paymentFilter)) &&
         [d.name, d.email, d.country, d.committee].some(v => v.toLowerCase().includes(search.toLowerCase()))
     );
 
@@ -297,7 +315,16 @@ export default function AdminDashboardPage() {
                 {/* Toolbar */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4"
                     style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{confirmedOnly ? 'Confirmed Participant Roster' : 'Delegate Roster'}</h3>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text }}>{confirmedOnly ? 'Confirmed Participant Roster' : 'Delegate Roster'}</h3>
+                        {pendingRefundCount > 0 && (
+                            <button onClick={() => { setPaymentFilter('Refunds'); setPage(1); }}
+                                className="flex items-center gap-1.5"
+                                style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, border: 'none', cursor: 'pointer', background: REFUND_STATUS_STYLE.Pending.bg, color: REFUND_STATUS_STYLE.Pending.color }}>
+                                <RotateCcw size={12} /> {pendingRefundCount} refund request{pendingRefundCount !== 1 ? 's' : ''} to review
+                            </button>
+                        )}
+                    </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:w-56">
                             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
@@ -324,6 +351,7 @@ export default function AdminDashboardPage() {
                                 <option value="all">All payments</option>
                                 <option value="Paid">Paid only</option>
                                 <option value="Unpaid">Unpaid only</option>
+                                <option value="Refunds">Refund requests</option>
                             </select>
                         </div>
                     </div>
@@ -331,15 +359,15 @@ export default function AdminDashboardPage() {
 
                 {/* Table */}
                 <div className="overflow-x-auto">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1040 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1160 }}>
                         <thead>
                             <tr style={{ borderBottom: `1px solid ${C.border}`, background: '#FAFBFC' }}>
-                                {['USER', 'COUNTRY', 'COMMITTEE', 'REGISTRATION', 'PAYMENT', 'PAPER', 'CONTRACT', 'ACTIONS'].map((h, i) => (
+                                {['USER', 'COUNTRY', 'COMMITTEE', 'REGISTRATION', 'PAYMENT', 'REFUND', 'PAPER', 'CONTRACT', 'ACTIONS'].map((h, i, all) => (
                                     <th key={h} style={{
                                         padding: '10px 20px',
                                         fontSize: 11, fontWeight: 600, color: C.textMuted,
                                         textTransform: 'uppercase', letterSpacing: '0.07em',
-                                        textAlign: i === 7 ? 'right' : 'left',
+                                        textAlign: i === all.length - 1 ? 'right' : 'left',
                                         whiteSpace: 'nowrap',
                                     }}>{h}</th>
                                 ))}
@@ -348,7 +376,7 @@ export default function AdminDashboardPage() {
                         <tbody>
                             {pageRows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '48px 20px', textAlign: 'center' }}>
                                         <p style={{ fontSize: 14, color: C.textMuted }}>
                                             {scopedRegistrations.length === 0
                                                 ? confirmedOnly ? 'No delegates have completed registration and payment yet.' : 'No delegates registered yet.'
@@ -397,6 +425,22 @@ export default function AdminDashboardPage() {
                                             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: d.paymentStatus === 'Paid' ? `${C.green}14` : C.bg, color: d.paymentStatus === 'Paid' ? C.green : C.textMuted }}>
                                                 {d.paymentStatus}
                                             </span>
+                                        </td>
+                                        {/* Refund */}
+                                        <td style={{ padding: '13px 20px' }}>
+                                            {d.refund ? (() => {
+                                                const rs2 = REFUND_STATUS_STYLE[d.refund.status] ?? REFUND_STATUS_STYLE.Pending;
+                                                const refundId = d.refund.id;
+                                                return (
+                                                    <button onClick={() => setRefundTargetId(refundId)} title="View refund request"
+                                                        className="flex items-center gap-1"
+                                                        style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, border: 'none', cursor: 'pointer', background: rs2.bg, color: rs2.color, whiteSpace: 'nowrap' }}>
+                                                        <RotateCcw size={11} /> {rs2.label}
+                                                    </button>
+                                                );
+                                            })() : (
+                                                <span style={{ fontSize: 12, color: C.textMuted }}>—</span>
+                                            )}
                                         </td>
                                         {/* Paper */}
                                         <td style={{ padding: '13px 20px' }}>
@@ -506,6 +550,11 @@ export default function AdminDashboardPage() {
                     autoDownload={contractTarget.autoDownload}
                     onClose={() => setContractTarget(null)}
                 />
+            )}
+
+            {/* ── Refund request review ── */}
+            {refundTarget && (
+                <RefundReviewModal refund={refundTarget} onClose={() => setRefundTargetId(null)} />
             )}
 
             {/* ── Suspend / restore confirmation ── */}

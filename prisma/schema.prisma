@@ -34,6 +34,7 @@ model User {
 
   registrations Registration[]
     payments      PaymentSubmission[]
+    refundRequests RefundRequest[]
     papers        PositionPaper[]
     openingSpeeches OpeningSpeech[]
     applications  CommitteeApplication[]
@@ -169,6 +170,31 @@ model PaymentSubmission {
   declineReason   String?
   submittedAt     DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+/// A paid delegate's request to get their conference fee back. Staff approve it
+/// (optionally scheduling the refund date), decline it with a reason, and finally
+/// mark it refunded. A delegate has at most one open (Pending/Approved) request.
+model RefundRequest {
+  id            Int       @id @default(autoincrement())
+  delegate      User      @relation(fields: [delegateId], references: [id], onDelete: Cascade)
+  delegateId    String
+  delegateName  String
+  paymentId     Int?      // the approved PaymentSubmission being refunded
+  amount        Float     @default(0)
+  packageName   String?
+  reason        String
+  status        String    @default("Pending") // Pending | Approved | Declined | Refunded
+  declineReason String?
+  scheduledDate String?   // YYYY-MM-DD the refund will be paid out
+  reviewedBy    String?   // staff member name who last acted
+  reviewedAt    DateTime?
+  refundedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([delegateId])
+  @@index([status])
 }
 
 /// Chats with the admin team: one continuous "direct" chat per delegate (kept unique

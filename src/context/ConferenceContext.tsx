@@ -224,6 +224,31 @@ export interface PaymentSubmission {
     submittedAt: string;
 }
 
+export type RefundStatus = 'Pending' | 'Approved' | 'Declined' | 'Refunded';
+
+export interface RefundRequest {
+    id: number;
+    delegateId: string;
+    delegateName: string;
+    paymentId: number | null;
+    amount: number;
+    packageName: string | null;
+    reason: string;
+    status: RefundStatus;
+    declineReason: string | null;
+    scheduledDate: string | null; // YYYY-MM-DD
+    reviewedBy: string | null;
+    reviewedAt: string | null;
+    refundedAt: string | null;
+    createdAt: string;
+}
+
+export type RefundReviewAction =
+    | { action: 'approve'; scheduledDate?: string }
+    | { action: 'decline'; declineReason: string }
+    | { action: 'schedule'; scheduledDate: string }
+    | { action: 'markRefunded' };
+
 export interface BankAccount {
     id: string;
     bankName: string;
@@ -733,6 +758,11 @@ interface ConferenceCtx {
     updatePaymentStaffVisibility: (id: number, visible: boolean) => void;
     getPaymentForDelegate: (delegateId: string) => PaymentSubmission | undefined;
 
+    refunds: RefundRequest[];
+    requestRefund: (reason: string) => Promise<void>;
+    reviewRefund:  (id: number, review: RefundReviewAction) => Promise<void>;
+    getRefundForDelegate: (delegateId: string) => RefundRequest | undefined;
+
     paymentSettings: PaymentSettings;
     updatePaymentSettings: (patch: Partial<PaymentSettings>) => void;
 
@@ -774,6 +804,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const [announcements,  setAnnouncements]  = useState<Announcement[]>([]);
     const [registrations,  setRegistrations]  = useState<Registration[]>([]);
     const [payments,       setPayments]       = useState<PaymentSubmission[]>([]);
+    const [refunds,        setRefunds]        = useState<RefundRequest[]>([]);
     const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(() => resolvePaymentSettings(null));
     const [packages,       setPackages]       = useState<ConferencePackage[]>([]);
     const [events,         setEvents]         = useState<ConferenceEvent[]>([]);
@@ -790,6 +821,12 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const mapReg = (r: any): Registration => ({ ...r, submittedAt: fmt(r.submittedAt) });
     const mapPay = (r: any): PaymentSubmission => ({ ...r, visibleToStaff: r.visibleToStaff ?? false, submittedAt: fmt(r.submittedAt) });
     const mapApp = (r: any): CommitteeApplication => ({ ...r, appliedAt: fmt(r.appliedAt) });
+    const mapRefund = (r: any): RefundRequest => ({
+        ...r,
+        createdAt: fmt(r.createdAt),
+        reviewedAt: r.reviewedAt ? fmt(r.reviewedAt) : null,
+        refundedAt: r.refundedAt ? fmt(r.refundedAt) : null,
+    });
     const mapNotification = (r: any): AppNotification => ({ ...r, createdAt: fmt(r.createdAt) });
     const mapResetReq = (r: any): PasswordResetRequest => ({ ...r, createdAt: fmt(r.createdAt), resolvedAt: r.resolvedAt ? fmt(r.resolvedAt) : null });
     const mapAnnouncement = (r: any): Announcement => ({ id: r.id, message: r.message, audience: r.audience, level: r.level, createdAt: fmt(r.createdAt) });
@@ -860,6 +897,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         await Promise.allSettled([
             getData('/api/registrations').then(r => { if (r !== null) setRegistrations(r.map(mapReg)); }),
             getData('/api/payments').then(p => { if (p !== null) setPayments(p.map(mapPay)); }),
+            getData('/api/refunds').then(rf => { if (rf !== null) setRefunds(rf.map(mapRefund)); }),
             getData('/api/papers').then(pa => { if (pa !== null) setPapers(pa.map(mapPaper)); }),
             getData('/api/opening-speeches').then(sp => { if (sp !== null) setOpeningSpeeches(sp.map(mapOpeningSpeech)); }),
             getData('/api/applications').then(ap => { if (ap !== null) setApplications(ap.map(mapApp)); }),
@@ -896,7 +934,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         if (!user) {
             id = setTimeout(() => {
                 if (!alive) return;
-                setRegistrations([]); setPayments([]); setPapers([]); setOpeningSpeeches([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
+                setRegistrations([]); setPayments([]); setRefunds([]); setPapers([]); setOpeningSpeeches([]); setApplications([]); setConversations([]); setNotifications([]); setPasswordResetRequests([]); setAnnouncements([]);
                 setIsUserDataLoading(false);
             }, 0);
             return () => { alive = false; if (id) clearTimeout(id); };
@@ -1136,6 +1174,23 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
     const getPaymentForDelegate = (delegateId: string) =>
         payments.find(p => p.delegateId === delegateId);
 
+    /* ── Refunds ── */
+    const upsertRefund = (row: any) => {
+        const mapped = mapRefund(row);
+        setRefunds(prev => prev.some(r => r.id === mapped.id)
+            ? prev.map(r => r.id === mapped.id ? mapped : r)
+            : [mapped, ...prev]);
+    };
+    const requestRefund = async (reason: string) => {
+        upsertRefund(await send('POST', '/api/refunds', { reason }));
+    };
+    const reviewRefund = async (id: number, review: RefundReviewAction) => {
+        upsertRefund(await send('PATCH', `/api/refunds/${id}`, review));
+    };
+    /** The delegate's most recent refund request (rows arrive newest first). */
+    const getRefundForDelegate = (delegateId: string) =>
+        refunds.filter(r => r.delegateId === delegateId).sort((a, b) => b.id - a.id)[0];
+
     const updatePaymentSettings = async (patch: Partial<PaymentSettings>) => {
         const next = resolvePaymentSettings({ ...paymentSettings, ...patch });
         setPaymentSettings(next);
@@ -1183,6 +1238,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         await send('DELETE', `/api/delegates/${delegateId}`).catch(() => {});
         setRegistrations(prev => prev.filter(r => r.delegateId !== delegateId));
         setPayments(prev => prev.filter(p => p.delegateId !== delegateId));
+        setRefunds(prev => prev.filter(r => r.delegateId !== delegateId));
         setConversations(prev => prev.filter(c => c.delegateId !== delegateId));
         setApplications(prev => prev.filter(a => a.delegateId !== delegateId));
         setPapers(prev => prev.filter(p => p.delegateId !== delegateId));
@@ -1211,6 +1267,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         announcements, sendBroadcast, deleteAnnouncement,
         registrations, submitRegistration, updateRegistrationStatus, markRegistrationPaid, getRegistrationForDelegate,
         payments, submitPayment, updatePaymentStatus, updatePaymentStaffVisibility, getPaymentForDelegate,
+        refunds, requestRefund, reviewRefund, getRefundForDelegate,
         paymentSettings, updatePaymentSettings,
         packages, addPackage, updatePackage, deletePackage,
         events, addEvent, updateEvent, deleteEvent,
@@ -1219,7 +1276,7 @@ export const ConferenceProvider: React.FC<{ children: ReactNode }> = ({ children
         conferenceSettings, updateConferenceSettings,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [isPublicLoading, isUserDataLoading, committees, papers, openingSpeeches, applications, waitingCounts, scheduleEvents, conversations, notifications,
-         passwordResetRequests, announcements, registrations, payments, paymentSettings, packages, events, landingPage, conferenceSettings]);
+         passwordResetRequests, announcements, registrations, payments, refunds, paymentSettings, packages, events, landingPage, conferenceSettings]);
 
     return (
         <ConferenceContext.Provider value={ctxValue}>
