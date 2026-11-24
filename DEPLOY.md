@@ -3,7 +3,7 @@
 Production target:
 
 - Domain: `moroccanmun.org`
-- VPS: `209.74.88.143`
+- VPS: `63.250.45.117`
 - OS: Ubuntu 24.04
 - Runtime: Docker Compose, Caddy, Next.js, Prisma, SQLite
 - Delivery: GitHub Actions -> GHCR -> SSH release
@@ -14,7 +14,7 @@ Replace the Namecheap parking records with:
 
 ```text
 Type   Host   Value          TTL
-A      @      209.74.88.143  Automatic
+A      @      63.250.45.117  Automatic
 CNAME  www    moroccanmun.org  Automatic
 ```
 
@@ -39,7 +39,7 @@ the local development `.env` to the VPS.
 Create a GitHub environment named `production`, then add:
 
 ```text
-VPS_HOST=209.74.88.143
+VPS_HOST=63.250.45.117
 VPS_PORT=22
 VPS_USER=deploy
 VPS_SSH_PRIVATE_KEY=<the complete dedicated private key>
