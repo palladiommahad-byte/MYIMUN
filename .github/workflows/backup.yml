@@ -1,0 +1,94 @@
+name: Nightly backup
+
+# Takes a consistent SQLite snapshot of the production database on the VPS,
+# encrypts it ON THE SERVER (AES-256, key = BACKUP_PASSPHRASE secret), and keeps
+# the encrypted file as a workflow artifact for 14 days. The repository is
+# public, so plaintext data must never leave the server.
+# Restore instructions: DEPLOY.md -> "Backups".
+
+on:
+  schedule:
+    - cron: "30 1 * * *" # 01:30 UTC = 02:30 Morocco
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/myimun_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/myimun_deploy ~/.ssh/known_hosts
+
+      - name: Create encrypted snapshot on the server
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -Eeuo pipefail
+          if [[ ${#BACKUP_PASSPHRASE} -lt 32 ]]; then
+            echo "BACKUP_PASSPHRASE secret is missing or too short" >&2
+            exit 1
+          fi
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          out="myimun-db-$stamp.db.gz.enc"
+
+          # Line 1 of stdin is the passphrase; the remote script reads it and
+          # streams back only encrypted bytes.
+          printf '%s\n' "$BACKUP_PASSPHRASE" | ssh -i ~/.ssh/myimun_deploy -p "$VPS_PORT" \
+            "$VPS_USER@$VPS_HOST" 'bash -c '"'"'
+              set -Eeuo pipefail
+              IFS= read -r pass
+              volume="myimun_myimun-data"
+              docker volume inspect "$volume" >/dev/null
+              docker run --rm -v "$volume:/d" alpine:3.20 sh -ec "
+                apk add --no-cache sqlite >/dev/null
+                sqlite3 -cmd \".timeout 15000\" /d/app.db \".backup /tmp/snap.db\"
+                test \"\$(sqlite3 /tmp/snap.db \"PRAGMA integrity_check;\")\" = ok
+                gzip -6 -c /tmp/snap.db
+              " | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass fd:3 3<<<"$pass"
+            '"'"'' > "$out"
+
+          size="$(stat -c %s "$out")"
+          echo "Encrypted backup size: $size bytes"
+          if (( size < 100000 )); then
+            echo "Backup is suspiciously small" >&2
+            exit 1
+          fi
+
+          # Prove the file decrypts to a real SQLite database (nothing is written to disk).
+          magic="$(openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$out" \
+            | gunzip -c | head -c 15 || true)"
+          if [[ "$magic" != "SQLite format 3" ]]; then
+            echo "Backup failed the decryption check" >&2
+            exit 1
+          fi
+          echo "Decryption check passed"
+          echo "BACKUP_FILE=$out" >> "$GITHUB_ENV"
+
+      - name: Store encrypted backup (14 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error

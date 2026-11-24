@@ -82,3 +82,29 @@ unless permanent data deletion is intentional.
 Successful releases keep the current and immediately previous application images,
 compress database backups, and retain the three newest backups by default. Override
 the backup count for a manual release with `BACKUP_RETENTION=<count>` if needed.
+
+## Backups
+
+`.github/workflows/backup.yml` runs nightly at 01:30 UTC (and on demand via
+"Run workflow"). It takes a consistent SQLite snapshot of the `myimun-data`
+volume, checks its integrity, gzips it and encrypts it **on the VPS** with
+AES-256 (`BACKUP_PASSPHRASE` repository secret). Only the encrypted file leaves
+the server; it is kept as a workflow artifact for 14 days. The repository is
+public, so never store an unencrypted backup as an artifact.
+
+Keep a copy of the passphrase outside GitHub (password manager). Without it no
+backup can be restored.
+
+Restore:
+
+```bash
+# 1. Download the artifact from the Actions run, unzip it, then decrypt:
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  -in myimun-db-<stamp>.db.gz.enc | gunzip > app.db
+# 2. Copy app.db to the VPS, then:
+cd /opt/myimun
+docker compose --env-file .env stop web
+docker run --rm -v myimun_myimun-data:/d -v "$PWD":/src alpine:3.20 \
+  sh -c 'cp /d/app.db /d/app.db.before-restore && cp /src/app.db /d/app.db && chown 1001:1001 /d/app.db'
+APP_IMAGE=<current image> docker compose --env-file .env up -d --no-build web
+```
